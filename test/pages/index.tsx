@@ -68,18 +68,15 @@ export default function Page() {
       await circuit.extend(false)
       await circuit.extend(true)
 
-      console.log("fetching")
-
       const aborter = new AbortController()
       const { signal } = aborter
 
       const pres = circuit.fetch("https://postman-echo.com/post?foo1=bar1&foo2=bar2", { signal, method: "POST", body: (lorem + lorem + lorem + lorem + lorem) })
 
       const res = await pres
-      console.log("res")
 
       await new Promise(ok => setTimeout(ok, 1))
-      aborter.abort()
+      // aborter.abort()
 
       console.log((await res.text()).length, res.status, res.statusText, [...res.headers.entries()])
 

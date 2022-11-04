@@ -192,19 +192,16 @@ export class HttpStream extends EventTarget {
     if (this.state.encoding.type === "lengthed") {
       const writer = this.rstreams.writable.getWriter()
       writer.write(chunk)
-      writer.releaseLock()
 
       this.state.length += chunk.length
 
       if (this.state.length > this.state.encoding.length)
         console.warn(`Length > Content-Length`)
-
-      if (this.state.length >= this.state.encoding.length) {
-        const writer = this.rstreams.writable.getWriter()
+      if (this.state.length >= this.state.encoding.length)
         writer.close()
-        writer.releaseLock()
-        return
-      }
+
+      writer.releaseLock()
+      return
     }
 
     if (this.state.encoding.type === "chunked") {
