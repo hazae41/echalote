@@ -13,6 +13,7 @@
   },
   "peerDependencies": {
     "@hazae41/berith": "^1.1.31",
+    "@hazae41/foras": "^2.0.1",
     "@hazae41/morax": "^1.0.7",
     "@hazae41/paimon": "^1.0.9",
     "@hazae41/zepar": "^1.0.4",

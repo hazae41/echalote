@@ -1,6 +1,7 @@
 'use strict';
 
 var tslib = require('tslib');
+var foras = require('@hazae41/foras');
 var binary = require('../../../libs/binary.cjs');
 var future = require('../../../libs/future.cjs');
 var strings = require('../../../libs/strings.cjs');
@@ -64,6 +65,7 @@ class HttpStream extends EventTarget {
             let head = `${this.req.method} ${this.url.pathname} HTTP/1.1\r\n`;
             head += `Host: ${this.url.host}\r\n`;
             head += `Transfer-Encoding: chunked\r\n`;
+            head += `Accept-Encoding: gzip\r\n`;
             this.req.headers.forEach((v, k) => head += `${k}: ${v}\r\n`);
             head += `\r\n`;
             const writer = this.sstreams.writable.getWriter();
@@ -96,6 +98,8 @@ class HttpStream extends EventTarget {
                 yield this.read(reader);
             }
             catch (e) {
+                if (e instanceof Error)
+                    console.error("lol", e.message, e.name);
                 console.error(e);
                 const writer = this.rstreams.writable.getWriter();
                 writer.abort(e);
@@ -132,34 +136,58 @@ class HttpStream extends EventTarget {
                 const status = Number(statusString);
                 const headers = new Headers(rawHeaders.map(it => strings.Strings.splitOnce(it, ": ")));
                 this.res.ok(new Response(this.rstreams.readable, { headers, status, statusText }));
-                const encoding = headers.get("transfer-encoding");
-                if (encoding === "chunked") {
-                    const encoding = { type: "chunked", buffer: binary.Binary.allocUnsafe(10 * 1024) };
-                    this.state = { type: "headed", version, encoding, length: 0 };
-                }
-                else if (encoding === null) {
-                    const length = Number(headers.get("content-length"));
-                    const encoding = { type: "lengthed", length };
-                    this.state = { type: "headed", version, encoding, length: 0 };
-                }
-                else {
-                    throw new Error(`Unsupported encoding ${encoding}`);
-                }
+                const transfer = (() => {
+                    const type = headers.get("transfer-encoding");
+                    if (type === "chunked") {
+                        const buffer = binary.Binary.allocUnsafe(10 * 1024);
+                        return { type, buffer };
+                    }
+                    if (type === null) {
+                        const length = Number(headers.get("content-length"));
+                        return { type: "lengthed", offset: 0, length };
+                    }
+                    throw new Error(`Unsupported transfer ${type}`);
+                })();
+                const compression = (() => {
+                    const type = headers.get("content-encoding");
+                    if (type === "gzip") {
+                        const decoder = new foras.GzDecoder();
+                        return { type, decoder };
+                    }
+                    if (type === null) {
+                        return { type: "none" };
+                    }
+                    throw new Error(`Unsupported compression ${type}`);
+                })();
+                this.state = { type: "headed", version, transfer, compression };
                 chunk = body;
             }
-            if (this.state.encoding.type === "lengthed") {
+            if (this.state.transfer.type === "lengthed") {
+                const { transfer, compression } = this.state;
+                transfer.offset += chunk.length;
+                if (transfer.offset > transfer.length)
+                    throw new Error(`Length > Content-Length`);
                 const writer = this.rstreams.writable.getWriter();
-                writer.write(chunk);
-                this.state.length += chunk.length;
-                if (this.state.length > this.state.encoding.length)
-                    console.warn(`Length > Content-Length`);
-                if (this.state.length >= this.state.encoding.length)
+                if (compression.type === "none") {
+                    writer.write(chunk);
+                }
+                else if (compression.type === "gzip") {
+                    compression.decoder.write(chunk);
+                    compression.decoder.flush();
+                    const dchunk = compression.decoder.read();
+                    writer.write(Buffer.from(dchunk.buffer));
+                }
+                if (transfer.offset === transfer.length) {
+                    if (compression.type === "gzip")
+                        writer.write(Buffer.from(compression.decoder.finish().buffer));
                     writer.close();
+                }
                 writer.releaseLock();
                 return;
             }
-            if (this.state.encoding.type === "chunked") {
-                const { buffer } = this.state.encoding;
+            if (this.state.transfer.type === "chunked") {
+                const { transfer, compression } = this.state;
+                const { buffer } = transfer;
                 buffer.write(chunk);
                 let slice = buffer.buffer.subarray(0, buffer.offset);
                 while (slice.length) {
@@ -172,6 +200,8 @@ class HttpStream extends EventTarget {
                     const rest = slice.subarray(index + 2);
                     if (length === 0) {
                         const writer = this.rstreams.writable.getWriter();
+                        if (compression.type === "gzip")
+                            writer.write(Buffer.from(compression.decoder.finish().buffer));
                         writer.close();
                         writer.releaseLock();
                         return;
@@ -183,7 +213,15 @@ class HttpStream extends EventTarget {
                     const chunk2 = rest.subarray(0, length);
                     const rest2 = rest.subarray(length + 2);
                     const writer = this.rstreams.writable.getWriter();
-                    writer.write(chunk2);
+                    if (compression.type === "none") {
+                        writer.write(chunk2);
+                    }
+                    else if (compression.type === "gzip") {
+                        compression.decoder.write(chunk2);
+                        compression.decoder.flush();
+                        const dchunk2 = compression.decoder.read();
+                        writer.write(Buffer.from(dchunk2.buffer));
+                    }
                     writer.releaseLock();
                     buffer.offset = 0;
                     buffer.write(rest2);

@@ -130,6 +130,12 @@ class Circuit extends EventTarget {
             const fallback = array.randomOf(this.tor.fallbacks[exit ? "exits" : "middles"]);
             if (!fallback)
                 throw new Error("Can't find fallback");
+            return yield this._extend(fallback);
+        });
+    }
+    _extend(fallback) {
+        return tslib.__awaiter(this, void 0, void 0, function* () {
+            console.log("fallback", fallback);
             const idh = Buffer.from(fallback.id, "hex");
             const eid = Buffer.from(fallback.eid, "base64");
             const links = fallback.hosts.map(it => it.startsWith("[")

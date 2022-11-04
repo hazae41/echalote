@@ -39,7 +39,7 @@ export { Circuit } from './mods/tor/circuit.js';
 export { Authority, Directories, auth_dirs, parseAuthority } from './mods/tor/consensus/directories.js';
 export { HASH_LEN, KEY_LEN, PAYLOAD_LEN } from './mods/tor/constants.js';
 export { Duplicated } from './mods/tor/errors/duplicated.js';
-export { HttpChunkedEncoding, HttpEncoding, HttpHeadedState, HttpLengthedEncoding, HttpNoneState, HttpState, HttpStream } from './mods/tor/streams/http.js';
+export { HttpChunkedTransfer, HttpCompression, HttpGzipCompression, HttpHeadedState, HttpLengthedTransfer, HttpNoneCompression, HttpNoneState, HttpState, HttpStream, HttpTransfer } from './mods/tor/streams/http.js';
 export { AbortEvent, TcpStream } from './mods/tor/streams/tcp.js';
 export { Target } from './mods/tor/target.js';
 export { Fallback, Guard, Tor, TorHandshakedState, TorHandshakingState, TorNoneState, TorState, TorVersionedState } from './mods/tor/tor.js';

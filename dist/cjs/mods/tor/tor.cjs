@@ -2,6 +2,7 @@
 
 var tslib = require('tslib');
 var berith = require('@hazae41/berith');
+var foras = require('@hazae41/foras');
 var morax = require('@hazae41/morax');
 var paimon = require('@hazae41/paimon');
 var zepar = require('@hazae41/zepar');
@@ -63,6 +64,7 @@ class Tor extends EventTarget {
             yield berith.Berith.initBundledOnce();
             yield zepar.Zepar.initBundledOnce();
             yield morax.Morax.initBundledOnce();
+            yield foras.Foras.initBundledOnce();
         });
     }
     send(...arrays) {

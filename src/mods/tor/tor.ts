@@ -1,4 +1,5 @@
 import { Berith } from "@hazae41/berith";
+import { Foras } from "@hazae41/foras";
 import { Morax, Sha1Hasher } from "@hazae41/morax";
 import { Paimon } from "@hazae41/paimon";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
@@ -112,6 +113,7 @@ export class Tor extends EventTarget {
     await Berith.initBundledOnce()
     await Zepar.initBundledOnce()
     await Morax.initBundledOnce()
+    await Foras.initBundledOnce()
   }
 
   send(...arrays: Buffer[]) {

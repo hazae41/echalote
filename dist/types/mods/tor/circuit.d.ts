@@ -1,6 +1,6 @@
 import { TcpStream } from './streams/tcp.js';
 import { Target } from './target.js';
-import { Tor } from './tor.js';
+import { Tor, Fallback } from './tor.js';
 
 declare class Circuit extends EventTarget {
     readonly tor: Tor;
@@ -20,6 +20,7 @@ declare class Circuit extends EventTarget {
     private onRelayEndCell;
     private waitExtended;
     extend(exit: boolean): Promise<void>;
+    _extend(fallback: Fallback): Promise<void>;
     private waitTruncated;
     truncate(reason?: number): Promise<void>;
     open(hostname: string, port: number, signal?: AbortSignal): Promise<TcpStream>;

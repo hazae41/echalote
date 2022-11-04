@@ -1,3 +1,4 @@
+import { GzDecoder } from '@hazae41/foras';
 import { Binary } from '../../../libs/binary.js';
 import { Future } from '../../../libs/future.js';
 
@@ -8,18 +9,27 @@ interface HttpNoneState {
 }
 interface HttpHeadedState {
     type: "headed";
-    length: number;
     version: string;
-    encoding: HttpEncoding;
+    transfer: HttpTransfer;
+    compression: HttpCompression;
 }
-declare type HttpEncoding = HttpChunkedEncoding | HttpLengthedEncoding;
-interface HttpChunkedEncoding {
+declare type HttpTransfer = HttpChunkedTransfer | HttpLengthedTransfer;
+interface HttpChunkedTransfer {
     type: "chunked";
     buffer: Binary;
 }
-interface HttpLengthedEncoding {
+interface HttpLengthedTransfer {
     type: "lengthed";
+    offset: number;
     length: number;
+}
+declare type HttpCompression = HttpNoneCompression | HttpGzipCompression;
+interface HttpNoneCompression {
+    type: "none";
+}
+interface HttpGzipCompression {
+    type: "gzip";
+    decoder: GzDecoder;
 }
 declare class HttpStream extends EventTarget {
     readonly sstreams: ReadableWritablePair<Buffer, Buffer>;
@@ -46,4 +56,4 @@ declare class HttpStream extends EventTarget {
     private onRead;
 }
 
-export { HttpChunkedEncoding, HttpEncoding, HttpHeadedState, HttpLengthedEncoding, HttpNoneState, HttpState, HttpStream };
+export { HttpChunkedTransfer, HttpCompression, HttpGzipCompression, HttpHeadedState, HttpLengthedTransfer, HttpNoneCompression, HttpNoneState, HttpState, HttpStream, HttpTransfer };

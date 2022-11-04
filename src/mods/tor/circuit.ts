@@ -18,7 +18,7 @@ import { RelayTruncatedCell } from "mods/tor/binary/cells/relayed/relay_truncate
 import { HttpStream } from "mods/tor/streams/http.js";
 import { TcpStream } from "mods/tor/streams/tcp.js";
 import { Target } from "mods/tor/target.js";
-import { Tor } from "mods/tor/tor.js";
+import { Fallback, Tor } from "mods/tor/tor.js";
 
 export class Circuit extends EventTarget {
   readonly class = Circuit
@@ -134,6 +134,13 @@ export class Circuit extends EventTarget {
 
     if (!fallback)
       throw new Error("Can't find fallback")
+
+    return await this._extend(fallback)
+  }
+
+  async _extend(fallback: Fallback) {
+
+    console.log("fallback", fallback)
 
     const idh = Buffer.from(fallback.id, "hex")
     const eid = Buffer.from(fallback.eid, "base64")
