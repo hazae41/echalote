@@ -1,0 +1,30 @@
+import { RelayCell } from "mods/tor/binary/cells/direct/relay.js";
+import { Circuit } from "mods/tor/circuit.js";
+import { TcpStream } from "mods/tor/streams/tcp.js";
+
+export class RelayDropCell {
+  readonly class = RelayDropCell
+
+  static rcommand = 10
+
+  constructor(
+    readonly circuit: Circuit,
+    readonly stream: TcpStream | undefined,
+    readonly data: Buffer
+  ) { }
+
+  async pack() {
+    return await this.cell().pack()
+  }
+
+  cell() {
+    return new RelayCell(this.circuit, this.stream, this.class.rcommand, this.data)
+  }
+
+  static uncell(cell: RelayCell) {
+    if (cell.rcommand !== this.rcommand)
+      throw new Error(`Invalid RELAY_DROP relay cell relay command`)
+
+    return new this(cell.circuit, cell.stream, cell.data)
+  }
+}

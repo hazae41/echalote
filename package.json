@@ -1,0 +1,44 @@
+{
+  "type": "module",
+  "name": "@hazae41/echalote",
+  "version": "1.0.0",
+  "author": "hazae41",
+  "license": "MIT",
+  "description": "Tor in the browser using JS + WebAssembly",
+  "types": "./dist/types/index.d.ts",
+  "main": "./dist/cjs/index.cjs",
+  "sideEffects": false,
+  "scripts": {
+    "build": "rimraf dist && rollup -c"
+  },
+  "peerDependencies": {
+    "@hazae41/berith": "^1.1.31",
+    "@hazae41/morax": "^1.0.7",
+    "@hazae41/paimon": "^1.0.9",
+    "@hazae41/zepar": "^1.0.4",
+    "@peculiar/x509": "^1.8.3"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^23.0.2",
+    "@rollup/plugin-node-resolve": "^15.0.1",
+    "@rollup/plugin-typescript": "^9.0.2",
+    "@types/node": "^18.11.9",
+    "@types/node-forge": "^1.3.0",
+    "@types/react": "^18.0.24",
+    "rimraf": "^3.0.2",
+    "rollup": "^3.2.5",
+    "rollup-plugin-dts": "^5.0.0",
+    "ts-node": "^10.9.1",
+    "tslib": "^2.4.1",
+    "ttypescript": "^1.5.13",
+    "typescript": "^4.8.4",
+    "typescript-transform-paths": "^3.4.4"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/cjs/index.cjs",
+      "require": "./dist/cjs/index.cjs"
+    }
+  }
+}
