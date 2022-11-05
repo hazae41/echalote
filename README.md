@@ -13,7 +13,7 @@
 
 ### Upcoming features
 - Tor consensus and directories support
-- More HTTP1.1 features
 - Implementation of TLS for both Tor and HTTP (which becomes HTTPS)
 - Snowflake transport support
+- More HTTP1.1 features
 - HTTP2, HTTP3 (QUIC)
