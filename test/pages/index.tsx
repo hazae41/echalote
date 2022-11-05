@@ -1,7 +1,6 @@
 import { TlsOverHttp, TlsOverWs, Tor } from "@hazae41/echalote";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import fallbacks from "../assets/fallbacks.json";
-import lorem from "../assets/lorem.json";
 
 async function ws() {
   const ws = new WebSocket("ws://localhost:8080")
@@ -34,8 +33,8 @@ export default function Page() {
     try {
       if (!session) return
 
-      // const tls = await http(session)
-      const tls = await ws()
+      const tls = await http(session)
+      // const tls = await ws()
 
       const tor = new Tor(tls)
       await tor.init()
@@ -66,7 +65,7 @@ export default function Page() {
       const aborter = new AbortController()
       const { signal } = aborter
 
-      const pres = circuit.fetch("https://postman-echo.com/post?foo1=bar1&foo2=bar2", { signal, method: "POST", body: lorem })
+      const pres = circuit.fetch("https://postman-echo.com/post?foo1=bar1&foo2=bar2", { signal, method: "POST", body: "Hello world" })
 
       const res = await pres
 
@@ -74,12 +73,6 @@ export default function Page() {
       // aborter.abort()
 
       console.log(await res.text(), res.status, res.statusText, [...res.headers.entries()])
-
-      // const res2 = await circuit.fetch("https://postman-echo.com/post?foo1=bar1&foo2=bar2", { method: "POST" })
-      // console.log(await res2.text())
-
-      // const res3 = await circuit.fetch("https://postman-echo.com/post?foo1=bar1&foo2=bar2", { method: "POST" })
-      // console.log(await res3.text())
     } catch (e: unknown) {
       console.error("fetching error", e)
     }
