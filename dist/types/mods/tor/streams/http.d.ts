@@ -54,6 +54,11 @@ declare class HttpStream extends EventTarget {
     private tryRead;
     private read;
     private onRead;
+    private getTransferFromHeaders;
+    private getCompressionFromHeaders;
+    private onReadNone;
+    private onReadLenghted;
+    private onReadChunked;
 }
 
 export { HttpChunkedTransfer, HttpCompression, HttpGzipCompression, HttpHeadedState, HttpLengthedTransfer, HttpNoneCompression, HttpNoneState, HttpState, HttpStream, HttpTransfer };

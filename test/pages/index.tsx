@@ -67,12 +67,9 @@ export default function Page() {
 
       const pres = circuit.fetch("https://postman-echo.com/post?foo1=bar1&foo2=bar2", { signal, method: "POST", body: "Hello world" })
 
-      aborter.abort()
+      // aborter.abort()
 
       const res = await pres
-
-      // await new Promise(ok => setTimeout(ok, 1))
-      // aborter.abort()
 
       console.log(await res.text(), res.status, res.statusText, [...res.headers.entries()])
     } catch (e: unknown) {

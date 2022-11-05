@@ -169,148 +169,185 @@ export class HttpStream extends EventTarget {
 
   private async onRead(chunk: Buffer) {
     if (this.state.type === "none") {
-      const { buffer } = this.state
-
-      buffer.write(chunk)
-
-      const split = buffer.buffer.indexOf("\r\n\r\n")
-
-      if (split === -1) return
-
-      const head = buffer.buffer.subarray(0, split)
-      const body = buffer.buffer.subarray(split + "\r\n\r\n".length, buffer.offset)
-
-      const [info, ...rawHeaders] = head.toString().split("\r\n")
-      const [version, statusString, statusText] = info.split(" ")
-
-      const status = Number(statusString)
-      const headers = new Headers(rawHeaders.map(it => Strings.splitOnce(it, ": ")))
-      this.res.ok(new Response(this.rstreams.readable, { headers, status, statusText }))
-
-      const transfer: HttpTransfer = (() => {
-        const type = headers.get("transfer-encoding")
-
-        if (type === "chunked") {
-          const buffer = Binary.allocUnsafe(10 * 1024)
-          return { type, buffer }
-        }
-
-        if (type === null) {
-          const length = Number(headers.get("content-length"))
-          return { type: "lengthed", offset: 0, length }
-        }
-
-        throw new Error(`Unsupported transfer ${type}`)
-      })()
-
-      const compression: HttpCompression = (() => {
-        const type = headers.get("content-encoding")
-
-        if (type === "gzip") {
-          const decoder = new GzDecoder()
-          return { type, decoder }
-        }
-
-        if (type === null) {
-          return { type: "none" }
-        }
-
-        throw new Error(`Unsupported compression ${type}`)
-      })()
-
-      this.state = { type: "headed", version, transfer, compression }
-
-      chunk = body
+      const result = await this.onReadNone(chunk)
+      if (!result) return
+      chunk = result
     }
 
+    if (this.state.type !== "headed")
+      return
+
     if (this.state.transfer.type === "lengthed") {
-      const { transfer, compression } = this.state
-
-      transfer.offset += chunk.length
-
-      if (transfer.offset > transfer.length)
-        throw new Error(`Length > Content-Length`)
-
-      const writer = this.rstreams.writable.getWriter()
-
-      if (compression.type === "none") {
-        writer.write(chunk).catch(console.warn)
-      } else if (compression.type === "gzip") {
-        compression.decoder.write(chunk)
-        compression.decoder.flush()
-
-        const dchunk = compression.decoder.read()
-        writer.write(Buffer.from(dchunk.buffer)).catch(console.warn)
-      }
-
-      if (transfer.offset === transfer.length) {
-        if (compression.type === "gzip")
-          writer.write(Buffer.from(compression.decoder.finish().buffer)).catch(console.warn)
-
-        writer.close()
-      }
-
-      writer.releaseLock()
+      await this.onReadLenghted(chunk)
       return
     }
 
     if (this.state.transfer.type === "chunked") {
-      const { transfer, compression } = this.state
-      const { buffer } = transfer
+      await this.onReadChunked(chunk)
+      return
+    }
+  }
 
-      buffer.write(chunk)
+  private getTransferFromHeaders(headers: Headers): HttpTransfer {
+    const type = headers.get("transfer-encoding")
 
-      let slice = buffer.buffer.subarray(0, buffer.offset)
+    if (type === "chunked") {
+      const buffer = Binary.allocUnsafe(10 * 1024)
+      return { type, buffer }
+    }
 
-      while (slice.length) {
-        const index = slice.indexOf("\r\n")
+    if (type === null) {
+      const length = Number(headers.get("content-length"))
+      return { type: "lengthed", offset: 0, length }
+    }
 
-        // [...] => partial header => wait
-        if (index === -1) return
+    throw new Error(`Unsupported transfer ${type}`)
+  }
 
-        // [length]\r\n(...) => full header => split it
-        const length = parseInt(slice.subarray(0, index).toString(), 16)
-        const rest = slice.subarray(index + 2)
+  private getCompressionFromHeaders(headers: Headers): HttpCompression {
+    const type = headers.get("content-encoding")
 
-        if (length === 0) {
-          const writer = this.rstreams.writable.getWriter()
+    if (type === "gzip") {
+      const decoder = new GzDecoder()
+      return { type, decoder }
+    }
 
-          if (compression.type === "gzip")
-            writer.write(Buffer.from(compression.decoder.finish().buffer)).catch(console.warn)
+    if (type === null) {
+      return { type: "none" }
+    }
 
-          writer.close()
-          writer.releaseLock()
-          return
-        }
+    throw new Error(`Unsupported compression ${type}`)
+  }
 
-        // len(...) < length + len(\r\n) => partial chunk => wait
-        if (rest.length < length + 2) break
+  private async onReadNone(chunk: Buffer) {
+    if (this.state.type !== "none")
+      return
+    const { buffer } = this.state
 
-        // ([length]\r\n)[chunk]\r\n(...) => full chunk => split it
-        const chunk2 = rest.subarray(0, length)
-        const rest2 = rest.subarray(length + 2)
+    buffer.write(chunk)
 
-        const writer = this.rstreams.writable.getWriter()
+    const split = buffer.buffer.indexOf("\r\n\r\n")
 
-        if (compression.type === "none") {
-          writer.write(chunk2).catch(console.warn)
-        } else if (compression.type === "gzip") {
-          compression.decoder.write(chunk2)
-          compression.decoder.flush()
+    if (split === -1) return
 
-          const dchunk2 = compression.decoder.read()
-          writer.write(Buffer.from(dchunk2.buffer)).catch(console.warn)
-        }
+    const head = buffer.buffer.subarray(0, split)
+    const body = buffer.buffer.subarray(split + "\r\n\r\n".length, buffer.offset)
 
-        writer.releaseLock()
+    const [info, ...rawHeaders] = head.toString().split("\r\n")
+    const [version, statusString, statusText] = info.split(" ")
 
-        buffer.offset = 0
-        buffer.write(rest2)
+    const status = Number(statusString)
+    const headers = new Headers(rawHeaders.map(it => Strings.splitOnce(it, ": ")))
+    this.res.ok(new Response(this.rstreams.readable, { headers, status, statusText }))
 
-        slice = buffer.buffer.subarray(0, buffer.offset)
+    const transfer = this.getTransferFromHeaders(headers)
+    const compression = this.getCompressionFromHeaders(headers)
+
+    this.state = { type: "headed", version, transfer, compression }
+
+    return body
+  }
+
+  private async onReadLenghted(chunk: Buffer) {
+    if (this.state.type !== "headed")
+      return
+    if (this.state.transfer.type !== "lengthed")
+      return
+    const { transfer, compression } = this.state
+
+    transfer.offset += chunk.length
+
+    if (transfer.offset > transfer.length)
+      throw new Error(`Length > Content-Length`)
+
+    const writer = this.rstreams.writable.getWriter()
+
+    if (compression.type === "none") {
+      writer.write(chunk).catch(console.warn)
+    } else if (compression.type === "gzip") {
+      compression.decoder.write(chunk)
+      compression.decoder.flush()
+
+      const dchunk = compression.decoder.read()
+      const bdchunk = Buffer.from(dchunk.buffer)
+      writer.write(bdchunk).catch(console.warn)
+    }
+
+    if (transfer.offset === transfer.length) {
+      if (compression.type === "gzip") {
+        const fchunk = compression.decoder.finish()
+        const bfchunk = Buffer.from(fchunk.buffer)
+        writer.write(bfchunk).catch(console.warn)
       }
 
+      writer.close()
+    }
+
+    writer.releaseLock()
+  }
+
+  private async onReadChunked(chunk: Buffer) {
+    if (this.state.type !== "headed")
       return
+    if (this.state.transfer.type !== "chunked")
+      return
+    const { transfer, compression } = this.state
+    const { buffer } = transfer
+
+    buffer.write(chunk)
+
+    let slice = buffer.buffer.subarray(0, buffer.offset)
+
+    while (slice.length) {
+      const index = slice.indexOf("\r\n")
+
+      // [...] => partial header => wait
+      if (index === -1) return
+
+      // [length]\r\n(...) => full header => split it
+      const length = parseInt(slice.subarray(0, index).toString(), 16)
+      const rest = slice.subarray(index + 2)
+
+      if (length === 0) {
+        const writer = this.rstreams.writable.getWriter()
+
+        if (compression.type === "gzip") {
+          const fchunk = compression.decoder.finish()
+          const bfchunk = Buffer.from(fchunk.buffer)
+          writer.write(bfchunk).catch(console.warn)
+        }
+
+        writer.close()
+        writer.releaseLock()
+        return
+      }
+
+      // len(...) < length + len(\r\n) => partial chunk => wait
+      if (rest.length < length + 2) break
+
+      // ([length]\r\n)[chunk]\r\n(...) => full chunk => split it
+      const chunk2 = rest.subarray(0, length)
+      const rest2 = rest.subarray(length + 2)
+
+      const writer = this.rstreams.writable.getWriter()
+
+      if (compression.type === "none") {
+        writer.write(chunk2).catch(console.warn)
+      } else if (compression.type === "gzip") {
+        compression.decoder.write(chunk2)
+        compression.decoder.flush()
+
+        const dchunk2 = compression.decoder.read()
+        const bdchunk2 = Buffer.from(dchunk2.buffer)
+        writer.write(bdchunk2).catch(console.warn)
+      }
+
+      writer.releaseLock()
+
+      buffer.offset = 0
+      buffer.write(rest2)
+
+      slice = buffer.buffer.subarray(0, buffer.offset)
     }
   }
 }
