@@ -23,11 +23,11 @@ class HttpStream extends EventTarget {
         this.wstreams = new TransformStream();
         this.state = { type: "none", buffer: binary.Binary.allocUnsafe(10 * 1024) };
         if (req.body)
-            req.body.pipeTo(this.wstreams.writable);
+            req.body.pipeTo(this.wstreams.writable).catch(console.warn);
         else
-            this.wstreams.writable.close();
-        this.tryRead();
-        this.tryWrite();
+            this.wstreams.writable.close().catch(console.warn);
+        this.tryRead().catch(console.warn);
+        this.tryWrite().catch(console.warn);
     }
     tryWrite() {
         return tslib.__awaiter(this, void 0, void 0, function* () {
@@ -36,8 +36,9 @@ class HttpStream extends EventTarget {
                 yield this.write(reader);
             }
             catch (e) {
+                console.warn(e);
                 const writer = this.sstreams.writable.getWriter();
-                writer.abort(e);
+                writer.abort(e).catch(console.warn);
                 writer.releaseLock();
                 this.res.err(e);
             }
@@ -87,7 +88,7 @@ class HttpStream extends EventTarget {
             const buffer = Buffer.from(`0\r\n\r\n\r\n`);
             const writer = this.sstreams.writable.getWriter();
             writer.write(buffer).catch(console.warn);
-            writer.close();
+            writer.close().catch(console.warn);
             writer.releaseLock();
         });
     }
@@ -98,8 +99,9 @@ class HttpStream extends EventTarget {
                 yield this.read(reader);
             }
             catch (e) {
+                console.warn(e);
                 const writer = this.rstreams.writable.getWriter();
-                writer.abort(e);
+                writer.abort(e).catch(console.warn);
                 writer.releaseLock();
                 this.res.err(e);
             }
@@ -210,7 +212,7 @@ class HttpStream extends EventTarget {
                     const bfchunk = Buffer.from(fchunk.buffer);
                     writer.write(bfchunk).catch(console.warn);
                 }
-                writer.close();
+                writer.close().catch(console.warn);
             }
             writer.releaseLock();
         });
@@ -240,7 +242,7 @@ class HttpStream extends EventTarget {
                         const bfchunk = Buffer.from(fchunk.buffer);
                         writer.write(bfchunk).catch(console.warn);
                     }
-                    writer.close();
+                    writer.close().catch(console.warn);
                     writer.releaseLock();
                     return;
                 }

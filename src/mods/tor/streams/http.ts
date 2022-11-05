@@ -70,12 +70,12 @@ export class HttpStream extends EventTarget {
     super()
 
     if (req.body)
-      req.body.pipeTo(this.wstreams.writable)
+      req.body.pipeTo(this.wstreams.writable).catch(console.warn)
     else
-      this.wstreams.writable.close()
+      this.wstreams.writable.close().catch(console.warn)
 
-    this.tryRead()
-    this.tryWrite()
+    this.tryRead().catch(console.warn)
+    this.tryWrite().catch(console.warn)
   }
 
   private async tryWrite() {
@@ -84,8 +84,10 @@ export class HttpStream extends EventTarget {
     try {
       await this.write(reader)
     } catch (e: unknown) {
+      console.warn(e)
+
       const writer = this.sstreams.writable.getWriter()
-      writer.abort(e)
+      writer.abort(e).catch(console.warn)
       writer.releaseLock()
 
       this.res.err(e)
@@ -137,7 +139,7 @@ export class HttpStream extends EventTarget {
 
     const writer = this.sstreams.writable.getWriter()
     writer.write(buffer).catch(console.warn)
-    writer.close()
+    writer.close().catch(console.warn)
     writer.releaseLock()
   }
 
@@ -147,8 +149,10 @@ export class HttpStream extends EventTarget {
     try {
       await this.read(reader)
     } catch (e: unknown) {
+      console.warn(e)
+
       const writer = this.rstreams.writable.getWriter()
-      writer.abort(e)
+      writer.abort(e).catch(console.warn)
       writer.releaseLock()
 
       this.res.err(e)
@@ -280,7 +284,7 @@ export class HttpStream extends EventTarget {
         writer.write(bfchunk).catch(console.warn)
       }
 
-      writer.close()
+      writer.close().catch(console.warn)
     }
 
     writer.releaseLock()
@@ -317,7 +321,7 @@ export class HttpStream extends EventTarget {
           writer.write(bfchunk).catch(console.warn)
         }
 
-        writer.close()
+        writer.close().catch(console.warn)
         writer.releaseLock()
         return
       }

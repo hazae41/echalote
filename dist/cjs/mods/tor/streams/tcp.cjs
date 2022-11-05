@@ -38,7 +38,7 @@ class TcpStream extends EventTarget {
         this.circuit.addEventListener("RELAY_END", onRelayEndCell, { passive: true });
         const onAbort = this.onAbort.bind(this);
         (_a = this.signal) === null || _a === void 0 ? void 0 : _a.addEventListener("abort", onAbort, { passive: true, once: true });
-        this.tryWrite();
+        this.tryWrite().catch(console.warn);
     }
     onAbort(event) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
@@ -48,10 +48,10 @@ class TcpStream extends EventTarget {
                 return;
             this.closed = true;
             const rwriter = this.rstreams.writable.getWriter();
-            rwriter.abort(abort.target.reason);
+            rwriter.abort(abort.target.reason).catch(console.warn);
             rwriter.releaseLock();
             const wwriter = this.wstreams.writable.getWriter();
-            wwriter.abort(abort.target.reason);
+            wwriter.abort(abort.target.reason).catch(console.warn);
             wwriter.releaseLock();
             const reason = relay_end.RelayEndCell.reasons.REASON_UNKNOWN;
             const reason2 = new relay_end.RelayEndCellReasonOther(reason);
@@ -84,7 +84,7 @@ class TcpStream extends EventTarget {
                 return;
             this.closed = true;
             const writer = this.rstreams.writable.getWriter();
-            writer.close();
+            writer.close().catch(console.warn);
             writer.releaseLock();
         });
     }

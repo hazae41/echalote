@@ -67,7 +67,7 @@ export default function Page() {
 
       const pres = circuit.fetch("https://postman-echo.com/post?foo1=bar1&foo2=bar2", { signal, method: "POST", body: "Hello world" })
 
-      // aborter.abort()
+      aborter.abort()
 
       const res = await pres
 

@@ -52,7 +52,7 @@ export class TcpStream extends EventTarget {
     const onAbort = this.onAbort.bind(this)
     this.signal?.addEventListener("abort", onAbort, { passive: true, once: true })
 
-    this.tryWrite()
+    this.tryWrite().catch(console.warn)
   }
 
   private async onAbort(event: Event) {
@@ -64,11 +64,11 @@ export class TcpStream extends EventTarget {
     this.closed = true
 
     const rwriter = this.rstreams.writable.getWriter()
-    rwriter.abort(abort.target.reason)
+    rwriter.abort(abort.target.reason).catch(console.warn)
     rwriter.releaseLock()
 
     const wwriter = this.wstreams.writable.getWriter()
-    wwriter.abort(abort.target.reason)
+    wwriter.abort(abort.target.reason).catch(console.warn)
     wwriter.releaseLock()
 
     const reason = RelayEndCell.reasons.REASON_UNKNOWN
@@ -101,7 +101,7 @@ export class TcpStream extends EventTarget {
     this.closed = true
 
     const writer = this.rstreams.writable.getWriter()
-    writer.close()
+    writer.close().catch(console.warn)
     writer.releaseLock()
   }
 
