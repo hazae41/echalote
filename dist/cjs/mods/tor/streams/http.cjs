@@ -26,8 +26,8 @@ class HttpStream extends EventTarget {
             req.body.pipeTo(this.wstreams.writable);
         else
             this.wstreams.writable.close();
-        this.tryRead().catch(console.error);
-        this.tryWrite().catch(console.error);
+        this.tryRead();
+        this.tryWrite();
     }
     tryWrite() {
         return tslib.__awaiter(this, void 0, void 0, function* () {
@@ -36,10 +36,10 @@ class HttpStream extends EventTarget {
                 yield this.write(reader);
             }
             catch (e) {
-                console.error(e);
                 const writer = this.sstreams.writable.getWriter();
                 writer.abort(e);
                 writer.releaseLock();
+                this.res.err(e);
             }
             finally {
                 reader.releaseLock();
@@ -69,7 +69,7 @@ class HttpStream extends EventTarget {
             this.req.headers.forEach((v, k) => head += `${k}: ${v}\r\n`);
             head += `\r\n`;
             const writer = this.sstreams.writable.getWriter();
-            writer.write(Buffer.from(head));
+            writer.write(Buffer.from(head)).catch(console.warn);
             writer.releaseLock();
         });
     }
@@ -78,7 +78,7 @@ class HttpStream extends EventTarget {
             const length = chunk.length.toString(16);
             const line = `${length}\r\n${chunk.toString()}\r\n`;
             const writer = this.sstreams.writable.getWriter();
-            writer.write(Buffer.from(line));
+            writer.write(Buffer.from(line)).catch(console.warn);
             writer.releaseLock();
         });
     }
@@ -86,7 +86,7 @@ class HttpStream extends EventTarget {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             const buffer = Buffer.from(`0\r\n\r\n\r\n`);
             const writer = this.sstreams.writable.getWriter();
-            writer.write(buffer);
+            writer.write(buffer).catch(console.warn);
             writer.close();
             writer.releaseLock();
         });
@@ -98,9 +98,6 @@ class HttpStream extends EventTarget {
                 yield this.read(reader);
             }
             catch (e) {
-                if (e instanceof Error)
-                    console.error("lol", e.message, e.name);
-                console.error(e);
                 const writer = this.rstreams.writable.getWriter();
                 writer.abort(e);
                 writer.releaseLock();
@@ -169,17 +166,17 @@ class HttpStream extends EventTarget {
                     throw new Error(`Length > Content-Length`);
                 const writer = this.rstreams.writable.getWriter();
                 if (compression.type === "none") {
-                    writer.write(chunk);
+                    writer.write(chunk).catch(console.warn);
                 }
                 else if (compression.type === "gzip") {
                     compression.decoder.write(chunk);
                     compression.decoder.flush();
                     const dchunk = compression.decoder.read();
-                    writer.write(Buffer.from(dchunk.buffer));
+                    writer.write(Buffer.from(dchunk.buffer)).catch(console.warn);
                 }
                 if (transfer.offset === transfer.length) {
                     if (compression.type === "gzip")
-                        writer.write(Buffer.from(compression.decoder.finish().buffer));
+                        writer.write(Buffer.from(compression.decoder.finish().buffer)).catch(console.warn);
                     writer.close();
                 }
                 writer.releaseLock();
@@ -201,7 +198,7 @@ class HttpStream extends EventTarget {
                     if (length === 0) {
                         const writer = this.rstreams.writable.getWriter();
                         if (compression.type === "gzip")
-                            writer.write(Buffer.from(compression.decoder.finish().buffer));
+                            writer.write(Buffer.from(compression.decoder.finish().buffer)).catch(console.warn);
                         writer.close();
                         writer.releaseLock();
                         return;
@@ -214,13 +211,13 @@ class HttpStream extends EventTarget {
                     const rest2 = rest.subarray(length + 2);
                     const writer = this.rstreams.writable.getWriter();
                     if (compression.type === "none") {
-                        writer.write(chunk2);
+                        writer.write(chunk2).catch(console.warn);
                     }
                     else if (compression.type === "gzip") {
                         compression.decoder.write(chunk2);
                         compression.decoder.flush();
                         const dchunk2 = compression.decoder.read();
-                        writer.write(Buffer.from(dchunk2.buffer));
+                        writer.write(Buffer.from(dchunk2.buffer)).catch(console.warn);
                     }
                     writer.releaseLock();
                     buffer.offset = 0;

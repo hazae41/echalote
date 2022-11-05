@@ -101,7 +101,7 @@ export class Tor extends EventTarget {
 
     this.directories.loadAuthorities()
 
-    this.tryRead().catch(console.error)
+    this.tryRead()
   }
 
   get state() {
@@ -132,7 +132,7 @@ export class Tor extends EventTarget {
     const message = event as MessageEvent<Buffer>
 
     const writer = this.streams.writable.getWriter()
-    writer.write(message.data)
+    writer.write(message.data).catch(console.warn)
     writer.releaseLock()
   }
 

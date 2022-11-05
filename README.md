@@ -9,11 +9,11 @@
 - Unsafe TLS with modified node-forge (thanks to node-tor)
 - Partial Meek transport support without domain-fronting
 - Partial Tor protocol support with Ed25519, ntor, kdf-tor
-- Partial HTTP1.1 support with WebStreams and chunked encoding
+- Partial HTTP1.1 using WebStreams with support for chunked transfer and gzip compression
 
 ### Upcoming features
 - Tor consensus and directories support
-- More HTTP1.1 features like gzip
+- More HTTP1.1 features
 - Implementation of TLS for both Tor and HTTP (which becomes HTTPS)
 - Snowflake transport support
 - HTTP2, HTTP3 (QUIC)

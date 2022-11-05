@@ -74,8 +74,8 @@ export class HttpStream extends EventTarget {
     else
       this.wstreams.writable.close()
 
-    this.tryRead().catch(console.error)
-    this.tryWrite().catch(console.error)
+    this.tryRead()
+    this.tryWrite()
   }
 
   private async tryWrite() {
@@ -84,11 +84,11 @@ export class HttpStream extends EventTarget {
     try {
       await this.write(reader)
     } catch (e: unknown) {
-      console.error(e)
-
       const writer = this.sstreams.writable.getWriter()
       writer.abort(e)
       writer.releaseLock()
+
+      this.res.err(e)
     } finally {
       reader.releaseLock()
     }
@@ -119,7 +119,7 @@ export class HttpStream extends EventTarget {
     head += `\r\n`
 
     const writer = this.sstreams.writable.getWriter()
-    writer.write(Buffer.from(head))
+    writer.write(Buffer.from(head)).catch(console.warn)
     writer.releaseLock()
   }
 
@@ -128,7 +128,7 @@ export class HttpStream extends EventTarget {
     const line = `${length}\r\n${chunk.toString()}\r\n`
 
     const writer = this.sstreams.writable.getWriter()
-    writer.write(Buffer.from(line))
+    writer.write(Buffer.from(line)).catch(console.warn)
     writer.releaseLock()
   }
 
@@ -136,7 +136,7 @@ export class HttpStream extends EventTarget {
     const buffer = Buffer.from(`0\r\n\r\n\r\n`)
 
     const writer = this.sstreams.writable.getWriter()
-    writer.write(buffer)
+    writer.write(buffer).catch(console.warn)
     writer.close()
     writer.releaseLock()
   }
@@ -147,10 +147,6 @@ export class HttpStream extends EventTarget {
     try {
       await this.read(reader)
     } catch (e: unknown) {
-      if (e instanceof Error)
-        console.error("lol", e.message, e.name)
-      console.error(e)
-
       const writer = this.rstreams.writable.getWriter()
       writer.abort(e)
       writer.releaseLock()
@@ -238,18 +234,18 @@ export class HttpStream extends EventTarget {
       const writer = this.rstreams.writable.getWriter()
 
       if (compression.type === "none") {
-        writer.write(chunk)
+        writer.write(chunk).catch(console.warn)
       } else if (compression.type === "gzip") {
         compression.decoder.write(chunk)
         compression.decoder.flush()
 
         const dchunk = compression.decoder.read()
-        writer.write(Buffer.from(dchunk.buffer))
+        writer.write(Buffer.from(dchunk.buffer)).catch(console.warn)
       }
 
       if (transfer.offset === transfer.length) {
         if (compression.type === "gzip")
-          writer.write(Buffer.from(compression.decoder.finish().buffer))
+          writer.write(Buffer.from(compression.decoder.finish().buffer)).catch(console.warn)
 
         writer.close()
       }
@@ -280,7 +276,7 @@ export class HttpStream extends EventTarget {
           const writer = this.rstreams.writable.getWriter()
 
           if (compression.type === "gzip")
-            writer.write(Buffer.from(compression.decoder.finish().buffer))
+            writer.write(Buffer.from(compression.decoder.finish().buffer)).catch(console.warn)
 
           writer.close()
           writer.releaseLock()
@@ -297,13 +293,13 @@ export class HttpStream extends EventTarget {
         const writer = this.rstreams.writable.getWriter()
 
         if (compression.type === "none") {
-          writer.write(chunk2)
+          writer.write(chunk2).catch(console.warn)
         } else if (compression.type === "gzip") {
           compression.decoder.write(chunk2)
           compression.decoder.flush()
 
           const dchunk2 = compression.decoder.read()
-          writer.write(Buffer.from(dchunk2.buffer))
+          writer.write(Buffer.from(dchunk2.buffer)).catch(console.warn)
         }
 
         writer.releaseLock()

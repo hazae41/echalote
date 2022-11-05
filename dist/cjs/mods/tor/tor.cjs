@@ -53,7 +53,7 @@ class Tor extends EventTarget {
         const onMessage = this.onMessage.bind(this);
         this.tls.addEventListener("message", onMessage, { passive: true });
         this.directories.loadAuthorities();
-        this.tryRead().catch(console.error);
+        this.tryRead();
     }
     get state() {
         return this._state;
@@ -80,7 +80,7 @@ class Tor extends EventTarget {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             const message = event;
             const writer = this.streams.writable.getWriter();
-            writer.write(message.data);
+            writer.write(message.data).catch(console.warn);
             writer.releaseLock();
         });
     }

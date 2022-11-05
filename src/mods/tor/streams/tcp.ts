@@ -52,7 +52,7 @@ export class TcpStream extends EventTarget {
     const onAbort = this.onAbort.bind(this)
     this.signal?.addEventListener("abort", onAbort, { passive: true, once: true })
 
-    this.tryWrite().catch(console.error)
+    this.tryWrite()
   }
 
   private async onAbort(event: Event) {
@@ -87,7 +87,7 @@ export class TcpStream extends EventTarget {
     if (this.closed) return
 
     const rwriter = this.rstreams.writable.getWriter()
-    rwriter.write(message.data.data)
+    rwriter.write(message.data.data).catch(console.warn)
     rwriter.releaseLock()
   }
 
@@ -111,7 +111,7 @@ export class TcpStream extends EventTarget {
     try {
       await this.write(reader)
     } catch (e: unknown) {
-      console.error(e)
+      console.warn(e)
     } finally {
       reader.releaseLock()
     }
