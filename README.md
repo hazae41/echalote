@@ -1,6 +1,6 @@
 # Tor in the browser
 
-**DO NOT USE: Although it works well, it is still very unsafe to use, even for MVP purpose, as not all Tor security features are implemented, and TLS is not yet implemented, and it uses Meek without domain-fronting**
+**DO NOT USE: Although it works well, it is still very unsafe to use, even for MVP purpose, as not all Tor features are implemented, TLS is not implemented yet, and it uses Meek without domain-fronting**
 
 ### Current features
 - 100% TypeScript and ESM
