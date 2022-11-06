@@ -31,7 +31,7 @@ var cell$e = require('./binary/cells/relayed/relay_end/cell.cjs');
 var cell$b = require('./binary/cells/relayed/relay_extended2/cell.cjs');
 var cell$g = require('./binary/cells/relayed/relay_truncated/cell.cjs');
 var circuit = require('./circuit.cjs');
-var directories = require('./consensus/directories.cjs');
+var authorities = require('./consensus/authorities.cjs');
 var target = require('./target.cjs');
 
 class Tor extends EventTarget {
@@ -40,7 +40,7 @@ class Tor extends EventTarget {
         this.tls = tls;
         this.class = Tor;
         this._state = { type: "none" };
-        this.directories = new directories.Directories(this);
+        this.authorities = new Array();
         this.circuits = new Map();
         this.streams = new TransformStream();
         this.buffer = Buffer.allocUnsafe(4 * 4096);
@@ -52,7 +52,7 @@ class Tor extends EventTarget {
         };
         const onMessage = this.onMessage.bind(this);
         this.tls.addEventListener("message", onMessage, { passive: true });
-        this.directories.loadAuthorities();
+        this.authorities = authorities.parseAuthorities();
         this.tryRead();
     }
     get state() {
@@ -302,6 +302,7 @@ class Tor extends EventTarget {
     onRelayCell(parent) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             const cell = yield cell$9.RelayCell.uncell(parent);
+            console.debug(`RELAY`, cell);
             if (cell.rcommand === cell$b.RelayExtended2Cell.rcommand)
                 return yield this.onRelayExtended2Cell(cell);
             if (cell.rcommand === cell$c.RelayConnectedCell.rcommand)

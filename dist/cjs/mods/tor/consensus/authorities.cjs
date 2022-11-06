@@ -39,6 +39,20 @@ const auth_dirs = `
   "ipv6=[2620:13:4000:6000::1000:118]:443 "
   "204.13.164.118:80 24E2 F139 121D 4394 C54B 5BCC 368B 3B41 1857 C413",
 `;
+function parseAuthorities() {
+    const lines = auth_dirs
+        .replaceAll('\n', '')
+        .replaceAll('\"  \"', '')
+        .slice(0, -1)
+        .split(",");
+    const authorities = new Array(lines.length);
+    for (let i = 0; i < lines.length; i++) {
+        const sline = lines[i].slice(1, -1);
+        const authority = parseAuthority(sline);
+        authorities[i] = authority;
+    }
+    return authorities;
+}
 function parseAuthority(line) {
     const [name, ...words] = line.split(" ");
     const authority = { name };
@@ -66,26 +80,8 @@ function parseAuthority(line) {
         throw new Error(`Undefined authority fingerprint`);
     return authority;
 }
-class Directories {
-    constructor(tor) {
-        this.tor = tor;
-        this.authorities = new Array();
-    }
-    loadAuthorities() {
-        const lines = auth_dirs
-            .replaceAll('\n', '')
-            .replaceAll('\"  \"', '')
-            .slice(0, -1)
-            .split(",");
-        for (const line of lines) {
-            const line2 = line.slice(1, -1);
-            const authority = parseAuthority(line2);
-            this.authorities.push(authority);
-        }
-    }
-}
 
-exports.Directories = Directories;
 exports.auth_dirs = auth_dirs;
+exports.parseAuthorities = parseAuthorities;
 exports.parseAuthority = parseAuthority;
-//# sourceMappingURL=directories.cjs.map
+//# sourceMappingURL=authorities.cjs.map

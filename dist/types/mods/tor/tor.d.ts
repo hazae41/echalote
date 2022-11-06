@@ -1,7 +1,7 @@
 import { Tls } from '../tls/tls.js';
 import { Certs } from './binary/cells/direct/certs/cell.js';
 import { Circuit } from './circuit.js';
-import { Directories } from './consensus/directories.js';
+import { Authority } from './consensus/authorities.js';
 
 declare type TorState = TorNoneState | TorVersionedState | TorHandshakingState | TorHandshakedState;
 interface TorNoneState {
@@ -27,8 +27,8 @@ interface Guard {
 }
 interface Fallback {
     id: string;
-    eid: string;
-    exit: boolean;
+    eid?: string;
+    exit?: boolean;
     onion: number[];
     hosts: string[];
 }
@@ -36,7 +36,7 @@ declare class Tor extends EventTarget {
     readonly tls: Tls;
     readonly class: typeof Tor;
     private _state;
-    readonly directories: Directories;
+    readonly authorities: Authority[];
     readonly circuits: Map<number, Circuit>;
     readonly streams: TransformStream<Buffer, Buffer>;
     private buffer;

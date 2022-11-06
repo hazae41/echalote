@@ -29,7 +29,7 @@ import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { RelayExtended2Cell } from "mods/tor/binary/cells/relayed/relay_extended2/cell.js";
 import { RelayTruncatedCell } from "mods/tor/binary/cells/relayed/relay_truncated/cell.js";
 import { Circuit } from "mods/tor/circuit.js";
-import { Directories } from "mods/tor/consensus/directories.js";
+import { Authority, parseAuthorities } from "mods/tor/consensus/authorities.js";
 import { Target } from "mods/tor/target.js";
 
 export type TorState =
@@ -66,8 +66,8 @@ export interface Guard {
 
 export interface Fallback {
   id: string,
-  eid: string,
-  exit: boolean,
+  eid?: string,
+  exit?: boolean,
   onion: number[]
   hosts: string[]
 }
@@ -77,7 +77,7 @@ export class Tor extends EventTarget {
 
   private _state: TorState = { type: "none" }
 
-  readonly directories = new Directories(this)
+  readonly authorities = new Array<Authority>()
   readonly circuits = new Map<number, Circuit>()
 
   readonly streams = new TransformStream<Buffer, Buffer>()
@@ -99,7 +99,7 @@ export class Tor extends EventTarget {
     const onMessage = this.onMessage.bind(this)
     this.tls.addEventListener("message", onMessage, { passive: true })
 
-    this.directories.loadAuthorities()
+    this.authorities = parseAuthorities()
 
     this.tryRead()
   }

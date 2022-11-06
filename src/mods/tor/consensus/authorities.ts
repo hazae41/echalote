@@ -1,5 +1,3 @@
-import { Tor } from "mods/tor/tor.js";
-
 /**
  * Tor: src/app/config/auth_dirs.inc
  */
@@ -50,6 +48,25 @@ export interface Authority {
   fingerprint: number[]
 }
 
+export function parseAuthorities() {
+  const lines = auth_dirs
+    .replaceAll('\n', '')
+    .replaceAll('\"  \"', '')
+    .slice(0, -1)
+    .split(",")
+
+  const authorities = new Array<Authority>(lines.length)
+
+  for (let i = 0; i < lines.length; i++) {
+    const sline = lines[i].slice(1, -1)
+    const authority = parseAuthority(sline)
+    authorities[i] = authority
+  }
+
+  return authorities
+}
+
+
 export function parseAuthority(line: string) {
   const [name, ...words] = line.split(" ")
 
@@ -81,29 +98,4 @@ export function parseAuthority(line: string) {
   if (!authority.fingerprint)
     throw new Error(`Undefined authority fingerprint`)
   return authority as Authority
-}
-
-export class Directories {
-  readonly authorities = new Array<Authority>()
-
-  constructor(
-    readonly tor: Tor
-  ) {
-
-  }
-
-  loadAuthorities() {
-    const lines = auth_dirs
-      .replaceAll('\n', '')
-      .replaceAll('\"  \"', '')
-      .slice(0, -1)
-      .split(",")
-
-    for (const line of lines) {
-      const line2 = line.slice(1, -1)
-      const authority = parseAuthority(line2)
-      this.authorities.push(authority)
-    }
-  }
-
 }

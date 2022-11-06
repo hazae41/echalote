@@ -62,8 +62,8 @@ export default function Page() {
       const middle = tor.fallbacks.middles.find(it => it.id === "42A955B09A4E327FBFB46A08F6E21705271CCA12")!
       await circuit._extend(middle)
 
-      const exit = tor.fallbacks.exits.find(it => it.id === "A868303126987902D51F2B6F06DD90038C45B119")!
-      await circuit._extend(exit)
+      // const exit = tor.fallbacks.exits.find(it => it.id === "A868303126987902D51F2B6F06DD90038C45B119")!
+      await circuit.extendDir()
 
       const aborter = new AbortController()
       const { signal } = aborter

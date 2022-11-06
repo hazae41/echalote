@@ -1,5 +1,3 @@
-import { Tor } from '../tor.js';
-
 /**
  * Tor: src/app/config/auth_dirs.inc
  */
@@ -13,12 +11,7 @@ interface Authority {
     ipv6?: string;
     fingerprint: number[];
 }
+declare function parseAuthorities(): Authority[];
 declare function parseAuthority(line: string): Authority;
-declare class Directories {
-    readonly tor: Tor;
-    readonly authorities: Authority[];
-    constructor(tor: Tor);
-    loadAuthorities(): void;
-}
 
-export { Authority, Directories, auth_dirs, parseAuthority };
+export { Authority, auth_dirs, parseAuthorities, parseAuthority };

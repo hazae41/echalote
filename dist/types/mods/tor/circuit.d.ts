@@ -19,6 +19,7 @@ declare class Circuit extends EventTarget {
     private onRelayDataCell;
     private onRelayEndCell;
     private waitExtended;
+    extendDir(): Promise<void>;
     extend(exit: boolean): Promise<void>;
     _extend(fallback: Fallback): Promise<void>;
     private waitTruncated;

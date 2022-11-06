@@ -41,7 +41,7 @@ export { Duplicated } from './mods/tor/binary/certs/errors.js';
 import * as index$2 from './mods/tor/binary/certs/rsa/index.js';
 export { index$2 as RSA };
 export { Circuit } from './mods/tor/circuit.js';
-export { Authority, Directories, auth_dirs, parseAuthority } from './mods/tor/consensus/directories.js';
+export { Authority, auth_dirs, parseAuthorities, parseAuthority } from './mods/tor/consensus/authorities.js';
 export { HASH_LEN, KEY_LEN, PAYLOAD_LEN } from './mods/tor/constants.js';
 export { Unimplemented } from './mods/tor/errors.js';
 export { HttpChunkedTransfer, HttpCompression, HttpGzipCompression, HttpHeadedState, HttpLengthedTransfer, HttpNoneCompression, HttpNoneState, HttpState, HttpStream, HttpTransfer } from './mods/tor/streams/http.js';

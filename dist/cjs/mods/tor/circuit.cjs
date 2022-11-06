@@ -126,23 +126,39 @@ class Circuit extends EventTarget {
             }
         });
     }
+    extendDir() {
+        return tslib.__awaiter(this, void 0, void 0, function* () {
+            const authority = array.randomOf(this.tor.authorities.filter(it => it.v3ident));
+            if (!authority)
+                throw new Error(`Could not find authority`);
+            yield this._extend({
+                hosts: [authority.ipv4],
+                id: authority.v3ident,
+                onion: authority.fingerprint,
+            });
+        });
+    }
     extend(exit) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             const fallback = array.randomOf(this.tor.fallbacks[exit ? "exits" : "middles"]);
             if (!fallback)
-                throw new Error("Can't find fallback");
+                throw new Error(`Could not find fallback`);
             return yield this._extend(fallback);
         });
     }
     _extend(fallback) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             const idh = Buffer.from(fallback.id, "hex");
-            const eid = Buffer.from(fallback.eid, "base64");
-            const links = fallback.hosts.map(it => it.startsWith("[")
+            const eid = fallback.eid
+                ? Buffer.from(fallback.eid, "base64")
+                : undefined;
+            const links = fallback.hosts
+                .map(it => it.startsWith("[")
                 ? link.RelayExtend2LinkIPv6.from(it)
                 : link.RelayExtend2LinkIPv4.from(it));
             links.push(new link.RelayExtend2LinkLegacyID(idh));
-            links.push(new link.RelayExtend2LinkModernID(eid));
+            if (eid)
+                links.push(new link.RelayExtend2LinkModernID(eid));
             const xsecretx = new berith.X25519StaticSecret();
             const publicx = Buffer.from(xsecretx.to_public().to_bytes().buffer);
             const publicb = Buffer.from(fallback.onion);

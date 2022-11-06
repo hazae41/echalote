@@ -130,25 +130,41 @@ export class Circuit extends EventTarget {
     }
   }
 
+  async extendDir() {
+    const authority = randomOf(this.tor.authorities.filter(it => it.v3ident))
+
+    if (!authority)
+      throw new Error(`Could not find authority`)
+
+    await this._extend({
+      hosts: [authority.ipv4],
+      id: authority.v3ident!,
+      onion: authority.fingerprint,
+    })
+  }
+
   async extend(exit: boolean) {
     const fallback = randomOf(this.tor.fallbacks[exit ? "exits" : "middles"])
 
     if (!fallback)
-      throw new Error("Can't find fallback")
+      throw new Error(`Could not find fallback`)
 
     return await this._extend(fallback)
   }
 
   async _extend(fallback: Fallback) {
     const idh = Buffer.from(fallback.id, "hex")
-    const eid = Buffer.from(fallback.eid, "base64")
 
-    const links: RelayExtend2Link[] = fallback.hosts.map(
-      it => it.startsWith("[")
+    const eid = fallback.eid
+      ? Buffer.from(fallback.eid, "base64")
+      : undefined
+
+    const links: RelayExtend2Link[] = fallback.hosts
+      .map(it => it.startsWith("[")
         ? RelayExtend2LinkIPv6.from(it)
         : RelayExtend2LinkIPv4.from(it))
     links.push(new RelayExtend2LinkLegacyID(idh))
-    links.push(new RelayExtend2LinkModernID(eid))
+    if (eid) links.push(new RelayExtend2LinkModernID(eid))
 
     const xsecretx = new X25519StaticSecret()
     const publicx = Buffer.from(xsecretx.to_public().to_bytes().buffer)
