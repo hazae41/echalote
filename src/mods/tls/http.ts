@@ -13,7 +13,7 @@ export class TlsOverHttp extends Tls {
 
     setInterval(() => {
       this.fetch()
-    }, 500)
+    }, 1000)
 
     this.connection = window.forge.tls.createConnection({
       server: false,
