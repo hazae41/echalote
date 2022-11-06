@@ -43,7 +43,7 @@ declare class HttpStream extends EventTarget {
     /**
      * HTTP input bufferer
      */
-    readonly wstreams: TransformStream<Buffer, Buffer>;
+    readonly wstreams: TransformStream<Uint8Array, Uint8Array>;
     state: HttpState;
     constructor(sstreams: ReadableWritablePair<Buffer, Buffer>, req?: Request, url?: URL);
     private tryWrite;

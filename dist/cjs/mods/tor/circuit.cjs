@@ -135,7 +135,6 @@ class Circuit extends EventTarget {
     }
     _extend(fallback) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
-            console.log("fallback", fallback);
             const idh = Buffer.from(fallback.id, "hex");
             const eid = Buffer.from(fallback.eid, "base64");
             const links = fallback.hosts.map(it => it.startsWith("[")

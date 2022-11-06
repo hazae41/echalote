@@ -139,9 +139,6 @@ export class Circuit extends EventTarget {
   }
 
   async _extend(fallback: Fallback) {
-
-    console.log("fallback", fallback)
-
     const idh = Buffer.from(fallback.id, "hex")
     const eid = Buffer.from(fallback.eid, "base64")
 

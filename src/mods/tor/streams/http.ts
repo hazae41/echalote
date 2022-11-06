@@ -58,7 +58,7 @@ export class HttpStream extends EventTarget {
   /**
    * HTTP input bufferer
    */
-  readonly wstreams = new TransformStream<Buffer, Buffer>()
+  readonly wstreams = new TransformStream<Uint8Array, Uint8Array>()
 
   state: HttpState = { type: "none", buffer: Binary.allocUnsafe(10 * 1024) }
 
@@ -96,7 +96,7 @@ export class HttpStream extends EventTarget {
     }
   }
 
-  private async write(reader: ReadableStreamReader<Buffer>) {
+  private async write(reader: ReadableStreamReader<Uint8Array>) {
     await this.onWriteStart()
 
     while (true) {
@@ -107,7 +107,6 @@ export class HttpStream extends EventTarget {
       await this.onWrite(value)
     }
 
-    console.log("writing end")
     await this.onWriteEnd()
   }
 
@@ -124,9 +123,10 @@ export class HttpStream extends EventTarget {
     writer.releaseLock()
   }
 
-  private async onWrite(chunk: Buffer) {
-    const length = chunk.toString().length.toString(16)
-    const line = `${length}\r\n${chunk.toString()}\r\n`
+  private async onWrite(chunk: Uint8Array) {
+    const text = new TextDecoder().decode(chunk)
+    const length = text.length.toString(16)
+    const line = `${length}\r\n${text}\r\n`
 
     const writer = this.sstreams.writable.getWriter()
     writer.write(Buffer.from(line)).catch(console.warn)
