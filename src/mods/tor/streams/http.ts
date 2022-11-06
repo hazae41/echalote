@@ -107,8 +107,7 @@ export class HttpStream extends EventTarget {
       await this.onWrite(value)
     }
 
-    if (this.req.signal.aborted) return
-
+    console.log("writing end")
     await this.onWriteEnd()
   }
 
@@ -126,7 +125,7 @@ export class HttpStream extends EventTarget {
   }
 
   private async onWrite(chunk: Buffer) {
-    const length = chunk.length.toString(16)
+    const length = chunk.toString().length.toString(16)
     const line = `${length}\r\n${chunk.toString()}\r\n`
 
     const writer = this.sstreams.writable.getWriter()

@@ -11,7 +11,7 @@ class TlsOverHttp extends tls.Tls {
         this.class = TlsOverHttp;
         setInterval(() => {
             this.fetch();
-        }, 150);
+        }, 500);
         this.connection = window.forge.tls.createConnection({
             server: false,
             cipherSuites: Object.values(forge.fixedCiphersuites),

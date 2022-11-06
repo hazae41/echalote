@@ -56,8 +56,7 @@ class HttpStream extends EventTarget {
                     break;
                 yield this.onWrite(value);
             }
-            if (this.req.signal.aborted)
-                return;
+            console.log("writing end");
             yield this.onWriteEnd();
         });
     }
@@ -76,7 +75,7 @@ class HttpStream extends EventTarget {
     }
     onWrite(chunk) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
-            const length = chunk.length.toString(16);
+            const length = chunk.toString().length.toString(16);
             const line = `${length}\r\n${chunk.toString()}\r\n`;
             const writer = this.sstreams.writable.getWriter();
             writer.write(Buffer.from(line)).catch(console.warn);
