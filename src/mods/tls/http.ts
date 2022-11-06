@@ -1,10 +1,13 @@
 import { fixedCiphersuites } from "libs/forge.js";
 import { Tls } from "mods/tls/tls.js";
+import { tls } from "node-forge";
 
 export class TlsOverHttp extends Tls {
   readonly class = TlsOverHttp
 
-  readonly connection
+  readonly connection: tls.Connection
+
+  private queue = new Array<Buffer>()
 
   constructor(
     readonly info: RequestInfo
@@ -12,7 +15,12 @@ export class TlsOverHttp extends Tls {
     super()
 
     setInterval(() => {
-      this.fetch()
+      if (!this.queue.length) return
+      this.fetchAll().catch(console.warn)
+    }, 100)
+
+    setInterval(() => {
+      this.fetch().catch(console.warn)
     }, 1000)
 
     this.connection = window.forge.tls.createConnection({
@@ -26,7 +34,7 @@ export class TlsOverHttp extends Tls {
       },
       tlsDataReady: async (connection) => {
         const bytes = connection.tlsData.getBytes();
-        await this.fetch(Buffer.from(bytes, "binary"))
+        this.queue.push(Buffer.from(bytes, "binary"))
       },
       dataReady: (connection) => {
         const bytes = connection.data.getBytes();
@@ -46,6 +54,14 @@ export class TlsOverHttp extends Tls {
         if (!this.dispatchEvent(event)) return
       }
     });
+  }
+
+  async fetchAll() {
+    const body = Buffer.concat(this.queue)
+
+    this.queue = []
+
+    await this.fetch(body)
   }
 
   async fetch(body?: Buffer) {

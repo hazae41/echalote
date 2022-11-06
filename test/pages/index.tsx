@@ -1,6 +1,9 @@
 import { TlsOverHttp, TlsOverWs, Tor } from "@hazae41/echalote";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import fallbacks from "../assets/fallbacks.json";
+import lorem from "../assets/lorem.json";
+
+lorem;
 
 async function ws() {
   const ws = new WebSocket("ws://localhost:8080")

@@ -9,8 +9,14 @@ class TlsOverHttp extends tls.Tls {
         super();
         this.info = info;
         this.class = TlsOverHttp;
+        this.queue = new Array();
         setInterval(() => {
-            this.fetch();
+            if (!this.queue.length)
+                return;
+            this.fetchAll().catch(console.warn);
+        }, 100);
+        setInterval(() => {
+            this.fetch().catch(console.warn);
         }, 1000);
         this.connection = window.forge.tls.createConnection({
             server: false,
@@ -23,7 +29,7 @@ class TlsOverHttp extends tls.Tls {
             },
             tlsDataReady: (connection) => tslib.__awaiter(this, void 0, void 0, function* () {
                 const bytes = connection.tlsData.getBytes();
-                yield this.fetch(Buffer.from(bytes, "binary"));
+                this.queue.push(Buffer.from(bytes, "binary"));
             }),
             dataReady: (connection) => {
                 const bytes = connection.data.getBytes();
@@ -43,6 +49,13 @@ class TlsOverHttp extends tls.Tls {
                 if (!this.dispatchEvent(event))
                     return;
             }
+        });
+    }
+    fetchAll() {
+        return tslib.__awaiter(this, void 0, void 0, function* () {
+            const body = Buffer.concat(this.queue);
+            this.queue = [];
+            yield this.fetch(body);
         });
     }
     fetch(body) {
