@@ -9,9 +9,9 @@ var bits = require('../../libs/bits.cjs');
 var events = require('../../libs/events.cjs');
 var future = require('../../libs/future.cjs');
 var ntor = require('./algos/ntor.cjs');
-var relay_begin = require('./binary/cells/relayed/relay_begin.cjs');
-var relay_extend2 = require('./binary/cells/relayed/relay_extend2.cjs');
-var relay_truncate = require('./binary/cells/relayed/relay_truncate.cjs');
+var cell$2 = require('./binary/cells/relayed/relay_begin/cell.cjs');
+var cell = require('./binary/cells/relayed/relay_extend2/cell.cjs');
+var cell$1 = require('./binary/cells/relayed/relay_truncate/cell.cjs');
 var http = require('./streams/http.cjs');
 var tcp = require('./streams/tcp.cjs');
 var target = require('./target.cjs');
@@ -138,16 +138,16 @@ class Circuit extends EventTarget {
             const idh = Buffer.from(fallback.id, "hex");
             const eid = Buffer.from(fallback.eid, "base64");
             const links = fallback.hosts.map(it => it.startsWith("[")
-                ? relay_extend2.LinkIPv6.from(it)
-                : relay_extend2.LinkIPv4.from(it));
-            links.push(new relay_extend2.LinkLegacyID(idh));
-            links.push(new relay_extend2.LinkModernID(eid));
+                ? cell.LinkIPv6.from(it)
+                : cell.LinkIPv4.from(it));
+            links.push(new cell.LinkLegacyID(idh));
+            links.push(new cell.LinkModernID(eid));
             const xsecretx = new berith.X25519StaticSecret();
             const publicx = Buffer.from(xsecretx.to_public().to_bytes().buffer);
             const publicb = Buffer.from(fallback.onion);
             const request = ntor.request(publicx, idh, publicb);
             const pextended2 = this.waitExtended();
-            this.tor.send(yield new relay_extend2.RelayExtend2Cell(this, undefined, relay_extend2.RelayExtend2Cell.types.NTOR, links, request).pack());
+            this.tor.send(yield new cell.RelayExtend2Cell(this, undefined, cell.RelayExtend2Cell.types.NTOR, links, request).pack());
             const extended2 = yield pextended2;
             const response = ntor.response(extended2.data.data);
             const { publicy } = response;
@@ -187,10 +187,10 @@ class Circuit extends EventTarget {
             }
         });
     }
-    truncate(reason = relay_truncate.RelayTruncateCell.reasons.NONE) {
+    truncate(reason = cell$1.RelayTruncateCell.reasons.NONE) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             const ptruncated = this.waitTruncated();
-            this.tor.send(yield new relay_truncate.RelayTruncateCell(this, undefined, reason).pack());
+            this.tor.send(yield new cell$1.RelayTruncateCell(this, undefined, reason).pack());
             yield ptruncated;
         });
     }
@@ -200,10 +200,10 @@ class Circuit extends EventTarget {
             const stream = new tcp.TcpStream(this, streamId, signal);
             this.streams.set(streamId, stream);
             const flags = new bits.Bitmask(0)
-                .set(relay_begin.RelayBeginCell.flags.IPV4_OK, true)
-                .set(relay_begin.RelayBeginCell.flags.IPV6_NOT_OK, false)
-                .set(relay_begin.RelayBeginCell.flags.IPV6_PREFER, true);
-            this.tor.send(yield new relay_begin.RelayBeginCell(this, stream, `${hostname}:${port}`, flags).pack());
+                .set(cell$2.RelayBeginCell.flags.IPV4_OK, true)
+                .set(cell$2.RelayBeginCell.flags.IPV6_NOT_OK, false)
+                .set(cell$2.RelayBeginCell.flags.IPV6_PREFER, true);
+            this.tor.send(yield new cell$2.RelayBeginCell(this, stream, `${hostname}:${port}`, flags).pack());
             return stream;
         });
     }

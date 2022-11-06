@@ -3,8 +3,8 @@
 var tslib = require('tslib');
 var binary = require('../../../libs/binary.cjs');
 var events = require('../../../libs/events.cjs');
-var relay_data = require('../binary/cells/relayed/relay_data.cjs');
-var relay_end = require('../binary/cells/relayed/relay_end.cjs');
+var cell$1 = require('../binary/cells/relayed/relay_data/cell.cjs');
+var cell = require('../binary/cells/relayed/relay_end/cell.cjs');
 var constants = require('../constants.cjs');
 
 const DATA_LEN = constants.PAYLOAD_LEN - (1 + 2 + 2 + 4 + 2);
@@ -53,10 +53,10 @@ class TcpStream extends EventTarget {
             const wwriter = this.wstreams.writable.getWriter();
             wwriter.abort(abort.target.reason).catch(console.warn);
             wwriter.releaseLock();
-            const reason = relay_end.RelayEndCell.reasons.REASON_UNKNOWN;
-            const reason2 = new relay_end.RelayEndCellReasonOther(reason);
-            const cell = new relay_end.RelayEndCell(this.circuit, this, reason2);
-            this.circuit.tor.send(yield cell.pack());
+            const reason = cell.RelayEndCell.reasons.REASON_UNKNOWN;
+            const reason2 = new cell.RelayEndCellReasonOther(reason);
+            const cell$1 = new cell.RelayEndCell(this.circuit, this, reason2);
+            this.circuit.tor.send(yield cell$1.pack());
         });
     }
     onRelayDataCell(event) {
@@ -115,13 +115,13 @@ class TcpStream extends EventTarget {
     onWrite(chunk) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             if (chunk.length <= DATA_LEN) {
-                const cell = new relay_data.RelayDataCell(this.circuit, this, chunk);
+                const cell = new cell$1.RelayDataCell(this.circuit, this, chunk);
                 return this.circuit.tor.send(yield cell.pack());
             }
             const binary$1 = new binary.Binary(chunk);
             const chunks = binary$1.split(DATA_LEN);
             for (const chunk of chunks) {
-                const cell = new relay_data.RelayDataCell(this.circuit, this, chunk);
+                const cell = new cell$1.RelayDataCell(this.circuit, this, chunk);
                 this.circuit.tor.send(yield cell.pack());
             }
         });

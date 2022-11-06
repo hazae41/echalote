@@ -1,7 +1,7 @@
 import { Binary } from "libs/binary.js";
 import { Events } from "libs/events.js";
-import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data.js";
-import { RelayEndCell, RelayEndCellReasonOther } from "mods/tor/binary/cells/relayed/relay_end.js";
+import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
+import { RelayEndCell, RelayEndCellReasonOther } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { Circuit } from "mods/tor/circuit.js";
 import { PAYLOAD_LEN } from "../constants.js";
 

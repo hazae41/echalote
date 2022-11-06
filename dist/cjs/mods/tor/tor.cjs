@@ -16,7 +16,7 @@ var cell = require('./binary/cells/cell.cjs');
 var cell$5 = require('./binary/cells/direct/auth_challenge/cell.cjs');
 var cell$4 = require('./binary/cells/direct/certs/cell.cjs');
 var cell$7 = require('./binary/cells/direct/created_fast/cell.cjs');
-var cell$b = require('./binary/cells/direct/create_fast/cell.cjs');
+var cell$h = require('./binary/cells/direct/create_fast/cell.cjs');
 var cell$8 = require('./binary/cells/direct/destroy/cell.cjs');
 var cell$6 = require('./binary/cells/direct/netinfo/cell.cjs');
 var cell$1 = require('./binary/cells/direct/padding/cell.cjs');
@@ -24,12 +24,12 @@ var cell$a = require('./binary/cells/direct/padding_negociate/cell.cjs');
 var cell$9 = require('./binary/cells/direct/relay/cell.cjs');
 var cell$3 = require('./binary/cells/direct/versions/cell.cjs');
 var cell$2 = require('./binary/cells/direct/vpadding/cell.cjs');
-var relay_connected = require('./binary/cells/relayed/relay_connected.cjs');
-var relay_data = require('./binary/cells/relayed/relay_data.cjs');
-var relay_drop = require('./binary/cells/relayed/relay_drop.cjs');
-var relay_end = require('./binary/cells/relayed/relay_end.cjs');
-var relay_extended2 = require('./binary/cells/relayed/relay_extended2.cjs');
-var relay_truncated = require('./binary/cells/relayed/relay_truncated.cjs');
+var cell$c = require('./binary/cells/relayed/relay_connected/cell.cjs');
+var cell$d = require('./binary/cells/relayed/relay_data/cell.cjs');
+var cell$f = require('./binary/cells/relayed/relay_drop/cell.cjs');
+var cell$e = require('./binary/cells/relayed/relay_end/cell.cjs');
+var cell$b = require('./binary/cells/relayed/relay_extended2/cell.cjs');
+var cell$g = require('./binary/cells/relayed/relay_truncated/cell.cjs');
 var circuit = require('./circuit.cjs');
 var directories = require('./consensus/directories.cjs');
 var target = require('./target.cjs');
@@ -302,24 +302,24 @@ class Tor extends EventTarget {
     onRelayCell(parent) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             const cell = yield cell$9.RelayCell.uncell(parent);
-            if (cell.rcommand === relay_extended2.RelayExtended2Cell.rcommand)
+            if (cell.rcommand === cell$b.RelayExtended2Cell.rcommand)
                 return yield this.onRelayExtended2Cell(cell);
-            if (cell.rcommand === relay_connected.RelayConnectedCell.rcommand)
+            if (cell.rcommand === cell$c.RelayConnectedCell.rcommand)
                 return yield this.onRelayConnectedCell(cell);
-            if (cell.rcommand === relay_data.RelayDataCell.rcommand)
+            if (cell.rcommand === cell$d.RelayDataCell.rcommand)
                 return yield this.onRelayDataCell(cell);
-            if (cell.rcommand === relay_end.RelayEndCell.rcommand)
+            if (cell.rcommand === cell$e.RelayEndCell.rcommand)
                 return yield this.onRelayEndCell(cell);
-            if (cell.rcommand === relay_drop.RelayDropCell.rcommand)
+            if (cell.rcommand === cell$f.RelayDropCell.rcommand)
                 return yield this.onRelayDropCell(cell);
-            if (cell.rcommand === relay_truncated.RelayTruncatedCell.rcommand)
+            if (cell.rcommand === cell$g.RelayTruncatedCell.rcommand)
                 return yield this.onRelayTruncatedCell(cell);
             console.debug(`Unknown relay cell ${cell.rcommand}`);
         });
     }
     onRelayExtended2Cell(cell) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
-            const data = relay_extended2.RelayExtended2Cell.uncell(cell);
+            const data = cell$b.RelayExtended2Cell.uncell(cell);
             const event = new MessageEvent("RELAY_EXTENDED2", { data });
             if (!this.dispatchEvent(event))
                 return;
@@ -328,7 +328,7 @@ class Tor extends EventTarget {
     }
     onRelayConnectedCell(cell) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
-            const data = relay_connected.RelayConnectedCell.uncell(cell);
+            const data = cell$c.RelayConnectedCell.uncell(cell);
             const event = new MessageEvent("RELAY_CONNECTED", { data });
             if (!this.dispatchEvent(event))
                 return;
@@ -337,7 +337,7 @@ class Tor extends EventTarget {
     }
     onRelayDataCell(cell) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
-            const data = relay_data.RelayDataCell.uncell(cell);
+            const data = cell$d.RelayDataCell.uncell(cell);
             const event = new MessageEvent("RELAY_DATA", { data });
             if (!this.dispatchEvent(event))
                 return;
@@ -346,7 +346,7 @@ class Tor extends EventTarget {
     }
     onRelayEndCell(cell) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
-            const data = relay_end.RelayEndCell.uncell(cell);
+            const data = cell$e.RelayEndCell.uncell(cell);
             const event = new MessageEvent("RELAY_END", { data });
             if (!this.dispatchEvent(event))
                 return;
@@ -355,7 +355,7 @@ class Tor extends EventTarget {
     }
     onRelayDropCell(cell) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
-            const data = relay_drop.RelayDropCell.uncell(cell);
+            const data = cell$f.RelayDropCell.uncell(cell);
             const event = new MessageEvent("RELAY_DROP", { data });
             if (!this.dispatchEvent(event))
                 return;
@@ -364,7 +364,7 @@ class Tor extends EventTarget {
     }
     onRelayTruncatedCell(cell) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
-            const data = relay_truncated.RelayTruncatedCell.uncell(cell);
+            const data = cell$g.RelayTruncatedCell.uncell(cell);
             const event = new MessageEvent("RELAY_TRUNCATED", { data });
             if (!this.dispatchEvent(event))
                 return;
@@ -435,7 +435,7 @@ class Tor extends EventTarget {
             const material = Buffer.allocUnsafe(20);
             crypto.getRandomValues(material);
             const pcreated = this.waitCreatedFast(circuit$1);
-            this.send(new cell$b.CreateFastCell(circuit$1, material).pack());
+            this.send(new cell$h.CreateFastCell(circuit$1, material).pack());
             const created = yield pcreated;
             const k0 = Buffer.concat([material, created.material]);
             const result = yield kdftor.kdftor(k0);
