@@ -1,6 +1,7 @@
 'use strict';
 
 var cell = require('../cell.cjs');
+var errors = require('../errors.cjs');
 var constants = require('../../../constants.cjs');
 
 class PaddingCell {
@@ -17,7 +18,9 @@ class PaddingCell {
     }
     static uncell(cell) {
         if (cell.command !== this.command)
-            throw new Error(`Invalid PADDING cell command ${cell.command}`);
+            throw new errors.InvalidCommand(this.name, cell.command);
+        if (cell.circuit)
+            throw new errors.InvalidCircuit(this.name, cell.circuit);
         return new this(cell.circuit, cell.payload);
     }
 }

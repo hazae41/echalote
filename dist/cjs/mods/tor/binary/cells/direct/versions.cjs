@@ -2,6 +2,7 @@
 
 var binary = require('../../../../../libs/binary.cjs');
 var cell = require('../cell.cjs');
+var errors = require('../errors.cjs');
 
 class VersionsCell {
     constructor(circuit, versions) {
@@ -20,9 +21,9 @@ class VersionsCell {
     }
     static uncell(cell) {
         if (cell.command !== this.command)
-            throw new Error(`Invalid VERSIONS cell command ${cell.command}`);
+            throw new errors.InvalidCommand(this.name, cell.command);
         if (cell.circuit)
-            throw new Error(`Can't uncell a RELAY cell from circuit > 0`);
+            throw new errors.InvalidCircuit(this.name, cell.circuit);
         const binary$1 = new binary.Binary(cell.payload);
         const nversions = cell.payload.length / 2;
         const versions = new Array(nversions);

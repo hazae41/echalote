@@ -8,4 +8,4 @@ class Duplicated extends Error {
 }
 
 exports.Duplicated = Duplicated;
-//# sourceMappingURL=duplicated.cjs.map
+//# sourceMappingURL=errors.cjs.map

@@ -2,6 +2,7 @@
 
 var binary = require('../../../../../libs/binary.cjs');
 var cell = require('../cell.cjs');
+var errors = require('../errors.cjs');
 var constants = require('../../../constants.cjs');
 
 class Create2Cell {
@@ -24,9 +25,9 @@ class Create2Cell {
     }
     static uncell(cell) {
         if (cell.command !== this.command)
-            throw new Error(`Invalid CREATE2 cell command ${cell.command}`);
+            throw new errors.InvalidCommand(this.name, cell.command);
         if (!cell.circuit)
-            throw new Error(`Can't uncell CREATE2 cell on circuit 0`);
+            throw new errors.InvalidCircuit(this.name, cell.circuit);
         const binary$1 = new binary.Binary(cell.payload);
         const type = binary$1.readUint16();
         const length = binary$1.readUint16();

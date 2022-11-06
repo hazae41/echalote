@@ -1,6 +1,7 @@
 import { Binary } from "libs/binary.js";
 import { TypedAddress } from "mods/tor/binary/address.js";
 import { NewCell } from "mods/tor/binary/cells/cell.js";
+import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js";
 import { PAYLOAD_LEN } from "mods/tor/constants.js";
 
 export class NetinfoCell {
@@ -36,9 +37,9 @@ export class NetinfoCell {
 
   static uncell(cell: NewCell) {
     if (cell.command !== this.command)
-      throw new Error(`Invalid NETINFO cell command ${cell.command}`)
+      throw new InvalidCommand(this.name, cell.command)
     if (cell.circuit)
-      throw new Error(`Can't uncell NETINFO cell on circuit > 0`)
+      throw new InvalidCircuit(this.name, cell.circuit)
 
     const binary = new Binary(cell.payload)
 

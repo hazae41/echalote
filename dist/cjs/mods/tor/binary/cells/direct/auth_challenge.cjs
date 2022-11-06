@@ -1,6 +1,8 @@
 'use strict';
 
 var binary = require('../../../../../libs/binary.cjs');
+var errors$1 = require('../errors.cjs');
+var errors = require('../../../errors.cjs');
 
 class AuthChallengeCell {
     constructor(circuit, challenge, methods) {
@@ -13,13 +15,13 @@ class AuthChallengeCell {
         return this.cell().pack();
     }
     cell() {
-        throw new Error(`Unimplemented`);
+        throw new errors.Unimplemented();
     }
     static uncell(cell) {
         if (cell.command !== this.command)
-            throw new Error(`Invalid AUTH_CHALLENGE cell command ${cell.command}`);
+            throw new errors$1.InvalidCommand(this.name, cell.command);
         if (cell.circuit)
-            throw new Error(`Can't uncell DESTROY cell on circuit > 0`);
+            throw new errors$1.InvalidCircuit(this.name, cell.circuit);
         const binary$1 = new binary.Binary(cell.payload);
         const challenge = binary$1.read(32);
         const nmethods = binary$1.readUint16();

@@ -2,6 +2,7 @@
 
 var tslib = require('tslib');
 var relay = require('../direct/relay.cjs');
+var errors = require('../errors.cjs');
 
 class RelayDataCell {
     constructor(circuit, stream, data) {
@@ -20,9 +21,9 @@ class RelayDataCell {
     }
     static uncell(cell) {
         if (cell.rcommand !== this.rcommand)
-            throw new Error(`Invalid RELAY_DATA relay cell relay command`);
+            throw new errors.InvalidRelayCommand(this.name, cell.rcommand);
         if (!cell.stream)
-            throw new Error(`Can't uncell RELAY_DATA relay cell on stream 0`);
+            throw new errors.InvalidStream(this.name, cell.stream);
         return new this(cell.circuit, cell.stream, cell.data);
     }
 }

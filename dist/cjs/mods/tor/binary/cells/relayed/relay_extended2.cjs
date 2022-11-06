@@ -2,6 +2,7 @@
 
 var tslib = require('tslib');
 var binary = require('../../../../../libs/binary.cjs');
+var errors = require('../errors.cjs');
 
 class RelayExtended2Cell {
     constructor(circuit, stream, data) {
@@ -20,9 +21,9 @@ class RelayExtended2Cell {
     }
     static uncell(cell) {
         if (cell.rcommand !== this.rcommand)
-            throw new Error(`Invalid RELAY_EXTENDED2 relay cell relay command`);
+            throw new errors.InvalidRelayCommand(this.name, cell.rcommand);
         if (cell.stream)
-            throw new Error(`Can't uncell RELAY_EXTENDED2 relay cell on stream > 0`);
+            throw new errors.InvalidStream(this.name, cell.stream);
         const binary$1 = new binary.Binary(cell.data);
         const length = binary$1.readUint16();
         const data = binary$1.read(length);

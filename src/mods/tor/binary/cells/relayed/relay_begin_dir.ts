@@ -1,17 +1,18 @@
+import { Binary } from "libs/binary.js";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay.js";
 import { InvalidRelayCommand, InvalidStream } from "mods/tor/binary/cells/errors.js";
 import { Circuit } from "mods/tor/circuit.js";
+import { PAYLOAD_LEN } from "mods/tor/constants.js";
 import { TcpStream } from "mods/tor/streams/tcp.js";
 
-export class RelayDataCell {
-  readonly class = RelayDataCell
+export class RelayBeginDirCell {
+  readonly class = RelayBeginDirCell
 
-  static rcommand = 2
+  static rcommand = 13
 
   constructor(
     readonly circuit: Circuit,
-    readonly stream: TcpStream,
-    readonly data: Buffer
+    readonly stream: TcpStream
   ) { }
 
   async pack() {
@@ -19,7 +20,11 @@ export class RelayDataCell {
   }
 
   cell() {
-    return new RelayCell(this.circuit, this.stream, this.class.rcommand, this.data)
+    const binary = Binary.allocUnsafe(PAYLOAD_LEN)
+
+    binary.fill()
+
+    return new RelayCell(this.circuit, this.stream, this.class.rcommand, binary.sliced)
   }
 
   static uncell(cell: RelayCell) {
@@ -28,6 +33,9 @@ export class RelayDataCell {
     if (!cell.stream)
       throw new InvalidStream(this.name, cell.stream)
 
-    return new this(cell.circuit, cell.stream, cell.data)
+    if (cell.data.find(it => it !== 0))
+      throw new Error(`Invalid ${this.name} data`)
+
+    return new this(cell.circuit, cell.stream)
   }
 }

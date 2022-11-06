@@ -5,6 +5,7 @@ var binary = require('../../../../../libs/binary.cjs');
 var time = require('../../../../../libs/time.cjs');
 var address = require('../../address.cjs');
 var relay = require('../direct/relay.cjs');
+var errors = require('../errors.cjs');
 var constants = require('../../../constants.cjs');
 
 class RelayEndCellReasonOther {
@@ -56,9 +57,9 @@ class RelayEndCell {
     }
     static uncell(cell) {
         if (cell.rcommand !== this.rcommand)
-            throw new Error(`Invalid RELAY_END relay cell relay command`);
+            throw new errors.InvalidRelayCommand(this.name, cell.rcommand);
         if (!cell.stream)
-            throw new Error(`Can't uncell RELAY_END relay cell on stream 0`);
+            throw new errors.InvalidStream(this.name, cell.stream);
         const binary$1 = new binary.Binary(cell.data);
         const reasonId = binary$1.readUint8();
         const reason = reasonId === this.reasons.REASON_EXITPOLICY

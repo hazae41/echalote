@@ -2,8 +2,10 @@ import { Ed25519PublicKey, Ed25519Signature } from "@hazae41/berith"
 import { PaddingScheme, RsaPublicKey } from "@hazae41/paimon"
 import { Binary } from "libs/binary.js"
 import { NewCell } from "mods/tor/binary/cells/cell.js"
+import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
+import { Duplicated } from "mods/tor/binary/certs/errors.js"
 import { Cross, Ed25519, RSA } from "mods/tor/binary/certs/index.js"
-import { Duplicated } from "mods/tor/errors/duplicated.js"
+import { Unimplemented } from "mods/tor/errors.js"
 
 export interface Certs {
   id?: RSA.Cert,
@@ -119,14 +121,14 @@ export class CertsCell {
   }
 
   cell(): NewCell {
-    throw new Error(`Unimplemented`)
+    throw new Unimplemented()
   }
 
   static uncell(cell: NewCell) {
     if (cell.command !== this.command)
-      throw new Error(`Invalid CERTS cell command ${cell.command}`)
+      throw new InvalidCommand(this.name, cell.command)
     if (cell.circuit)
-      throw new Error(`Can't uncell CERTS cell on circuit > 0`)
+      throw new InvalidCircuit(this.name, cell.circuit)
 
     const binary = new Binary(cell.payload)
 

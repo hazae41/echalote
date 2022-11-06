@@ -1,6 +1,7 @@
 import { Binary } from "libs/binary.js";
 import { DestroyCell } from "mods/tor/binary/cells/direct/destroy.js";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay.js";
+import { InvalidRelayCommand, InvalidStream } from "mods/tor/binary/cells/errors.js";
 import { Circuit } from "mods/tor/circuit.js";
 
 export class RelayTruncateCell {
@@ -30,9 +31,9 @@ export class RelayTruncateCell {
 
   static uncell(cell: RelayCell) {
     if (cell.rcommand !== this.rcommand)
-      throw new Error(`Invalid RELAY_TRUNCATE relay cell relay command`)
+      throw new InvalidRelayCommand(this.name, cell.rcommand)
     if (cell.stream)
-      throw new Error(`Can't uncell RELAY_TRUNCATE relay cell on stream > 0`)
+      throw new InvalidStream(this.name, cell.stream)
 
     const binary = new Binary(cell.data)
 

@@ -1,0 +1,1 @@
+{"version":3,"file":"errors.cjs","sources":["../../../../src/mods/tor/errors.ts"],"sourcesContent":["export class Unimplemented extends Error {\n  constructor() {\n    super(`Unimplemented`)\n  }\n}"],"names":[],"mappings":";;AAAM,MAAO,aAAc,SAAQ,KAAK,CAAA;AACtC,IAAA,WAAA,GAAA;QACE,KAAK,CAAC,CAAe,aAAA,CAAA,CAAC,CAAA;KACvB;AACF;;;;"}

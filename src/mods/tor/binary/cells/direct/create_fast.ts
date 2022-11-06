@@ -1,5 +1,6 @@
 import { Binary } from "libs/binary.js";
 import { NewCell } from "mods/tor/binary/cells/cell.js";
+import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js";
 import { Circuit } from "mods/tor/circuit.js";
 import { PAYLOAD_LEN } from "mods/tor/constants.js";
 
@@ -25,7 +26,7 @@ export class CreateFastCell {
     const binary = Binary.allocUnsafe(PAYLOAD_LEN)
 
     if (this.material.length !== 20)
-      throw new Error(`Invalid CREATE_FAST cell material length`)
+      throw new Error(`Invalid ${this.class.name} material length`)
     binary.write(this.material)
     binary.fill()
 
@@ -34,9 +35,9 @@ export class CreateFastCell {
 
   static uncell(cell: NewCell) {
     if (cell.command !== this.command)
-      throw new Error(`Invalid CREATE_FAST cell command ${cell.command}`)
+      throw new InvalidCommand(this.name, cell.command)
     if (!cell.circuit)
-      throw new Error(`Can't uncell CREATE_FAST cell on circuit 0`)
+      throw new InvalidCircuit(this.name, cell.circuit)
 
     const binary = new Binary(cell.payload)
 

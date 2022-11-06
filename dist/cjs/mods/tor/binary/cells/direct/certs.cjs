@@ -4,10 +4,12 @@ var tslib = require('tslib');
 var berith = require('@hazae41/berith');
 var paimon = require('@hazae41/paimon');
 var binary = require('../../../../../libs/binary.cjs');
+var errors$1 = require('../errors.cjs');
+var errors$2 = require('../../certs/errors.cjs');
 var cert$1 = require('../../certs/cross/cert.cjs');
 var cert$2 = require('../../certs/ed25519/cert.cjs');
 var cert = require('../../certs/rsa/cert.cjs');
-var duplicated = require('../../../errors/duplicated.cjs');
+var errors = require('../../../errors.cjs');
 
 class CertsCell {
     constructor(circuit, certs) {
@@ -102,13 +104,13 @@ class CertsCell {
         console.warn("Could not verify SIGNING_TO_TLS cert key");
     }
     cell() {
-        throw new Error(`Unimplemented`);
+        throw new errors.Unimplemented();
     }
     static uncell(cell) {
         if (cell.command !== this.command)
-            throw new Error(`Invalid CERTS cell command ${cell.command}`);
+            throw new errors$1.InvalidCommand(this.name, cell.command);
         if (cell.circuit)
-            throw new Error(`Can't uncell CERTS cell on circuit > 0`);
+            throw new errors$1.InvalidCircuit(this.name, cell.circuit);
         const binary$1 = new binary.Binary(cell.payload);
         const ncerts = binary$1.readUint8();
         const certs = {};
@@ -117,43 +119,43 @@ class CertsCell {
             const length = binary$1.readUint16();
             if (type === cert.Cert.types.ID) {
                 if (certs.id)
-                    throw new duplicated.Duplicated(type);
+                    throw new errors$2.Duplicated(type);
                 certs.id = cert.Cert.read(binary$1, type, length);
                 continue;
             }
             if (type === cert.Cert.types.ID_TO_AUTH) {
                 if (certs.id_to_auth)
-                    throw new duplicated.Duplicated(type);
+                    throw new errors$2.Duplicated(type);
                 certs.id_to_auth = cert.Cert.read(binary$1, type, length);
                 continue;
             }
             if (type === cert.Cert.types.ID_TO_TLS) {
                 if (certs.id_to_tls)
-                    throw new duplicated.Duplicated(type);
+                    throw new errors$2.Duplicated(type);
                 certs.id_to_tls = cert.Cert.read(binary$1, type, length);
                 continue;
             }
             if (type === cert$1.Cert.types.ID_TO_EID) {
                 if (certs.id_to_eid)
-                    throw new duplicated.Duplicated(type);
+                    throw new errors$2.Duplicated(type);
                 certs.id_to_eid = cert$1.Cert.read(binary$1, type, length);
                 continue;
             }
             if (type === cert$2.Cert.types.EID_TO_SIGNING) {
                 if (certs.eid_to_signing)
-                    throw new duplicated.Duplicated(type);
+                    throw new errors$2.Duplicated(type);
                 certs.eid_to_signing = cert$2.Cert.read(binary$1, type, length);
                 continue;
             }
             if (type === cert$2.Cert.types.SIGNING_TO_TLS) {
                 if (certs.signing_to_tls)
-                    throw new duplicated.Duplicated(type);
+                    throw new errors$2.Duplicated(type);
                 certs.signing_to_tls = cert$2.Cert.read(binary$1, type, length);
                 continue;
             }
             if (type === cert$2.Cert.types.SIGNING_TO_AUTH) {
                 if (certs.signing_to_auth)
-                    throw new duplicated.Duplicated(type);
+                    throw new errors$2.Duplicated(type);
                 certs.signing_to_auth = cert$2.Cert.read(binary$1, type, length);
                 continue;
             }

@@ -2,6 +2,7 @@
 
 var binary = require('../../../../../libs/binary.cjs');
 var cell = require('../cell.cjs');
+var errors = require('../errors.cjs');
 var constants = require('../../../constants.cjs');
 
 class CreatedFastCell {
@@ -23,9 +24,9 @@ class CreatedFastCell {
     }
     static uncell(cell) {
         if (cell.command !== this.command)
-            throw new Error(`Invalid CREATED_FAST cell command ${cell.command}`);
+            throw new errors.InvalidCommand(this.name, cell.command);
         if (!cell.circuit)
-            throw new Error(`Can't uncell CREATED_FAST cell on circuit 0`);
+            throw new errors.InvalidCircuit(this.name, cell.circuit);
         const binary$1 = new binary.Binary(cell.payload);
         const material = binary$1.read(20);
         const derivative = binary$1.read(20);

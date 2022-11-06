@@ -1,5 +1,6 @@
 import { Binary } from "libs/binary.js"
 import { OldCell } from "mods/tor/binary/cells/cell.js"
+import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
 
 export class VersionsCell {
   readonly class = VersionsCell
@@ -26,9 +27,9 @@ export class VersionsCell {
 
   static uncell(cell: OldCell) {
     if (cell.command !== this.command)
-      throw new Error(`Invalid VERSIONS cell command ${cell.command}`)
+      throw new InvalidCommand(this.name, cell.command)
     if (cell.circuit)
-      throw new Error(`Can't uncell a RELAY cell from circuit > 0`)
+      throw new InvalidCircuit(this.name, cell.circuit)
 
     const binary = new Binary(cell.payload)
 

@@ -2,6 +2,7 @@
 
 var binary = require('../../../../../libs/binary.cjs');
 var cell = require('../cell.cjs');
+var errors = require('../errors.cjs');
 var constants = require('../../../constants.cjs');
 
 class PaddingNegociateCell {
@@ -26,6 +27,10 @@ class PaddingNegociateCell {
         return new cell.NewCell(this.circuit, this.class.command, binary$1.buffer);
     }
     static uncell(cell) {
+        if (cell.command !== this.command)
+            throw new errors.InvalidCommand(this.name, cell.command);
+        if (cell.circuit)
+            throw new errors.InvalidCircuit(this.name, cell.circuit);
         const binary$1 = new binary.Binary(cell.payload);
         const version = binary$1.readUint8();
         const pcommand = binary$1.readUint8();

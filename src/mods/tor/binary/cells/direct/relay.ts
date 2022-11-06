@@ -1,6 +1,7 @@
 import { lastOf } from "libs/array.js";
 import { Binary } from "libs/binary.js";
 import { NewCell } from "mods/tor/binary/cells/cell.js";
+import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js";
 import { Circuit } from "mods/tor/circuit.js";
 import { PAYLOAD_LEN } from "mods/tor/constants.js";
 import { TcpStream } from "mods/tor/streams/tcp.js";
@@ -59,9 +60,9 @@ export class RelayCell {
 
   static async uncell(cell: NewCell) {
     if (cell.command !== this.command)
-      throw new Error(`Invalid RELAY cell command ${cell.command}`)
+      throw new InvalidCommand(this.name, cell.command)
     if (!cell.circuit)
-      throw new Error(`Can't uncell a RELAY cell on circuit 0`)
+      throw new InvalidCircuit(this.name, cell.circuit)
 
     for (let i = 0; i < cell.circuit.targets.length; i++)
       cell.circuit.targets[i].backwardKey.apply_keystream(cell.payload)
@@ -72,7 +73,7 @@ export class RelayCell {
     const recognised = binary.readUint16()
 
     if (recognised !== 0)
-      throw new Error(`Unrecognised RELAY cell`)
+      throw new Error(`Unrecognised ${this.name}`)
 
     const streamId = binary.readUint16()
 

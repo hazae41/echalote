@@ -4,6 +4,7 @@ var tslib = require('tslib');
 var array = require('../../../../../libs/array.cjs');
 var binary = require('../../../../../libs/binary.cjs');
 var cell = require('../cell.cjs');
+var errors = require('../errors.cjs');
 var constants = require('../../../constants.cjs');
 
 class RelayCell {
@@ -49,16 +50,16 @@ class RelayCell {
     static uncell(cell) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             if (cell.command !== this.command)
-                throw new Error(`Invalid RELAY cell command ${cell.command}`);
+                throw new errors.InvalidCommand(this.name, cell.command);
             if (!cell.circuit)
-                throw new Error(`Can't uncell a RELAY cell on circuit 0`);
+                throw new errors.InvalidCircuit(this.name, cell.circuit);
             for (let i = 0; i < cell.circuit.targets.length; i++)
                 cell.circuit.targets[i].backwardKey.apply_keystream(cell.payload);
             const binary$1 = new binary.Binary(cell.payload);
             const rcommand = binary$1.readUint8();
             const recognised = binary$1.readUint16();
             if (recognised !== 0)
-                throw new Error(`Unrecognised RELAY cell`);
+                throw new Error(`Unrecognised ${this.name}`);
             const streamId = binary$1.readUint16();
             const stream = streamId
                 ? cell.circuit.streams.get(streamId)

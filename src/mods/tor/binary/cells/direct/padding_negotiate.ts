@@ -1,6 +1,6 @@
 import { Binary } from "libs/binary.js"
 import { NewCell } from "mods/tor/binary/cells/cell.js"
-import { Circuit } from "mods/tor/circuit.js"
+import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
 import { PAYLOAD_LEN } from "mods/tor/constants.js"
 
 export class PaddingNegociateCell {
@@ -18,7 +18,7 @@ export class PaddingNegociateCell {
   }
 
   constructor(
-    readonly circuit: Circuit | undefined,
+    readonly circuit: undefined,
     readonly version: number,
     readonly pcommand: number,
     readonly ito_low_ms: number,
@@ -42,6 +42,11 @@ export class PaddingNegociateCell {
   }
 
   static uncell(cell: NewCell) {
+    if (cell.command !== this.command)
+      throw new InvalidCommand(this.name, cell.command)
+    if (cell.circuit)
+      throw new InvalidCircuit(this.name, cell.circuit)
+
     const binary = new Binary(cell.payload)
 
     const version = binary.readUint8()

@@ -4,6 +4,7 @@ var tslib = require('tslib');
 var binary = require('../../../../../libs/binary.cjs');
 var destroy = require('../direct/destroy.cjs');
 var relay = require('../direct/relay.cjs');
+var errors = require('../errors.cjs');
 
 class RelayTruncateCell {
     constructor(circuit, stream, reason) {
@@ -24,9 +25,9 @@ class RelayTruncateCell {
     }
     static uncell(cell) {
         if (cell.rcommand !== this.rcommand)
-            throw new Error(`Invalid RELAY_TRUNCATE relay cell relay command`);
+            throw new errors.InvalidRelayCommand(this.name, cell.rcommand);
         if (cell.stream)
-            throw new Error(`Can't uncell RELAY_TRUNCATE relay cell on stream > 0`);
+            throw new errors.InvalidStream(this.name, cell.stream);
         const binary$1 = new binary.Binary(cell.data);
         const reason = binary$1.readUint8();
         return new this(cell.circuit, cell.stream, reason);

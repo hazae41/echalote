@@ -1,4 +1,5 @@
 export * from "./relay_begin.js";
+export * from "./relay_begin_dir.js";
 export * from "./relay_connected.js";
 export * from "./relay_data.js";
 export * from "./relay_drop.js";

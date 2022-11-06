@@ -2,6 +2,7 @@
 
 var binary = require('../../../../../libs/binary.cjs');
 var cell = require('../cell.cjs');
+var errors = require('../errors.cjs');
 var constants = require('../../../constants.cjs');
 
 class DestroyCell {
@@ -21,9 +22,9 @@ class DestroyCell {
     }
     static uncell(cell) {
         if (cell.command !== this.command)
-            throw new Error(`Invalid DESTROY cell command ${cell.command}`);
+            throw new errors.InvalidCommand(this.name, cell.command);
         if (!cell.circuit)
-            throw new Error(`Can't uncell DESTROY cell on circuit 0`);
+            throw new errors.InvalidCircuit(this.name, cell.circuit);
         const binary$1 = new binary.Binary(cell.payload);
         const code = binary$1.readUint8();
         return new this(cell.circuit, code);

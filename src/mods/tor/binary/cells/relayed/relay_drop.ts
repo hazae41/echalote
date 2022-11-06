@@ -1,4 +1,5 @@
 import { RelayCell } from "mods/tor/binary/cells/direct/relay.js";
+import { InvalidRelayCommand } from "mods/tor/binary/cells/errors.js";
 import { Circuit } from "mods/tor/circuit.js";
 import { TcpStream } from "mods/tor/streams/tcp.js";
 
@@ -23,7 +24,7 @@ export class RelayDropCell {
 
   static uncell(cell: RelayCell) {
     if (cell.rcommand !== this.rcommand)
-      throw new Error(`Invalid RELAY_DROP relay cell relay command`)
+      throw new InvalidRelayCommand(this.name, cell.rcommand)
 
     return new this(cell.circuit, cell.stream, cell.data)
   }

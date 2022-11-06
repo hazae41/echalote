@@ -4,6 +4,7 @@ var tslib = require('tslib');
 var binary = require('../../../../../libs/binary.cjs');
 var time = require('../../../../../libs/time.cjs');
 var address = require('../../address.cjs');
+var errors = require('../errors.cjs');
 
 class RelayConnectedCell {
     constructor(circuit, stream, address, ttl) {
@@ -23,9 +24,9 @@ class RelayConnectedCell {
     }
     static uncell(cell) {
         if (cell.rcommand !== this.rcommand)
-            throw new Error(`Invalid RELAY_CONNECTED relay cell relay command`);
+            throw new errors.InvalidRelayCommand(this.name, cell.rcommand);
         if (!cell.stream)
-            throw new Error(`Can't uncell RELAY_CONNECTED relay cell on stream 0`);
+            throw new errors.InvalidStream(this.name, cell.stream);
         const binary$1 = new binary.Binary(cell.data);
         const ipv4 = address.Address4.read(binary$1);
         if (ipv4.address !== "...") {
