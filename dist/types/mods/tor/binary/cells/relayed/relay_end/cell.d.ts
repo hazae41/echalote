@@ -1,30 +1,12 @@
-import { Binary } from '../../../../../../libs/binary.js';
-import { Address4, Address6 } from '../../../address.js';
 import { RelayCell } from '../../direct/relay/cell.js';
+import { RelayEndReason } from './reason.js';
 import { Circuit } from '../../../../circuit.js';
 import { TcpStream } from '../../../../streams/tcp.js';
 
-declare type RelayEndCellReason = RelayEndCellReasonExitPolicy | RelayEndCellReasonOther;
-declare class RelayEndCellReasonOther {
-    readonly id: number;
-    readonly class: typeof RelayEndCellReasonOther;
-    constructor(id: number);
-    write(binary: Binary): void;
-}
-declare class RelayEndCellReasonExitPolicy {
-    readonly address: Address4 | Address6;
-    readonly ttl: Date;
-    readonly class: typeof RelayEndCellReasonExitPolicy;
-    static id: number;
-    constructor(address: Address4 | Address6, ttl: Date);
-    get id(): number;
-    write(binary: Binary): void;
-    static read(binary: Binary): RelayEndCellReasonExitPolicy;
-}
 declare class RelayEndCell {
     readonly circuit: Circuit;
     readonly stream: TcpStream;
-    readonly reason: RelayEndCellReason;
+    readonly reason: RelayEndReason;
     readonly class: typeof RelayEndCell;
     static rcommand: number;
     static reasons: {
@@ -44,10 +26,10 @@ declare class RelayEndCell {
         readonly REASON_TORPROTOCOL: 13;
         readonly REASON_NOTDIRECTORY: 14;
     };
-    constructor(circuit: Circuit, stream: TcpStream, reason: RelayEndCellReason);
+    constructor(circuit: Circuit, stream: TcpStream, reason: RelayEndReason);
     pack(): Promise<Buffer>;
     cell(): RelayCell;
     static uncell(cell: RelayCell): RelayEndCell;
 }
 
-export { RelayEndCell, RelayEndCellReason, RelayEndCellReasonExitPolicy, RelayEndCellReasonOther };
+export { RelayEndCell };

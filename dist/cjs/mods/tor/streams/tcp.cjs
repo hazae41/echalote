@@ -5,6 +5,7 @@ var binary = require('../../../libs/binary.cjs');
 var events = require('../../../libs/events.cjs');
 var cell$1 = require('../binary/cells/relayed/relay_data/cell.cjs');
 var cell = require('../binary/cells/relayed/relay_end/cell.cjs');
+var reason = require('../binary/cells/relayed/relay_end/reason.cjs');
 var constants = require('../constants.cjs');
 
 const DATA_LEN = constants.PAYLOAD_LEN - (1 + 2 + 2 + 4 + 2);
@@ -53,8 +54,8 @@ class TcpStream extends EventTarget {
             const wwriter = this.wstreams.writable.getWriter();
             wwriter.abort(abort.target.reason).catch(console.warn);
             wwriter.releaseLock();
-            const reason = cell.RelayEndCell.reasons.REASON_UNKNOWN;
-            const reason2 = new cell.RelayEndCellReasonOther(reason);
+            const reason$1 = cell.RelayEndCell.reasons.REASON_UNKNOWN;
+            const reason2 = new reason.RelayEndReasonOther(reason$1);
             const cell$1 = new cell.RelayEndCell(this.circuit, this, reason2);
             this.circuit.tor.send(yield cell$1.pack());
         });

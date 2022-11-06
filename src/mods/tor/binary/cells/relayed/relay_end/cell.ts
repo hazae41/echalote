@@ -1,55 +1,10 @@
 import { Binary } from "libs/binary.js";
-import { dateToTtl, ttlToDate } from "libs/time.js";
-import { Address4, Address6 } from "mods/tor/binary/address.js";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { InvalidRelayCommand, InvalidStream } from "mods/tor/binary/cells/errors.js";
+import { RelayEndReason, RelayEndReasonExitPolicy, RelayEndReasonOther } from "mods/tor/binary/cells/relayed/relay_end/reason.js";
 import { Circuit } from "mods/tor/circuit.js";
 import { PAYLOAD_LEN } from "mods/tor/constants.js";
 import { TcpStream } from "mods/tor/streams/tcp.js";
-
-export type RelayEndCellReason =
-  | RelayEndCellReasonExitPolicy
-  | RelayEndCellReasonOther
-
-export class RelayEndCellReasonOther {
-  readonly class = RelayEndCellReasonOther
-
-  constructor(
-    readonly id: number
-  ) { }
-
-  write(binary: Binary) { }
-}
-
-export class RelayEndCellReasonExitPolicy {
-  readonly class = RelayEndCellReasonExitPolicy
-
-  static id = 4
-
-  constructor(
-    readonly address: Address4 | Address6,
-    readonly ttl: Date
-  ) { }
-
-  get id() {
-    return this.class.id
-  }
-
-  write(binary: Binary) {
-    this.address.write(binary)
-    binary.writeUint32(dateToTtl(this.ttl))
-  }
-
-  static read(binary: Binary) {
-    const address = binary.remaining === 8
-      ? Address4.read(binary)
-      : Address6.read(binary)
-
-    const ttl = ttlToDate(binary.readUint32())
-
-    return new this(address, ttl)
-  }
-}
 
 export class RelayEndCell {
   readonly class = RelayEndCell
@@ -77,7 +32,7 @@ export class RelayEndCell {
   constructor(
     readonly circuit: Circuit,
     readonly stream: TcpStream,
-    readonly reason: RelayEndCellReason
+    readonly reason: RelayEndReason
   ) { }
 
   async pack() {
@@ -104,8 +59,8 @@ export class RelayEndCell {
     const reasonId = binary.readUint8()
 
     const reason = reasonId === this.reasons.REASON_EXITPOLICY
-      ? RelayEndCellReasonExitPolicy.read(binary)
-      : new RelayEndCellReasonOther(reasonId)
+      ? RelayEndReasonExitPolicy.read(binary)
+      : new RelayEndReasonOther(reasonId)
 
     return new this(cell.circuit, cell.stream, reason)
   }

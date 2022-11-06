@@ -25,8 +25,10 @@ export { RelayBeginDirCell } from './mods/tor/binary/cells/relayed/relay_begin_d
 export { RelayConnectedCell } from './mods/tor/binary/cells/relayed/relay_connected/cell.js';
 export { RelayDataCell } from './mods/tor/binary/cells/relayed/relay_data/cell.js';
 export { RelayDropCell } from './mods/tor/binary/cells/relayed/relay_drop/cell.js';
-export { RelayEndCell, RelayEndCellReason, RelayEndCellReasonExitPolicy, RelayEndCellReasonOther } from './mods/tor/binary/cells/relayed/relay_end/cell.js';
-export { Link, LinkIPv4, LinkIPv6, LinkLegacyID, LinkModernID, RelayExtend2Cell } from './mods/tor/binary/cells/relayed/relay_extend2/cell.js';
+export { RelayEndCell } from './mods/tor/binary/cells/relayed/relay_end/cell.js';
+export { RelayEndReason, RelayEndReasonExitPolicy, RelayEndReasonOther } from './mods/tor/binary/cells/relayed/relay_end/reason.js';
+export { RelayExtend2Cell } from './mods/tor/binary/cells/relayed/relay_extend2/cell.js';
+export { RelayExtend2Link, RelayExtend2LinkIPv4, RelayExtend2LinkIPv6, RelayExtend2LinkLegacyID, RelayExtend2LinkModernID } from './mods/tor/binary/cells/relayed/relay_extend2/link.js';
 export { RelayExtended2Cell } from './mods/tor/binary/cells/relayed/relay_extended2/cell.js';
 export { RelayTruncateCell } from './mods/tor/binary/cells/relayed/relay_truncate/cell.js';
 export { RelayTruncatedCell } from './mods/tor/binary/cells/relayed/relay_truncated/cell.js';

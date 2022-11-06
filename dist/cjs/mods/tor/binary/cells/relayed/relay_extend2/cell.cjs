@@ -5,78 +5,6 @@ var binary = require('../../../../../../libs/binary.cjs');
 var cell = require('../../direct/relay_early/cell.cjs');
 var constants = require('../../../../constants.cjs');
 
-class LinkIPv4 {
-    constructor(hostname, port) {
-        this.hostname = hostname;
-        this.port = port;
-        this.class = LinkIPv4;
-    }
-    write(binary) {
-        binary.writeUint8(this.class.type);
-        binary.writeUint8(4 + 2);
-        const [a, b, c, d] = this.hostname.split(".");
-        binary.writeUint8(Number(a));
-        binary.writeUint8(Number(b));
-        binary.writeUint8(Number(c));
-        binary.writeUint8(Number(d));
-        binary.writeUint16(this.port);
-    }
-    static from(host) {
-        const { hostname, port } = new URL(`http://${host}`);
-        return new this(hostname, Number(port));
-    }
-}
-LinkIPv4.type = 0;
-class LinkIPv6 {
-    constructor(hostname, port) {
-        this.hostname = hostname;
-        this.port = port;
-        this.class = LinkIPv6;
-    }
-    write(binary) {
-        binary.writeUint8(this.class.type);
-        binary.writeUint8(16 + 2);
-        const [a, b, c, d, e, f, g, h] = this.hostname.split(":");
-        binary.writeUint16(Number(`0x${a}`) || 0);
-        binary.writeUint16(Number(`0x${b}`) || 0);
-        binary.writeUint16(Number(`0x${c}`) || 0);
-        binary.writeUint16(Number(`0x${d}`) || 0);
-        binary.writeUint16(Number(`0x${e}`) || 0);
-        binary.writeUint16(Number(`0x${f}`) || 0);
-        binary.writeUint16(Number(`0x${g}`) || 0);
-        binary.writeUint16(Number(`0x${h}`) || 0);
-        binary.writeUint16(this.port);
-    }
-    static from(host) {
-        const { hostname, port } = new URL(`http://${host}`);
-        return new this(hostname.slice(1, -1), Number(port));
-    }
-}
-LinkIPv6.type = 1;
-class LinkLegacyID {
-    constructor(fingerprint) {
-        this.fingerprint = fingerprint;
-        this.class = LinkLegacyID;
-    }
-    write(binary) {
-        binary.writeUint8(this.class.type);
-        binary.writeUint8(20);
-        binary.write(this.fingerprint);
-    }
-}
-LinkLegacyID.type = 2;
-class LinkModernID {
-    constructor(fingerprint) {
-        this.fingerprint = fingerprint;
-        this.class = LinkModernID;
-    }
-    write(binary) {
-        binary.writeUint8(this.class.type);
-        binary.writeUint8(32);
-        binary.write(this.fingerprint);
-    }
-}
-LinkModernID.type = 3;
 class RelayExtend2Cell {
     constructor(circuit, stream, type, links, data) {
         this.circuit = circuit;
@@ -115,9 +43,5 @@ RelayExtend2Cell.types = {
     NTOR: 2
 };
 
-exports.LinkIPv4 = LinkIPv4;
-exports.LinkIPv6 = LinkIPv6;
-exports.LinkLegacyID = LinkLegacyID;
-exports.LinkModernID = LinkModernID;
 exports.RelayExtend2Cell = RelayExtend2Cell;
 //# sourceMappingURL=cell.cjs.map

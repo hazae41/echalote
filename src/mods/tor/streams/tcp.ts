@@ -1,7 +1,8 @@
 import { Binary } from "libs/binary.js";
 import { Events } from "libs/events.js";
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
-import { RelayEndCell, RelayEndCellReasonOther } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
+import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
+import { RelayEndReasonOther } from "mods/tor/binary/cells/relayed/relay_end/reason.js";
 import { Circuit } from "mods/tor/circuit.js";
 import { PAYLOAD_LEN } from "../constants.js";
 
@@ -72,7 +73,7 @@ export class TcpStream extends EventTarget {
     wwriter.releaseLock()
 
     const reason = RelayEndCell.reasons.REASON_UNKNOWN
-    const reason2 = new RelayEndCellReasonOther(reason)
+    const reason2 = new RelayEndReasonOther(reason)
     const cell = new RelayEndCell(this.circuit, this, reason2)
     this.circuit.tor.send(await cell.pack())
   }

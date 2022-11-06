@@ -11,6 +11,7 @@ var future = require('../../libs/future.cjs');
 var ntor = require('./algos/ntor.cjs');
 var cell$2 = require('./binary/cells/relayed/relay_begin/cell.cjs');
 var cell = require('./binary/cells/relayed/relay_extend2/cell.cjs');
+var link = require('./binary/cells/relayed/relay_extend2/link.cjs');
 var cell$1 = require('./binary/cells/relayed/relay_truncate/cell.cjs');
 var http = require('./streams/http.cjs');
 var tcp = require('./streams/tcp.cjs');
@@ -138,10 +139,10 @@ class Circuit extends EventTarget {
             const idh = Buffer.from(fallback.id, "hex");
             const eid = Buffer.from(fallback.eid, "base64");
             const links = fallback.hosts.map(it => it.startsWith("[")
-                ? cell.LinkIPv6.from(it)
-                : cell.LinkIPv4.from(it));
-            links.push(new cell.LinkLegacyID(idh));
-            links.push(new cell.LinkModernID(eid));
+                ? link.RelayExtend2LinkIPv6.from(it)
+                : link.RelayExtend2LinkIPv4.from(it));
+            links.push(new link.RelayExtend2LinkLegacyID(idh));
+            links.push(new link.RelayExtend2LinkModernID(eid));
             const xsecretx = new berith.X25519StaticSecret();
             const publicx = Buffer.from(xsecretx.to_public().to_bytes().buffer);
             const publicb = Buffer.from(fallback.onion);

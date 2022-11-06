@@ -11,7 +11,8 @@ import { RelayBeginCell } from "mods/tor/binary/cells/relayed/relay_begin/cell.j
 import { RelayConnectedCell } from "mods/tor/binary/cells/relayed/relay_connected/cell.js";
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
-import { Link, LinkIPv4, LinkIPv6, LinkLegacyID, LinkModernID, RelayExtend2Cell } from "mods/tor/binary/cells/relayed/relay_extend2/cell.js";
+import { RelayExtend2Cell } from "mods/tor/binary/cells/relayed/relay_extend2/cell.js";
+import { RelayExtend2Link, RelayExtend2LinkIPv4, RelayExtend2LinkIPv6, RelayExtend2LinkLegacyID, RelayExtend2LinkModernID } from "mods/tor/binary/cells/relayed/relay_extend2/link.js";
 import { RelayExtended2Cell } from "mods/tor/binary/cells/relayed/relay_extended2/cell.js";
 import { RelayTruncateCell } from "mods/tor/binary/cells/relayed/relay_truncate/cell.js";
 import { RelayTruncatedCell } from "mods/tor/binary/cells/relayed/relay_truncated/cell.js";
@@ -142,12 +143,12 @@ export class Circuit extends EventTarget {
     const idh = Buffer.from(fallback.id, "hex")
     const eid = Buffer.from(fallback.eid, "base64")
 
-    const links: Link[] = fallback.hosts.map(
+    const links: RelayExtend2Link[] = fallback.hosts.map(
       it => it.startsWith("[")
-        ? LinkIPv6.from(it)
-        : LinkIPv4.from(it))
-    links.push(new LinkLegacyID(idh))
-    links.push(new LinkModernID(eid))
+        ? RelayExtend2LinkIPv6.from(it)
+        : RelayExtend2LinkIPv4.from(it))
+    links.push(new RelayExtend2LinkLegacyID(idh))
+    links.push(new RelayExtend2LinkModernID(eid))
 
     const xsecretx = new X25519StaticSecret()
     const publicx = Buffer.from(xsecretx.to_public().to_bytes().buffer)

@@ -2,41 +2,11 @@
 
 var tslib = require('tslib');
 var binary = require('../../../../../../libs/binary.cjs');
-var time = require('../../../../../../libs/time.cjs');
-var address = require('../../../address.cjs');
 var cell = require('../../direct/relay/cell.cjs');
 var errors = require('../../errors.cjs');
+var reason = require('./reason.cjs');
 var constants = require('../../../../constants.cjs');
 
-class RelayEndCellReasonOther {
-    constructor(id) {
-        this.id = id;
-        this.class = RelayEndCellReasonOther;
-    }
-    write(binary) { }
-}
-class RelayEndCellReasonExitPolicy {
-    constructor(address, ttl) {
-        this.address = address;
-        this.ttl = ttl;
-        this.class = RelayEndCellReasonExitPolicy;
-    }
-    get id() {
-        return this.class.id;
-    }
-    write(binary) {
-        this.address.write(binary);
-        binary.writeUint32(time.dateToTtl(this.ttl));
-    }
-    static read(binary) {
-        const address$1 = binary.remaining === 8
-            ? address.Address4.read(binary)
-            : address.Address6.read(binary);
-        const ttl = time.ttlToDate(binary.readUint32());
-        return new this(address$1, ttl);
-    }
-}
-RelayEndCellReasonExitPolicy.id = 4;
 class RelayEndCell {
     constructor(circuit, stream, reason) {
         this.circuit = circuit;
@@ -62,10 +32,10 @@ class RelayEndCell {
             throw new errors.InvalidStream(this.name, cell.stream);
         const binary$1 = new binary.Binary(cell.data);
         const reasonId = binary$1.readUint8();
-        const reason = reasonId === this.reasons.REASON_EXITPOLICY
-            ? RelayEndCellReasonExitPolicy.read(binary$1)
-            : new RelayEndCellReasonOther(reasonId);
-        return new this(cell.circuit, cell.stream, reason);
+        const reason$1 = reasonId === this.reasons.REASON_EXITPOLICY
+            ? reason.RelayEndReasonExitPolicy.read(binary$1)
+            : new reason.RelayEndReasonOther(reasonId);
+        return new this(cell.circuit, cell.stream, reason$1);
     }
 }
 RelayEndCell.rcommand = 3;
@@ -88,6 +58,4 @@ RelayEndCell.reasons = {
 };
 
 exports.RelayEndCell = RelayEndCell;
-exports.RelayEndCellReasonExitPolicy = RelayEndCellReasonExitPolicy;
-exports.RelayEndCellReasonOther = RelayEndCellReasonOther;
 //# sourceMappingURL=cell.cjs.map
