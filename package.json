@@ -1,10 +1,10 @@
 {
   "type": "module",
   "name": "@hazae41/echalote",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "author": "hazae41",
   "license": "MIT",
-  "description": "Tor in the browser using JS + WebAssembly",
+  "description": "Tor in the browser using JavaScript + WebAssembly",
   "types": "./dist/types/index.d.ts",
   "main": "./dist/cjs/index.cjs",
   "sideEffects": false,

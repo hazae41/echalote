@@ -1,4 +1,4 @@
-# Tor in the browser
+# Tor in the browser using JavaScript + WebAssembly
 
 **DO NOT USE: Although it works well, it is still very unsafe to use, even for MVP purpose, as not all Tor features are implemented, TLS is not implemented yet, and it uses Meek without domain-fronting**
 
