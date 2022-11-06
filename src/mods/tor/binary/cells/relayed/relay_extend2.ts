@@ -1,5 +1,5 @@
 import { Binary } from "libs/binary.js"
-import { RelayEarlyCell } from "mods/tor/binary/cells/direct/relay_early.js"
+import { RelayEarlyCell } from "mods/tor/binary/cells/direct/relay_early/cell.js"
 import { Circuit } from "mods/tor/circuit.js"
 import { PAYLOAD_LEN } from "mods/tor/constants.js"
 

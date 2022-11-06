@@ -1,6 +1,6 @@
 import { Binary } from '../../../../../libs/binary.js';
 import { Address4, Address6 } from '../../address.js';
-import { RelayCell } from '../direct/relay.js';
+import { RelayCell } from '../direct/relay/cell.js';
 import { Circuit } from '../../../circuit.js';
 import { TcpStream } from '../../../streams/tcp.js';
 

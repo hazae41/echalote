@@ -1,5 +1,5 @@
 import { Bitmask } from '../../../../../libs/bits.js';
-import { RelayCell } from '../direct/relay.js';
+import { RelayCell } from '../direct/relay/cell.js';
 import { Circuit } from '../../../circuit.js';
 import { TcpStream } from '../../../streams/tcp.js';
 

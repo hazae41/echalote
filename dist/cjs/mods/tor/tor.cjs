@@ -13,17 +13,17 @@ var future = require('../../libs/future.cjs');
 var kdftor = require('./algos/kdftor.cjs');
 var address = require('./binary/address.cjs');
 var cell = require('./binary/cells/cell.cjs');
-var auth_challenge = require('./binary/cells/direct/auth_challenge.cjs');
-var certs = require('./binary/cells/direct/certs.cjs');
-var created_fast = require('./binary/cells/direct/created_fast.cjs');
-var create_fast = require('./binary/cells/direct/create_fast.cjs');
-var destroy = require('./binary/cells/direct/destroy.cjs');
-var netinfo = require('./binary/cells/direct/netinfo.cjs');
-var padding = require('./binary/cells/direct/padding.cjs');
-var padding_negotiate = require('./binary/cells/direct/padding_negotiate.cjs');
-var relay = require('./binary/cells/direct/relay.cjs');
-var versions = require('./binary/cells/direct/versions.cjs');
-var vpadding = require('./binary/cells/direct/vpadding.cjs');
+var cell$5 = require('./binary/cells/direct/auth_challenge/cell.cjs');
+var cell$4 = require('./binary/cells/direct/certs/cell.cjs');
+var cell$7 = require('./binary/cells/direct/created_fast/cell.cjs');
+var cell$b = require('./binary/cells/direct/create_fast/cell.cjs');
+var cell$8 = require('./binary/cells/direct/destroy/cell.cjs');
+var cell$6 = require('./binary/cells/direct/netinfo/cell.cjs');
+var cell$1 = require('./binary/cells/direct/padding/cell.cjs');
+var cell$a = require('./binary/cells/direct/padding_negociate/cell.cjs');
+var cell$9 = require('./binary/cells/direct/relay/cell.cjs');
+var cell$3 = require('./binary/cells/direct/versions/cell.cjs');
+var cell$2 = require('./binary/cells/direct/vpadding/cell.cjs');
 var relay_connected = require('./binary/cells/relayed/relay_connected.cjs');
 var relay_data = require('./binary/cells/relayed/relay_data.cjs');
 var relay_drop = require('./binary/cells/relayed/relay_drop.cjs');
@@ -145,22 +145,22 @@ class Tor extends EventTarget {
             }
         });
     }
-    onCell(cell$1) {
+    onCell(cell$3) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
-            if (cell$1.command === padding.PaddingCell.command)
+            if (cell$3.command === cell$1.PaddingCell.command)
                 return console.debug(`Received PADDING cell`);
-            if (cell$1.command === vpadding.VariablePaddingCell.command)
+            if (cell$3.command === cell$2.VariablePaddingCell.command)
                 return console.debug(`Received VPADDING cell`);
             if (this._state.type === "none")
-                return yield this.onNoneStateCell(cell$1);
-            if (cell$1 instanceof cell.OldCell)
+                return yield this.onNoneStateCell(cell$3);
+            if (cell$3 instanceof cell.OldCell)
                 throw new Error(`Can't uncell post-version cell from old cell`);
             if (this._state.type === "versioned")
-                return yield this.onVersionedStateCell(cell$1);
+                return yield this.onVersionedStateCell(cell$3);
             if (this._state.type === "handshaking")
-                return yield this.onHandshakingStateCell(cell$1);
+                return yield this.onHandshakingStateCell(cell$3);
             if (this._state.type === "handshaked")
-                return yield this.onHandshakedStateCell(cell$1);
+                return yield this.onHandshakedStateCell(cell$3);
             throw new Error(`Unknown state`);
         });
     }
@@ -170,7 +170,7 @@ class Tor extends EventTarget {
                 throw new Error(`State is not none`);
             if (cell$1 instanceof cell.NewCell)
                 throw new Error(`Can't uncell pre-version cell from new cell`);
-            if (cell$1.command === versions.VersionsCell.command)
+            if (cell$1.command === cell$3.VersionsCell.command)
                 return yield this.onVersionsCell(cell$1);
             console.debug(`Unknown pre-version cell ${cell$1.command}`);
         });
@@ -179,7 +179,7 @@ class Tor extends EventTarget {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             if (this._state.type !== "versioned")
                 throw new Error(`State is not versioned`);
-            if (cell.command === certs.CertsCell.command)
+            if (cell.command === cell$4.CertsCell.command)
                 return yield this.onCertsCell(cell);
             console.debug(`Unknown versioned-state cell ${cell.command}`);
         });
@@ -188,20 +188,20 @@ class Tor extends EventTarget {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             if (this._state.type !== "handshaking")
                 throw new Error(`State is not handshaking`);
-            if (cell.command === auth_challenge.AuthChallengeCell.command)
+            if (cell.command === cell$5.AuthChallengeCell.command)
                 return yield this.onAuthChallengeCell(cell);
-            if (cell.command === netinfo.NetinfoCell.command)
+            if (cell.command === cell$6.NetinfoCell.command)
                 return yield this.onNetinfoCell(cell);
             console.debug(`Unknown handshaking-state cell ${cell.command}`);
         });
     }
     onHandshakedStateCell(cell) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
-            if (cell.command === created_fast.CreatedFastCell.command)
+            if (cell.command === cell$7.CreatedFastCell.command)
                 return yield this.onCreatedFastCell(cell);
-            if (cell.command === destroy.DestroyCell.command)
+            if (cell.command === cell$8.DestroyCell.command)
                 return yield this.onDestroyCell(cell);
-            if (cell.command === relay.RelayCell.command)
+            if (cell.command === cell$9.RelayCell.command)
                 return yield this.onRelayCell(cell);
             console.debug(`Unknown handshaked-state cell ${cell.command}`);
         });
@@ -210,7 +210,7 @@ class Tor extends EventTarget {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             if (this._state.type !== "none")
                 throw new Error(`State is not none`);
-            const data = versions.VersionsCell.uncell(cell);
+            const data = cell$3.VersionsCell.uncell(cell);
             const event = new MessageEvent("VERSIONS", { data });
             if (!this.dispatchEvent(event))
                 return;
@@ -227,7 +227,7 @@ class Tor extends EventTarget {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             if (this._state.type !== "versioned")
                 throw new Error(`State is not versioned`);
-            const data = certs.CertsCell.uncell(cell);
+            const data = cell$4.CertsCell.uncell(cell);
             const event = new MessageEvent("CERTS", { data });
             if (!this.dispatchEvent(event))
                 return;
@@ -237,8 +237,8 @@ class Tor extends EventTarget {
             yield data.checkIdToEid();
             data.checkEidToSigning();
             data.checkSigningToTls();
-            const { certs: certs$1 } = data;
-            const guard = { certs: certs$1, idh };
+            const { certs } = data;
+            const guard = { certs, idh };
             const { version } = this._state;
             this._state = { type: "handshaking", version, guard };
             const event2 = new MessageEvent("handshaking", {});
@@ -251,7 +251,7 @@ class Tor extends EventTarget {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             if (this._state.type !== "handshaking")
                 throw new Error(`State is not handshaking`);
-            const data = auth_challenge.AuthChallengeCell.uncell(cell);
+            const data = cell$5.AuthChallengeCell.uncell(cell);
             const event = new MessageEvent("AUTH_CHALLENGE", { data });
             if (!this.dispatchEvent(event))
                 return;
@@ -262,16 +262,16 @@ class Tor extends EventTarget {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             if (this._state.type !== "handshaking")
                 throw new Error(`State is not handshaking`);
-            const data = netinfo.NetinfoCell.uncell(cell);
+            const data = cell$6.NetinfoCell.uncell(cell);
             const event = new MessageEvent("NETINFO", { data });
             if (!this.dispatchEvent(event))
                 return;
             const address$1 = new address.TypedAddress(4, Buffer.from([127, 0, 0, 1]));
-            const netinfo$1 = new netinfo.NetinfoCell(undefined, 0, address$1, []);
-            const pversion = padding_negotiate.PaddingNegociateCell.versions.ZERO;
-            const pcommand = padding_negotiate.PaddingNegociateCell.commands.STOP;
-            const padding = new padding_negotiate.PaddingNegociateCell(undefined, pversion, pcommand, 0, 0);
-            this.send(netinfo$1.pack(), padding.pack());
+            const netinfo = new cell$6.NetinfoCell(undefined, 0, address$1, []);
+            const pversion = cell$a.PaddingNegociateCell.versions.ZERO;
+            const pcommand = cell$a.PaddingNegociateCell.commands.STOP;
+            const padding = new cell$a.PaddingNegociateCell(undefined, pversion, pcommand, 0, 0);
+            this.send(netinfo.pack(), padding.pack());
             const { version, guard } = this._state;
             this._state = { type: "handshaked", version, guard };
             const event2 = new MessageEvent("handshake", {});
@@ -282,7 +282,7 @@ class Tor extends EventTarget {
     }
     onCreatedFastCell(cell) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
-            const data = created_fast.CreatedFastCell.uncell(cell);
+            const data = cell$7.CreatedFastCell.uncell(cell);
             const event = new MessageEvent("CREATED_FAST", { data });
             if (!this.dispatchEvent(event))
                 return;
@@ -291,7 +291,7 @@ class Tor extends EventTarget {
     }
     onDestroyCell(cell) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
-            const data = destroy.DestroyCell.uncell(cell);
+            const data = cell$8.DestroyCell.uncell(cell);
             const event = new MessageEvent("DESTROY", { data });
             if (!this.dispatchEvent(event))
                 return;
@@ -301,7 +301,7 @@ class Tor extends EventTarget {
     }
     onRelayCell(parent) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
-            const cell = yield relay.RelayCell.uncell(parent);
+            const cell = yield cell$9.RelayCell.uncell(parent);
             if (cell.rcommand === relay_extended2.RelayExtended2Cell.rcommand)
                 return yield this.onRelayExtended2Cell(cell);
             if (cell.rcommand === relay_connected.RelayConnectedCell.rcommand)
@@ -395,7 +395,7 @@ class Tor extends EventTarget {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             yield this.tls.open();
             const handshake = this.waitHandshake();
-            this.send(new versions.VersionsCell(undefined, [5]).pack());
+            this.send(new cell$3.VersionsCell(undefined, [5]).pack());
             yield handshake;
         });
     }
@@ -435,7 +435,7 @@ class Tor extends EventTarget {
             const material = Buffer.allocUnsafe(20);
             crypto.getRandomValues(material);
             const pcreated = this.waitCreatedFast(circuit$1);
-            this.send(new create_fast.CreateFastCell(circuit$1, material).pack());
+            this.send(new cell$b.CreateFastCell(circuit$1, material).pack());
             const created = yield pcreated;
             const k0 = Buffer.concat([material, created.material]);
             const result = yield kdftor.kdftor(k0);

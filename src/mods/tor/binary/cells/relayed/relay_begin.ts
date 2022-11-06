@@ -1,6 +1,6 @@
 import { Binary } from "libs/binary.js";
 import { Bitmask } from "libs/bits.js";
-import { RelayCell } from "mods/tor/binary/cells/direct/relay.js";
+import { RelayCell } from "mods/tor/binary/cells/direct/relay/index.js";
 import { InvalidRelayCommand, InvalidStream } from "mods/tor/binary/cells/errors.js";
 import { Circuit } from "mods/tor/circuit.js";
 import { PAYLOAD_LEN } from "mods/tor/constants.js";

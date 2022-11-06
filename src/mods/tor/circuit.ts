@@ -6,7 +6,7 @@ import { Bitmask } from "libs/bits.js";
 import { Events } from "libs/events.js";
 import { Future } from "libs/future.js";
 import { ntor } from "mods/tor/algos/index.js";
-import { DestroyCell } from "mods/tor/binary/cells/direct/destroy.js";
+import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
 import { RelayBeginCell } from "mods/tor/binary/cells/relayed/relay_begin.js";
 import { RelayConnectedCell } from "mods/tor/binary/cells/relayed/relay_connected.js";
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data.js";

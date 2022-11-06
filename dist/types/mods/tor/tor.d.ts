@@ -1,5 +1,5 @@
 import { Tls } from '../tls/tls.js';
-import { Certs } from './binary/cells/direct/certs.js';
+import { Certs } from './binary/cells/direct/certs/cell.js';
 import { Circuit } from './circuit.js';
 import { Directories } from './consensus/directories.js';
 

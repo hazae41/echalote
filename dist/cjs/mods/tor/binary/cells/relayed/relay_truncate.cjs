@@ -2,8 +2,8 @@
 
 var tslib = require('tslib');
 var binary = require('../../../../../libs/binary.cjs');
-var destroy = require('../direct/destroy.cjs');
-var relay = require('../direct/relay.cjs');
+var cell$1 = require('../direct/destroy/cell.cjs');
+var cell = require('../direct/relay/cell.cjs');
 var errors = require('../errors.cjs');
 
 class RelayTruncateCell {
@@ -21,7 +21,7 @@ class RelayTruncateCell {
     cell() {
         const binary$1 = binary.Binary.allocUnsafe(1);
         binary$1.writeUint8(this.reason);
-        return new relay.RelayCell(this.circuit, this.stream, this.class.rcommand, binary$1.buffer);
+        return new cell.RelayCell(this.circuit, this.stream, this.class.rcommand, binary$1.buffer);
     }
     static uncell(cell) {
         if (cell.rcommand !== this.rcommand)
@@ -34,7 +34,7 @@ class RelayTruncateCell {
     }
 }
 RelayTruncateCell.rcommand = 8;
-RelayTruncateCell.reasons = destroy.DestroyCell.reasons;
+RelayTruncateCell.reasons = cell$1.DestroyCell.reasons;
 
 exports.RelayTruncateCell = RelayTruncateCell;
 //# sourceMappingURL=relay_truncate.cjs.map

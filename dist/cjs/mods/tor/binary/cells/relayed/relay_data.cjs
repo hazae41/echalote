@@ -1,7 +1,7 @@
 'use strict';
 
 var tslib = require('tslib');
-var relay = require('../direct/relay.cjs');
+var cell = require('../direct/relay/cell.cjs');
 var errors = require('../errors.cjs');
 
 class RelayDataCell {
@@ -17,7 +17,7 @@ class RelayDataCell {
         });
     }
     cell() {
-        return new relay.RelayCell(this.circuit, this.stream, this.class.rcommand, this.data);
+        return new cell.RelayCell(this.circuit, this.stream, this.class.rcommand, this.data);
     }
     static uncell(cell) {
         if (cell.rcommand !== this.rcommand)

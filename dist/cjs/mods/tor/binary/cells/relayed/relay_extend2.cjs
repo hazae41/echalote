@@ -2,7 +2,7 @@
 
 var tslib = require('tslib');
 var binary = require('../../../../../libs/binary.cjs');
-var relay_early = require('../direct/relay_early.cjs');
+var cell = require('../direct/relay_early/cell.cjs');
 var constants = require('../../../constants.cjs');
 
 class LinkIPv4 {
@@ -99,7 +99,7 @@ class RelayExtend2Cell {
         binary$1.writeUint16(this.type);
         binary$1.writeUint16(this.data.length);
         binary$1.write(this.data);
-        return new relay_early.RelayEarlyCell(this.circuit, this.stream, this.class.rcommand, binary$1.sliced);
+        return new cell.RelayEarlyCell(this.circuit, this.stream, this.class.rcommand, binary$1.sliced);
     }
 }
 RelayExtend2Cell.rcommand = 14;

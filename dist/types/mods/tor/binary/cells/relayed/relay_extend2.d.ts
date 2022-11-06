@@ -1,5 +1,5 @@
 import { Binary } from '../../../../../libs/binary.js';
-import { RelayEarlyCell } from '../direct/relay_early.js';
+import { RelayEarlyCell } from '../direct/relay_early/cell.js';
 import { Circuit } from '../../../circuit.js';
 
 declare type Link = LinkIPv4 | LinkIPv6 | LinkLegacyID | LinkModernID;

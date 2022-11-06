@@ -2,7 +2,7 @@
 
 var tslib = require('tslib');
 var binary = require('../../../../../libs/binary.cjs');
-var relay = require('../direct/relay.cjs');
+var cell = require('../direct/relay/cell.cjs');
 var errors = require('../errors.cjs');
 var constants = require('../../../constants.cjs');
 
@@ -20,7 +20,7 @@ class RelayBeginDirCell {
     cell() {
         const binary$1 = binary.Binary.allocUnsafe(constants.PAYLOAD_LEN);
         binary$1.fill();
-        return new relay.RelayCell(this.circuit, this.stream, this.class.rcommand, binary$1.sliced);
+        return new cell.RelayCell(this.circuit, this.stream, this.class.rcommand, binary$1.sliced);
     }
     static uncell(cell) {
         if (cell.rcommand !== this.rcommand)

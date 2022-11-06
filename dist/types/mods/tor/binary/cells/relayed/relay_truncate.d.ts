@@ -1,4 +1,4 @@
-import { RelayCell } from '../direct/relay.js';
+import { RelayCell } from '../direct/relay/cell.js';
 import { Circuit } from '../../../circuit.js';
 
 declare class RelayTruncateCell {
