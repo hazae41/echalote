@@ -302,7 +302,6 @@ class Tor extends EventTarget {
     onRelayCell(parent) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             const cell = yield cell$9.RelayCell.uncell(parent);
-            console.debug(`RELAY`, cell);
             if (cell.rcommand === cell$b.RelayExtended2Cell.rcommand)
                 return yield this.onRelayExtended2Cell(cell);
             if (cell.rcommand === cell$c.RelayConnectedCell.rcommand)
