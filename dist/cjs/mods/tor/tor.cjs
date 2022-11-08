@@ -393,7 +393,6 @@ class Tor extends EventTarget {
     }
     handshake() {
         return tslib.__awaiter(this, void 0, void 0, function* () {
-            yield this.tls.open();
             const handshake = this.waitHandshake();
             this.send(new cell$3.VersionsCell(undefined, [5]).pack());
             yield handshake;

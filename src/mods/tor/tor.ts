@@ -469,8 +469,6 @@ export class Tor extends EventTarget {
   }
 
   async handshake() {
-    await this.tls.open()
-
     const handshake = this.waitHandshake()
     this.send(new VersionsCell(undefined, [5]).pack())
     await handshake
