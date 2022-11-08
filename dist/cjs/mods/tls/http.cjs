@@ -61,12 +61,6 @@ class TlsOverHttp extends tls.Tls {
     fetch(body) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             const res = yield fetch(this.info, { method: "POST", body });
-            // if (!res.ok) {
-            //   const error = new Error(await res.text())
-            //   const event = new ErrorEvent("error", { error })
-            //   if (!this.dispatchEvent(event)) return
-            //   return
-            // }
             const buffer = Buffer.from(yield res.arrayBuffer());
             this.connection.process(buffer.toString("binary"));
         });
