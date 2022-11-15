@@ -1,0 +1,11 @@
+{
+  "manifest_version": 2,
+  "name": "Test",
+  "description": "Test",
+  "version": "0.1",
+  "browser_action": {
+    "default_title": "Home",
+    "default_popup": "index.html"
+  },
+  "permissions": ["https://meek.bamsoftware.com/*"]
+}

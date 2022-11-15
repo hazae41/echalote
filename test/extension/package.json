@@ -1,0 +1,43 @@
+{
+  "name": "extension",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm-watch build",
+    "build": "next build && next export && npm run build:next && npm run build:chrome && npm run build:firefox",
+    "build:next": "mv out/_next out/next && sed -i '' -e 's/\\/_next/\\.\\/next/g' out/**.html",
+    "build:chrome": "rm -rf chrome && cp -R out chrome && mv chrome/chrome/* chrome && rm -rf chrome/chrome chrome/firefox",
+    "build:firefox": "rm -rf firefox && cp -R out firefox && mv firefox/firefox/* firefox && rm -rf firefox/chrome firefox/firefox",
+    "clean": "rm -rf node_modules .next out chrome firefox package-lock.json",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@types/chrome": "^0.0.202",
+    "@types/firefox-webext-browser": "^94.0.1",
+    "@types/node": "18.11.9",
+    "@types/react": "18.0.25",
+    "@types/react-dom": "18.0.9",
+    "eslint": "8.27.0",
+    "eslint-config-next": "13.0.3",
+    "next": "13.0.3",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "typescript": "4.9.3"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.13",
+    "npm-watch": "^0.11.0",
+    "postcss": "^8.4.19",
+    "tailwindcss": "^3.2.4"
+  },
+  "watch": {
+    "build": {
+      "patterns": [
+        "pages",
+        "public",
+        "src"
+      ],
+      "extensions": "*"
+    }
+  }
+}

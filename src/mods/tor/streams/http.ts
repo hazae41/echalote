@@ -111,7 +111,8 @@ export class HttpStream extends EventTarget {
   }
 
   private async onWriteStart() {
-    let head = `${this.req.method} ${this.url.pathname} HTTP/1.1\r\n`
+    let head = ``
+    head += `${this.req.method} ${this.url.pathname} HTTP/1.1\r\n`
     head += `Host: ${this.url.host}\r\n`
     head += `Transfer-Encoding: chunked\r\n`
     head += `Accept-Encoding: gzip\r\n`
