@@ -226,9 +226,8 @@ class Circuit extends EventTarget {
     }
     /**
      * Fetch using HTTP
-     * @param input
-     * @param init
-     * @warning https://bugzilla.mozilla.org/show_bug.cgi?id=1387483
+     * @param input Fetch input
+     * @param init Fetch init
      * @returns Response promise
      */
     fetch(input, init) {

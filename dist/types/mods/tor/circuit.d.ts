@@ -27,9 +27,8 @@ declare class Circuit extends EventTarget {
     open(hostname: string, port: number, signal?: AbortSignal): Promise<TcpStream>;
     /**
      * Fetch using HTTP
-     * @param input
-     * @param init
-     * @warning https://bugzilla.mozilla.org/show_bug.cgi?id=1387483
+     * @param input Fetch input
+     * @param init Fetch init
      * @returns Response promise
      */
     fetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
