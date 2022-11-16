@@ -118,6 +118,7 @@ export class Circuit extends EventTarget {
       this.tor.tls.addEventListener("close", future.err, { passive: true })
       this.tor.tls.addEventListener("error", future.err, { passive: true })
       this.addEventListener("DESTROY", future.err, { passive: true })
+      this.addEventListener("RELAY_TRUNCATED", future.err, { passive: true })
       this.addEventListener("RELAY_EXTENDED2", future.ok, { passive: true })
       return await future.promise as MessageEvent<RelayExtended2Cell>
     } catch (e: unknown) {
@@ -126,6 +127,7 @@ export class Circuit extends EventTarget {
       this.tor.tls.removeEventListener("error", future.err)
       this.tor.tls.removeEventListener("close", future.err)
       this.removeEventListener("DESTROY", future.err)
+      this.removeEventListener("RELAY_TRUNCATED", future.err)
       this.removeEventListener("RELAY_EXTENDED2", future.ok)
     }
   }

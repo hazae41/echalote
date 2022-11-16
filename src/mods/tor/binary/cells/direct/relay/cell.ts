@@ -64,30 +64,35 @@ export class RelayCell {
     if (!cell.circuit)
       throw new InvalidCircuit(this.name, cell.circuit)
 
-    for (let i = 0; i < cell.circuit.targets.length; i++)
-      cell.circuit.targets[i].backwardKey.apply_keystream(cell.payload)
+    for (let i = 0; i < cell.circuit.targets.length; i++) {
+      const target = cell.circuit.targets[i]
 
-    const binary = new Binary(cell.payload)
+      target.backwardKey.apply_keystream(cell.payload)
 
-    const rcommand = binary.readUint8()
-    const recognised = binary.readUint16()
+      const binary = new Binary(cell.payload)
 
-    if (recognised !== 0)
-      throw new Error(`Unrecognised ${this.name}`)
+      const rcommand = binary.readUint8()
+      const recognised = binary.readUint16()
 
-    const streamId = binary.readUint16()
+      if (recognised !== 0)
+        continue
 
-    const stream = streamId
-      ? cell.circuit.streams.get(streamId)
-      : undefined
+      const streamId = binary.readUint16()
 
-    if (streamId && !stream)
-      throw new Error(`Unknown stream id ${streamId}`)
+      const stream = streamId
+        ? cell.circuit.streams.get(streamId)
+        : undefined
 
-    const digest = binary.read(4) // TODO 
-    const length = binary.readUint16()
-    const data = binary.read(length)
+      if (streamId && !stream)
+        throw new Error(`Unknown stream id ${streamId}`)
 
-    return new this(cell.circuit, stream, rcommand, data)
+      const digest = binary.read(4) // TODO 
+      const length = binary.readUint16()
+      const data = binary.read(length)
+
+      return new this(cell.circuit, stream, rcommand, data)
+    }
+
+    throw new Error(`Unrecognised ${this.name}`)
   }
 }

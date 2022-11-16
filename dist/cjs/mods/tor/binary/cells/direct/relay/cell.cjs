@@ -53,23 +53,26 @@ class RelayCell {
                 throw new errors.InvalidCommand(this.name, cell.command);
             if (!cell.circuit)
                 throw new errors.InvalidCircuit(this.name, cell.circuit);
-            for (let i = 0; i < cell.circuit.targets.length; i++)
-                cell.circuit.targets[i].backwardKey.apply_keystream(cell.payload);
-            const binary$1 = new binary.Binary(cell.payload);
-            const rcommand = binary$1.readUint8();
-            const recognised = binary$1.readUint16();
-            if (recognised !== 0)
-                throw new Error(`Unrecognised ${this.name}`);
-            const streamId = binary$1.readUint16();
-            const stream = streamId
-                ? cell.circuit.streams.get(streamId)
-                : undefined;
-            if (streamId && !stream)
-                throw new Error(`Unknown stream id ${streamId}`);
-            binary$1.read(4); // TODO 
-            const length = binary$1.readUint16();
-            const data = binary$1.read(length);
-            return new this(cell.circuit, stream, rcommand, data);
+            for (let i = 0; i < cell.circuit.targets.length; i++) {
+                const target = cell.circuit.targets[i];
+                target.backwardKey.apply_keystream(cell.payload);
+                const binary$1 = new binary.Binary(cell.payload);
+                const rcommand = binary$1.readUint8();
+                const recognised = binary$1.readUint16();
+                if (recognised !== 0)
+                    continue;
+                const streamId = binary$1.readUint16();
+                const stream = streamId
+                    ? cell.circuit.streams.get(streamId)
+                    : undefined;
+                if (streamId && !stream)
+                    throw new Error(`Unknown stream id ${streamId}`);
+                binary$1.read(4); // TODO 
+                const length = binary$1.readUint16();
+                const data = binary$1.read(length);
+                return new this(cell.circuit, stream, rcommand, data);
+            }
+            throw new Error(`Unrecognised ${this.name}`);
         });
     }
 }

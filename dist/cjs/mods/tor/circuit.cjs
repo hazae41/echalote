@@ -112,6 +112,7 @@ class Circuit extends EventTarget {
                 this.tor.tls.addEventListener("close", future$1.err, { passive: true });
                 this.tor.tls.addEventListener("error", future$1.err, { passive: true });
                 this.addEventListener("DESTROY", future$1.err, { passive: true });
+                this.addEventListener("RELAY_TRUNCATED", future$1.err, { passive: true });
                 this.addEventListener("RELAY_EXTENDED2", future$1.ok, { passive: true });
                 return yield future$1.promise;
             }
@@ -122,6 +123,7 @@ class Circuit extends EventTarget {
                 this.tor.tls.removeEventListener("error", future$1.err);
                 this.tor.tls.removeEventListener("close", future$1.err);
                 this.removeEventListener("DESTROY", future$1.err);
+                this.removeEventListener("RELAY_TRUNCATED", future$1.err);
                 this.removeEventListener("RELAY_EXTENDED2", future$1.ok);
             }
         });
