@@ -58,7 +58,9 @@ export default function Page() {
       const aborter = new AbortController()
       const { signal } = aborter
 
-      const res = await circuit.fetch("https://webhook.site/17a188ec-ce2d-4461-8d79-1c6fcc6da487", { signal, method: "POST", body: "Hello world" })
+      const body = JSON.stringify({ hello: "world", it: "works", very: "fine" })
+      const headers = new Headers({ "Content-Type": "application/json" })
+      const res = await circuit.fetch("http://postman-echo.com/post", { signal, method: "POST", body, headers })
       console.log(await res.text(), res.status, res.statusText, [...res.headers.entries()])
     } catch (e: unknown) {
       console.error("fetching error", e)

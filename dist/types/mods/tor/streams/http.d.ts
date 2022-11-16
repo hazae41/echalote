@@ -34,7 +34,6 @@ interface HttpGzipCompression {
 declare class HttpStream extends EventTarget {
     readonly sstreams: ReadableWritablePair<Buffer, Buffer>;
     readonly req: Request;
-    readonly body: ReadableStream<Uint8Array> | null;
     readonly res: Future<Response, unknown>;
     /**
      * HTTP output bufferer
@@ -52,7 +51,7 @@ declare class HttpStream extends EventTarget {
      * @implements uncompressed request/response
      * @implements gzip compressed response
      */
-    constructor(sstreams: ReadableWritablePair<Buffer, Buffer>, req: Request, body: ReadableStream<Uint8Array> | null);
+    constructor(sstreams: ReadableWritablePair<Buffer, Buffer>, req: Request);
     private tryWrite;
     private write;
     private onWriteStart;

@@ -14,11 +14,10 @@ class HttpStream extends EventTarget {
      * @implements uncompressed request/response
      * @implements gzip compressed response
      */
-    constructor(sstreams, req, body) {
+    constructor(sstreams, req) {
         super();
         this.sstreams = sstreams;
         this.req = req;
-        this.body = body;
         this.res = new future.Future();
         /**
          * HTTP output bufferer
@@ -29,8 +28,8 @@ class HttpStream extends EventTarget {
          */
         this.wstreams = new TransformStream();
         this.state = { type: "none", buffer: binary.Binary.allocUnsafe(10 * 1024) };
-        if (body)
-            body.pipeTo(this.wstreams.writable).catch(console.warn);
+        if (req.body)
+            req.body.pipeTo(this.wstreams.writable).catch(console.warn);
         else
             this.wstreams.writable.close().catch(console.warn);
         this.tryRead().catch(console.warn);
@@ -124,6 +123,7 @@ class HttpStream extends EventTarget {
                 const { done, value } = yield reader.read();
                 if (done)
                     break;
+                console.log("read", value.toString());
                 yield this.onRead(value);
             }
         });
@@ -190,6 +190,7 @@ class HttpStream extends EventTarget {
             const transfer = this.getTransferFromHeaders(headers);
             const compression = this.getCompressionFromHeaders(headers);
             this.state = { type: "headed", version, transfer, compression };
+            console.log("body rest", body.toString());
             return body;
         });
     }
@@ -200,6 +201,7 @@ class HttpStream extends EventTarget {
             if (this.state.transfer.type !== "lengthed")
                 return;
             const { transfer, compression } = this.state;
+            console.log("body", chunk.toString());
             transfer.offset += chunk.length;
             if (transfer.offset > transfer.length)
                 throw new Error(`Length > Content-Length`);

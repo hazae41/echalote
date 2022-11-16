@@ -71,13 +71,12 @@ export class HttpStream extends EventTarget {
    */
   constructor(
     readonly sstreams: ReadableWritablePair<Buffer, Buffer>,
-    readonly req: Request,
-    readonly body: ReadableStream<Uint8Array> | null
+    readonly req: Request
   ) {
     super()
 
-    if (body)
-      body.pipeTo(this.wstreams.writable).catch(console.warn)
+    if (req.body)
+      req.body.pipeTo(this.wstreams.writable).catch(console.warn)
     else
       this.wstreams.writable.close().catch(console.warn)
 
@@ -176,6 +175,8 @@ export class HttpStream extends EventTarget {
 
       if (done) break
 
+      console.log("read", value.toString())
+
       await this.onRead(value)
     }
   }
@@ -258,6 +259,7 @@ export class HttpStream extends EventTarget {
 
     this.state = { type: "headed", version, transfer, compression }
 
+    console.log("body rest", body.toString())
     return body
   }
 
@@ -267,6 +269,8 @@ export class HttpStream extends EventTarget {
     if (this.state.transfer.type !== "lengthed")
       return
     const { transfer, compression } = this.state
+
+    console.log("body", chunk.toString())
 
     transfer.offset += chunk.length
 

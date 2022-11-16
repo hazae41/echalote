@@ -10,6 +10,7 @@
 - Partial Meek transport support without domain-fronting
 - Partial Tor protocol support with Ed25519, ntor, kdf-tor
 - Partial HTTP1.1 using WebStreams with support for chunked transfer and gzip compression
+- Support for Chromium and Safari (Firefox needs to fix its WebStreams implementation)
 
 ### Upcoming features
 - Tor consensus and directories support
