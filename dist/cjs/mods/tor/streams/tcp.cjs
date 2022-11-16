@@ -37,6 +37,8 @@ class TcpStream extends EventTarget {
         this.circuit.addEventListener("RELAY_DATA", onRelayDataCell, { passive: true });
         const onRelayEndCell = this.onRelayEndCell.bind(this);
         this.circuit.addEventListener("RELAY_END", onRelayEndCell, { passive: true });
+        const onRelayTruncatedCell = this.onRelayTruncatedCell.bind(this);
+        this.circuit.addEventListener("RELAY_TRUNCATED", onRelayTruncatedCell, { passive: true });
         const onAbort = this.onAbort.bind(this);
         (_a = this.signal) === null || _a === void 0 ? void 0 : _a.addEventListener("abort", onAbort, { passive: true, once: true });
         this.tryWrite().catch(console.warn);
@@ -46,6 +48,8 @@ class TcpStream extends EventTarget {
             const abort = event;
             const event2 = events.Events.clone(event);
             if (!this.dispatchEvent(event2))
+                return;
+            if (this.closed)
                 return;
             this.closed = true;
             const rwriter = this.rstreams.writable.getWriter();
@@ -83,10 +87,32 @@ class TcpStream extends EventTarget {
             const message2 = events.Events.clone(message);
             if (!this.dispatchEvent(message2))
                 return;
+            if (this.closed)
+                return;
             this.closed = true;
-            const writer = this.rstreams.writable.getWriter();
-            writer.close().catch(console.warn);
-            writer.releaseLock();
+            const rwriter = this.rstreams.writable.getWriter();
+            rwriter.close().catch(console.warn);
+            rwriter.releaseLock();
+            const wwriter = this.wstreams.writable.getWriter();
+            wwriter.close().catch(console.warn);
+            wwriter.releaseLock();
+        });
+    }
+    onRelayTruncatedCell(event) {
+        return tslib.__awaiter(this, void 0, void 0, function* () {
+            const message = event;
+            const message2 = events.Events.clone(message);
+            if (!this.dispatchEvent(message2))
+                return;
+            if (this.closed)
+                return;
+            this.closed = true;
+            const rwriter = this.rstreams.writable.getWriter();
+            rwriter.abort(event).catch(console.warn);
+            rwriter.releaseLock();
+            const wwriter = this.wstreams.writable.getWriter();
+            wwriter.abort(event).catch(console.warn);
+            wwriter.releaseLock();
         });
     }
     tryWrite() {

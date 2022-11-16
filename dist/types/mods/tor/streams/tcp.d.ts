@@ -30,6 +30,7 @@ declare class TcpStream extends EventTarget {
     private onAbort;
     private onRelayDataCell;
     private onRelayEndCell;
+    private onRelayTruncatedCell;
     private tryWrite;
     private write;
     private onWrite;

@@ -3,8 +3,9 @@ import { Events } from "libs/events.js";
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { RelayEndReasonOther } from "mods/tor/binary/cells/relayed/relay_end/reason.js";
+import { RelayTruncatedCell } from "mods/tor/binary/cells/relayed/relay_truncated/cell.js";
 import { Circuit } from "mods/tor/circuit.js";
-import { PAYLOAD_LEN } from "../constants.js";
+import { PAYLOAD_LEN } from "mods/tor/constants.js";
 
 export interface AbortEvent extends Event {
   type: "abort"
@@ -50,6 +51,9 @@ export class TcpStream extends EventTarget {
     const onRelayEndCell = this.onRelayEndCell.bind(this)
     this.circuit.addEventListener("RELAY_END", onRelayEndCell, { passive: true })
 
+    const onRelayTruncatedCell = this.onRelayTruncatedCell.bind(this)
+    this.circuit.addEventListener("RELAY_TRUNCATED", onRelayTruncatedCell, { passive: true })
+
     const onAbort = this.onAbort.bind(this)
     this.signal?.addEventListener("abort", onAbort, { passive: true, once: true })
 
@@ -61,6 +65,8 @@ export class TcpStream extends EventTarget {
 
     const event2 = Events.clone(event)
     if (!this.dispatchEvent(event2)) return
+
+    if (this.closed) return
 
     this.closed = true
 
@@ -99,11 +105,36 @@ export class TcpStream extends EventTarget {
     const message2 = Events.clone(message)
     if (!this.dispatchEvent(message2)) return
 
+    if (this.closed) return
+
     this.closed = true
 
-    const writer = this.rstreams.writable.getWriter()
-    writer.close().catch(console.warn)
-    writer.releaseLock()
+    const rwriter = this.rstreams.writable.getWriter()
+    rwriter.close().catch(console.warn)
+    rwriter.releaseLock()
+
+    const wwriter = this.wstreams.writable.getWriter()
+    wwriter.close().catch(console.warn)
+    wwriter.releaseLock()
+  }
+
+  private async onRelayTruncatedCell(event: Event) {
+    const message = event as MessageEvent<RelayTruncatedCell>
+
+    const message2 = Events.clone(message)
+    if (!this.dispatchEvent(message2)) return
+
+    if (this.closed) return
+
+    this.closed = true
+
+    const rwriter = this.rstreams.writable.getWriter()
+    rwriter.abort(event).catch(console.warn)
+    rwriter.releaseLock()
+
+    const wwriter = this.wstreams.writable.getWriter()
+    wwriter.abort(event).catch(console.warn)
+    wwriter.releaseLock()
   }
 
   private async tryWrite() {
