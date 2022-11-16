@@ -30,6 +30,7 @@ export class RelayCell {
     binary.writeUint16(this.stream?.id ?? 0)
 
     const digestOffset = binary.offset
+
     binary.writeUint32(0)
 
     binary.writeUint16(this.data.length)
@@ -45,12 +46,10 @@ export class RelayCell {
 
     exit.forwardDigest.update(binary.buffer)
 
-    const fullDigest = Buffer.from(exit.forwardDigest.finalize().buffer)
-    const digest = fullDigest.subarray(0, 4)
+    const digest = Buffer.from(exit.forwardDigest.finalize().buffer).subarray(0, 4)
 
     binary.offset = digestOffset
     binary.write(digest)
-
 
     for (let i = this.circuit.targets.length - 1; i >= 0; i--)
       this.circuit.targets[i].forwardKey.apply_keystream(binary.buffer)
@@ -84,9 +83,18 @@ export class RelayCell {
         : undefined
 
       if (streamId && !stream)
-        throw new Error(`Unknown stream id ${streamId}`)
+        throw new Error(`Unknown ${this.name} stream id ${streamId}`)
 
-      const digest = binary.read(4) // TODO 
+      const digest = Buffer.from(binary.read(4, true))
+      binary.writeUint32(0)
+
+      target.backwardDigest.update(binary.buffer)
+
+      const digest2 = Buffer.from(target.backwardDigest.finalize().buffer).subarray(0, 4)
+
+      if (!digest.equals(digest2))
+        throw new Error(`Invalid ${this.name} digest`)
+
       const length = binary.readUint16()
       const data = binary.read(length)
 

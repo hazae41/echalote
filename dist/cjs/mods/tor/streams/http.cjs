@@ -123,7 +123,6 @@ class HttpStream extends EventTarget {
                 const { done, value } = yield reader.read();
                 if (done)
                     break;
-                console.log("read", value.toString());
                 yield this.onRead(value);
             }
         });
@@ -190,7 +189,6 @@ class HttpStream extends EventTarget {
             const transfer = this.getTransferFromHeaders(headers);
             const compression = this.getCompressionFromHeaders(headers);
             this.state = { type: "headed", version, transfer, compression };
-            console.log("body rest", body.toString());
             return body;
         });
     }
@@ -201,7 +199,6 @@ class HttpStream extends EventTarget {
             if (this.state.transfer.type !== "lengthed")
                 return;
             const { transfer, compression } = this.state;
-            console.log("body", chunk.toString());
             transfer.offset += chunk.length;
             if (transfer.offset > transfer.length)
                 throw new Error(`Length > Content-Length`);

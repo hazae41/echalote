@@ -38,8 +38,7 @@ class RelayCell {
             }
             const exit = array.lastOf(this.circuit.targets);
             exit.forwardDigest.update(binary$1.buffer);
-            const fullDigest = Buffer.from(exit.forwardDigest.finalize().buffer);
-            const digest = fullDigest.subarray(0, 4);
+            const digest = Buffer.from(exit.forwardDigest.finalize().buffer).subarray(0, 4);
             binary$1.offset = digestOffset;
             binary$1.write(digest);
             for (let i = this.circuit.targets.length - 1; i >= 0; i--)
@@ -66,8 +65,13 @@ class RelayCell {
                     ? cell.circuit.streams.get(streamId)
                     : undefined;
                 if (streamId && !stream)
-                    throw new Error(`Unknown stream id ${streamId}`);
-                binary$1.read(4); // TODO 
+                    throw new Error(`Unknown ${this.name} stream id ${streamId}`);
+                const digest = Buffer.from(binary$1.read(4, true));
+                binary$1.writeUint32(0);
+                target.backwardDigest.update(binary$1.buffer);
+                const digest2 = Buffer.from(target.backwardDigest.finalize().buffer).subarray(0, 4);
+                if (!digest.equals(digest2))
+                    throw new Error(`Invalid ${this.name} digest`);
                 const length = binary$1.readUint16();
                 const data = binary$1.read(length);
                 return new this(cell.circuit, stream, rcommand, data);
