@@ -4,12 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "npm-watch build",
-    "build": "next build && next export && npm run build:next && npm run build:chrome && npm run build:safari",
-    "build:next": "mv out/_next out/next && sed -i '' -e 's/\\/_next/\\.\\/next/g' out/**.html",
-    "build:chrome": "rm -rf chrome && cp -R out chrome && mv chrome/chrome/* chrome && rm -rf chrome/chrome chrome/firefox chrome/safari",
-    "build:safari": "rm -rf safari && cp -R out safari && mv safari/safari/* safari && rm -rf safari/chrome safari/firefox safari/safari",
-    "build:safari:xcode": "xcrun safari-web-extension-converter ./safari --project-location xcode --app-name echalote-test-extension",
-    "clean": "rm -rf node_modules .next out chrome firefox package-lock.json",
+    "build": "npm run build:next && npm run build:chrome && npm run build:safari",
+    "build:next": "next build && next export && mv out/_next out/next && sed -i '' -e 's/\\/_next/\\.\\/next/g' out/**.html",
+    "build:chrome": "rm -rf chrome && cp -R out chrome && mv chrome/chrome/* chrome && rm -rf chrome/chrome chrome/safari",
+    "build:safari": "rm -rf safari && cp -R out safari && mv safari/safari/* safari && rm -rf safari/chrome safari/safari",
+    "xcode": "xcrun safari-web-extension-converter ./safari --project-location xcode --app-name echalote-test-extension",
+    "clean": "rm -rf node_modules .next out chrome safari package-lock.json",
     "lint": "next lint"
   },
   "dependencies": {
