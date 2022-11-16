@@ -224,13 +224,26 @@ class Circuit extends EventTarget {
             return stream;
         });
     }
+    /**
+     * Fetch using HTTP
+     * @param input
+     * @param init
+     * @warning https://bugzilla.mozilla.org/show_bug.cgi?id=1387483
+     * @returns Response promise
+     */
     fetch(input, init) {
         return tslib.__awaiter(this, void 0, void 0, function* () {
             const req = new Request(input, init);
+            /**
+             * https://bugzilla.mozilla.org/show_bug.cgi?id=1387483
+             */
+            const merged = typeof input === "string"
+                ? Object.assign({}, init) : Object.assign(Object.assign({}, input), init);
+            const body = new Response(merged.body).body;
             const url = new URL(req.url);
             const port = Number(url.port) || 80;
             const tcp = yield this.open(url.hostname, port, req.signal);
-            return yield new http.HttpStream(tcp, req, url).res.promise;
+            return yield new http.HttpStream(tcp, req, body).res.promise;
         });
     }
 }

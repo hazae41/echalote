@@ -241,12 +241,27 @@ export class Circuit extends EventTarget {
     return stream
   }
 
+  /**
+   * Fetch using HTTP
+   * @param input Fetch input
+   * @param init Fetch init
+   * @returns Response promise
+   */
   async fetch(input: RequestInfo, init?: RequestInit) {
     const req = new Request(input, init)
+
+    /**
+     * https://bugzilla.mozilla.org/show_bug.cgi?id=1387483
+     */
+    const merged = typeof input === "string"
+      ? { ...init }
+      : { ...input, ...init };
+    const body = new Response(merged.body).body
+
     const url = new URL(req.url)
     const port = Number(url.port) || 80
 
     const tcp = await this.open(url.hostname, port, req.signal)
-    return await new HttpStream(tcp, req, url).res.promise
+    return await new HttpStream(tcp, req, body).res.promise
   }
 }

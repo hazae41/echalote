@@ -7,11 +7,18 @@ var future = require('../../../libs/future.cjs');
 var strings = require('../../../libs/strings.cjs');
 
 class HttpStream extends EventTarget {
-    constructor(sstreams, req = new Request("/"), url = new URL(req.url)) {
+    /**
+     * HTTP 1.1
+     * @implements chunked encoding request/response
+     * @implements lengthed encoding response
+     * @implements uncompressed request/response
+     * @implements gzip compressed response
+     */
+    constructor(sstreams, req, body) {
         super();
         this.sstreams = sstreams;
         this.req = req;
-        this.url = url;
+        this.body = body;
         this.res = new future.Future();
         /**
          * HTTP output bufferer
@@ -22,8 +29,8 @@ class HttpStream extends EventTarget {
          */
         this.wstreams = new TransformStream();
         this.state = { type: "none", buffer: binary.Binary.allocUnsafe(10 * 1024) };
-        if (req.body)
-            req.body.pipeTo(this.wstreams.writable).catch(console.warn);
+        if (body)
+            body.pipeTo(this.wstreams.writable).catch(console.warn);
         else
             this.wstreams.writable.close().catch(console.warn);
         this.tryRead().catch(console.warn);
@@ -61,9 +68,10 @@ class HttpStream extends EventTarget {
     }
     onWriteStart() {
         return tslib.__awaiter(this, void 0, void 0, function* () {
+            const url = new URL(this.req.url);
             let head = ``;
-            head += `${this.req.method} ${this.url.pathname} HTTP/1.1\r\n`;
-            head += `Host: ${this.url.host}\r\n`;
+            head += `${this.req.method} ${url.pathname} HTTP/1.1\r\n`;
+            head += `Host: ${url.host}\r\n`;
             head += `Transfer-Encoding: chunked\r\n`;
             head += `Accept-Encoding: gzip\r\n`;
             this.req.headers.forEach((v, k) => head += `${k}: ${v}\r\n`);

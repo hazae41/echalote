@@ -25,6 +25,13 @@ declare class Circuit extends EventTarget {
     private waitTruncated;
     truncate(reason?: number): Promise<void>;
     open(hostname: string, port: number, signal?: AbortSignal): Promise<TcpStream>;
+    /**
+     * Fetch using HTTP
+     * @param input
+     * @param init
+     * @warning https://bugzilla.mozilla.org/show_bug.cgi?id=1387483
+     * @returns Response promise
+     */
     fetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
 }
 
