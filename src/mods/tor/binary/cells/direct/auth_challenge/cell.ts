@@ -4,7 +4,7 @@ import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
 import { Unimplemented } from "mods/tor/errors.js"
 
 export class AuthChallengeCell {
-  readonly class = AuthChallengeCell
+  readonly #class = AuthChallengeCell
 
   static command = 130
 

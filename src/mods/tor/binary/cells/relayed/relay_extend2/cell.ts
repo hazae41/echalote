@@ -5,7 +5,7 @@ import { Circuit } from "mods/tor/circuit.js"
 import { PAYLOAD_LEN } from "mods/tor/constants.js"
 
 export class RelayExtend2Cell {
-  readonly class = RelayExtend2Cell
+  readonly #class = RelayExtend2Cell
 
   static rcommand = 14
 
@@ -45,6 +45,6 @@ export class RelayExtend2Cell {
     binary.writeUint16(this.data.length)
     binary.write(this.data)
 
-    return new RelayEarlyCell(this.circuit, this.stream, this.class.rcommand, binary.sliced)
+    return new RelayEarlyCell(this.circuit, this.stream, this.#class.rcommand, binary.sliced)
   }
 }

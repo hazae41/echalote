@@ -73,7 +73,7 @@ export interface Fallback {
 }
 
 export class Tor extends EventTarget {
-  readonly class = Tor
+  readonly #class = Tor
 
   private _state: TorState = { type: "none" }
 

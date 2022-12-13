@@ -3,7 +3,7 @@ import { OldCell } from "mods/tor/binary/cells/cell.js"
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
 
 export class VersionsCell {
-  readonly class = VersionsCell
+  readonly #class = VersionsCell
 
   static command = 7
 
@@ -22,7 +22,7 @@ export class VersionsCell {
     for (const version of this.versions)
       binary.writeUint16(version)
 
-    return new OldCell(this.circuit, this.class.command, binary.buffer)
+    return new OldCell(this.circuit, this.#class.command, binary.buffer)
   }
 
   static uncell(cell: OldCell) {

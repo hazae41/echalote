@@ -4,7 +4,7 @@ import { Circuit } from "mods/tor/circuit.js";
 import { TcpStream } from "mods/tor/streams/tcp.js";
 
 export class RelayDropCell {
-  readonly class = RelayDropCell
+  readonly #class = RelayDropCell
 
   static rcommand = 10
 
@@ -19,7 +19,7 @@ export class RelayDropCell {
   }
 
   cell() {
-    return new RelayCell(this.circuit, this.stream, this.class.rcommand, this.data)
+    return new RelayCell(this.circuit, this.stream, this.#class.rcommand, this.data)
   }
 
   static uncell(cell: RelayCell) {

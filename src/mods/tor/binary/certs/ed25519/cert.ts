@@ -7,7 +7,7 @@ export interface Extensions {
 }
 
 export class Cert implements ICert {
-  readonly class = Cert
+  readonly #class = Cert
 
   static types = {
     EID_TO_SIGNING: 4,

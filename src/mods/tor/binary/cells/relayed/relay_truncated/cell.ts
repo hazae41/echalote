@@ -5,7 +5,7 @@ import { InvalidRelayCommand, InvalidStream } from "mods/tor/binary/cells/errors
 import { Circuit } from "mods/tor/circuit.js";
 
 export class RelayTruncatedCell {
-  readonly class = RelayTruncatedCell
+  readonly #class = RelayTruncatedCell
 
   static rcommand = 9
 
@@ -26,7 +26,7 @@ export class RelayTruncatedCell {
 
     binary.writeUint8(this.reason)
 
-    return new RelayCell(this.circuit, this.stream, this.class.rcommand, binary.buffer)
+    return new RelayCell(this.circuit, this.stream, this.#class.rcommand, binary.buffer)
   }
 
   static uncell(cell: RelayCell) {

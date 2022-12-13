@@ -4,7 +4,7 @@ import { Cert } from "mods/tor/binary/certs/ed25519/cert.js";
 import { Extension } from "mods/tor/binary/certs/ed25519/extensions/extension.js";
 
 export class SignedWithEd25519Key implements Extension {
-  readonly class = SignedWithEd25519Key
+  readonly #class = SignedWithEd25519Key
 
   static type = 4
 
@@ -15,7 +15,7 @@ export class SignedWithEd25519Key implements Extension {
   ) { }
 
   get type() {
-    return this.class.type
+    return this.#class.type
   }
 
   check(cert: Cert) {

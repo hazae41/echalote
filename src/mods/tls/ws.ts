@@ -2,7 +2,7 @@ import { fixedCiphersuites } from "libs/forge.js"
 import { Tls } from "mods/tls/tls.js"
 
 export class TlsOverWs extends Tls {
-  readonly class = TlsOverWs
+  readonly #class = TlsOverWs
 
   readonly connection
 

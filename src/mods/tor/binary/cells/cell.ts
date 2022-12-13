@@ -22,7 +22,7 @@ export interface NewCellRaw {
 }
 
 export class OldCell {
-  readonly class = OldCell
+  readonly #class = OldCell
 
   constructor(
     readonly circuit: Circuit | undefined,
@@ -73,7 +73,7 @@ export class OldCell {
 }
 
 export class NewCell {
-  readonly class = NewCell
+  readonly #class = NewCell
 
   constructor(
     readonly circuit: Circuit | undefined,

@@ -22,7 +22,7 @@ import { Target } from "mods/tor/target.js";
 import { Fallback, Tor } from "mods/tor/tor.js";
 
 export class Circuit extends EventTarget {
-  readonly class = Circuit
+  readonly #class = Circuit
 
   private _nonce = 1
   private _closed = false

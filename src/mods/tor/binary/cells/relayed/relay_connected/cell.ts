@@ -7,7 +7,7 @@ import { Circuit } from "mods/tor/circuit.js"
 import { TcpStream } from "mods/tor/streams/tcp.js"
 
 export class RelayConnectedCell {
-  readonly class = RelayConnectedCell
+  readonly #class = RelayConnectedCell
 
   static rcommand = 4
 

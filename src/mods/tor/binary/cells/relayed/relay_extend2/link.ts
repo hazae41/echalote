@@ -7,7 +7,7 @@ export type RelayExtend2Link =
   | RelayExtend2LinkModernID
 
 export class RelayExtend2LinkIPv4 {
-  readonly class = RelayExtend2LinkIPv4
+  readonly #class = RelayExtend2LinkIPv4
 
   static type = 0
 
@@ -17,7 +17,7 @@ export class RelayExtend2LinkIPv4 {
   ) { }
 
   write(binary: Binary) {
-    binary.writeUint8(this.class.type)
+    binary.writeUint8(this.#class.type)
     binary.writeUint8(4 + 2)
 
     const [a, b, c, d] = this.hostname.split(".")
@@ -36,7 +36,7 @@ export class RelayExtend2LinkIPv4 {
 }
 
 export class RelayExtend2LinkIPv6 {
-  readonly class = RelayExtend2LinkIPv6
+  readonly #class = RelayExtend2LinkIPv6
 
   static type = 1
 
@@ -46,7 +46,7 @@ export class RelayExtend2LinkIPv6 {
   ) { }
 
   write(binary: Binary) {
-    binary.writeUint8(this.class.type)
+    binary.writeUint8(this.#class.type)
     binary.writeUint8(16 + 2)
 
     const [a, b, c, d, e, f, g, h] = this.hostname.split(":")
@@ -69,7 +69,7 @@ export class RelayExtend2LinkIPv6 {
 }
 
 export class RelayExtend2LinkLegacyID {
-  readonly class = RelayExtend2LinkLegacyID
+  readonly #class = RelayExtend2LinkLegacyID
 
   static type = 2
 
@@ -78,14 +78,14 @@ export class RelayExtend2LinkLegacyID {
   ) { }
 
   write(binary: Binary) {
-    binary.writeUint8(this.class.type)
+    binary.writeUint8(this.#class.type)
     binary.writeUint8(20)
     binary.write(this.fingerprint)
   }
 }
 
 export class RelayExtend2LinkModernID {
-  readonly class = RelayExtend2LinkModernID
+  readonly #class = RelayExtend2LinkModernID
 
   static type = 3
 
@@ -94,7 +94,7 @@ export class RelayExtend2LinkModernID {
   ) { }
 
   write(binary: Binary) {
-    binary.writeUint8(this.class.type)
+    binary.writeUint8(this.#class.type)
     binary.writeUint8(32)
     binary.write(this.fingerprint)
   }

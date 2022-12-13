@@ -7,7 +7,7 @@ import { PAYLOAD_LEN } from "mods/tor/constants.js";
 import { TcpStream } from "mods/tor/streams/tcp.js";
 
 export class RelayEndCell {
-  readonly class = RelayEndCell
+  readonly #class = RelayEndCell
 
   static rcommand = 3
 
@@ -45,7 +45,7 @@ export class RelayEndCell {
     binary.writeUint8(this.reason.id)
     this.reason.write(binary)
 
-    return new RelayCell(this.circuit, this.stream, this.class.rcommand, binary.sliced)
+    return new RelayCell(this.circuit, this.stream, this.#class.rcommand, binary.sliced)
   }
 
   static uncell(cell: RelayCell) {

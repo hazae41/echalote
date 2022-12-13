@@ -3,7 +3,7 @@ import { Tls } from "mods/tls/tls.js";
 import { tls } from "node-forge";
 
 export class TlsOverHttp extends Tls {
-  readonly class = TlsOverHttp
+  readonly #class = TlsOverHttp
 
   readonly connection: tls.Connection
 

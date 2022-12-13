@@ -1,5 +1,5 @@
 export class Binary {
-  readonly class = Binary
+  readonly #class = Binary
 
   offset = 0
 

@@ -4,7 +4,7 @@ import { InvalidRelayCommand, InvalidStream } from "mods/tor/binary/cells/errors
 import { Circuit } from "mods/tor/circuit.js";
 
 export class RelayExtended2Cell {
-  readonly class = RelayExtended2Cell
+  readonly #class = RelayExtended2Cell
 
   static rcommand = 15
 

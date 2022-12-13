@@ -1,7 +1,7 @@
 import { Binary } from "libs/binary.js";
 
 export class TypedAddress {
-  readonly class = TypedAddress
+  readonly #class = TypedAddress
 
   static IPv4 = 4
   static IPv6 = 6
@@ -27,7 +27,7 @@ export class TypedAddress {
 }
 
 export class Address4 {
-  readonly class = Address4
+  readonly #class = Address4
 
   /**
    * IPv4 address
@@ -55,7 +55,7 @@ export class Address4 {
 }
 
 export class Address6 {
-  readonly class = Address6
+  readonly #class = Address6
 
   /**
    * IPv6 address

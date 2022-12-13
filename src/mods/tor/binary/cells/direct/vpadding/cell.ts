@@ -3,7 +3,7 @@ import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
 import { PAYLOAD_LEN } from "mods/tor/constants.js"
 
 export class VariablePaddingCell {
-  readonly class = VariablePaddingCell
+  readonly #class = VariablePaddingCell
 
   static command = 128
 
@@ -17,7 +17,7 @@ export class VariablePaddingCell {
   }
 
   cell() {
-    return new NewCell(this.circuit, this.class.command, this.data)
+    return new NewCell(this.circuit, this.#class.command, this.data)
   }
 
   static uncell(cell: NewCell) {

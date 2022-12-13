@@ -5,7 +5,7 @@ import { Circuit } from "mods/tor/circuit.js";
 import { PAYLOAD_LEN } from "mods/tor/constants.js";
 
 export class CreateFastCell {
-  readonly class = CreateFastCell
+  readonly #class = CreateFastCell
 
   static command = 5
 
@@ -26,11 +26,11 @@ export class CreateFastCell {
     const binary = Binary.allocUnsafe(PAYLOAD_LEN)
 
     if (this.material.length !== 20)
-      throw new Error(`Invalid ${this.class.name} material length`)
+      throw new Error(`Invalid ${this.#class.name} material length`)
     binary.write(this.material)
     binary.fill()
 
-    return new NewCell(this.circuit, this.class.command, binary.buffer)
+    return new NewCell(this.circuit, this.#class.command, binary.buffer)
   }
 
   static uncell(cell: NewCell) {

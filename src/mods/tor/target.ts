@@ -3,7 +3,7 @@ import { Aes128Ctr128BEKey } from "@hazae41/zepar";
 import { Circuit } from "mods/tor/circuit.js";
 
 export class Target {
-  readonly class = Target
+  readonly #class = Target
 
   constructor(
     readonly idHash: Buffer,

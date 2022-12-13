@@ -18,7 +18,7 @@ export interface Certs {
 }
 
 export class CertsCell {
-  readonly class = CertsCell
+  readonly #class = CertsCell
 
   static command = 129
 

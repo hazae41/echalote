@@ -4,7 +4,7 @@ import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
 import { PAYLOAD_LEN } from "mods/tor/constants.js"
 
 export class PaddingNegociateCell {
-  readonly class = PaddingNegociateCell
+  readonly #class = PaddingNegociateCell
 
   static command = 12
 
@@ -38,7 +38,7 @@ export class PaddingNegociateCell {
     binary.writeUint16(this.ito_high_ms)
     binary.fill()
 
-    return new NewCell(this.circuit, this.class.command, binary.buffer)
+    return new NewCell(this.circuit, this.#class.command, binary.buffer)
   }
 
   static uncell(cell: NewCell) {

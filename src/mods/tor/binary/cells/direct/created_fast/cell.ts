@@ -5,7 +5,7 @@ import { Circuit } from "mods/tor/circuit.js";
 import { PAYLOAD_LEN } from "mods/tor/constants.js";
 
 export class CreatedFastCell {
-  readonly class = CreatedFastCell
+  readonly #class = CreatedFastCell
 
   static command = 6
 
@@ -26,7 +26,7 @@ export class CreatedFastCell {
     binary.write(this.derivative)
     binary.fill()
 
-    return new NewCell(this.circuit, this.class.command, binary.buffer)
+    return new NewCell(this.circuit, this.#class.command, binary.buffer)
   }
 
   static uncell(cell: NewCell) {

@@ -1,5 +1,5 @@
 export class Bitmask {
-  readonly class = Bitmask
+  readonly #class = Bitmask
 
   constructor(
     public n: number

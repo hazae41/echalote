@@ -5,7 +5,7 @@ import { Circuit } from "mods/tor/circuit.js"
 import { PAYLOAD_LEN } from "mods/tor/constants.js"
 
 export class DestroyCell {
-  readonly class = DestroyCell
+  readonly #class = DestroyCell
 
   static command = 4
 
@@ -40,7 +40,7 @@ export class DestroyCell {
     binary.writeUint8(this.reason)
     binary.fill()
 
-    return new NewCell(this.circuit, this.class.command, binary.buffer)
+    return new NewCell(this.circuit, this.#class.command, binary.buffer)
   }
 
   static uncell(cell: NewCell) {

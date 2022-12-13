@@ -2,7 +2,7 @@
  * Promise that's manually fullfilled or rejected
  */
 export class Future<T = any, E = any> {
-  readonly class = Future
+  readonly #class = Future
 
   readonly ok: (x: T) => void
   readonly err: (e: E) => void

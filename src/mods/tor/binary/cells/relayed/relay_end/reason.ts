@@ -7,7 +7,7 @@ export type RelayEndReason =
   | RelayEndReasonOther
 
 export class RelayEndReasonOther {
-  readonly class = RelayEndReasonOther
+  readonly #class = RelayEndReasonOther
 
   constructor(
     readonly id: number
@@ -17,7 +17,7 @@ export class RelayEndReasonOther {
 }
 
 export class RelayEndReasonExitPolicy {
-  readonly class = RelayEndReasonExitPolicy
+  readonly #class = RelayEndReasonExitPolicy
 
   static id = 4
 
@@ -27,7 +27,7 @@ export class RelayEndReasonExitPolicy {
   ) { }
 
   get id() {
-    return this.class.id
+    return this.#class.id
   }
 
   write(binary: Binary) {

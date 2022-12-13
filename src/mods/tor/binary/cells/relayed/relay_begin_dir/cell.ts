@@ -6,7 +6,7 @@ import { PAYLOAD_LEN } from "mods/tor/constants.js";
 import { TcpStream } from "mods/tor/streams/tcp.js";
 
 export class RelayBeginDirCell {
-  readonly class = RelayBeginDirCell
+  readonly #class = RelayBeginDirCell
 
   static rcommand = 13
 
@@ -24,7 +24,7 @@ export class RelayBeginDirCell {
 
     binary.fill()
 
-    return new RelayCell(this.circuit, this.stream, this.class.rcommand, binary.sliced)
+    return new RelayCell(this.circuit, this.stream, this.#class.rcommand, binary.sliced)
   }
 
   static uncell(cell: RelayCell) {

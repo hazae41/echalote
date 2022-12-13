@@ -7,7 +7,7 @@ import { PAYLOAD_LEN } from "mods/tor/constants.js";
 import { TcpStream } from "mods/tor/streams/tcp.js";
 
 export class RelayCell {
-  readonly class = RelayCell
+  readonly #class = RelayCell
 
   static command = 3
 
@@ -17,6 +17,10 @@ export class RelayCell {
     readonly rcommand: number,
     readonly data: Buffer
   ) { }
+
+  protected get class() {
+    return this.#class
+  }
 
   async pack() {
     return (await this.cell()).pack()
