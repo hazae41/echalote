@@ -35,7 +35,7 @@ export class CertsCell {
     if (!this.certs.id)
       throw new Error(`Undefined ID cert`)
 
-    const key = this.certs.id.cert.publicKey.rawData
+    const key = this.certs.id.cert2.tbsCertificate.subjectPublicKeyInfo.toBuffer()
     const hash = await crypto.subtle.digest("SHA-1", key)
 
     return Buffer.from(hash)
@@ -52,10 +52,15 @@ export class CertsCell {
       throw new Error(`Undefined modulus length for ID cert`)
     if (algo.modulusLength !== 1024)
       throw new Error(`Invalid modulus length for ID cert`)
+    const cert = this.certs.id
 
-    const { publicKey, signatureAlgorithm } = this.certs.id.cert
-    const key = await crypto.subtle.importKey("spki", publicKey.rawData, signatureAlgorithm, true, ["verify"]);
-    const verified = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, this.certs.id.cert.signature, (this.certs.id.cert as any).tbs)
+    const signed = cert.cert2.tbsCertificate.toBuffer()
+    const publicKey = cert.cert2.tbsCertificate.subjectPublicKeyInfo.toBuffer()
+    const signatureAlgorithm = { name: "RSASSA-PKCS1-v1_5", hash: { name: "SHA-256" } }
+    const signature = cert.cert2.signatureValue.buffer
+
+    const key = await crypto.subtle.importKey("spki", publicKey, signatureAlgorithm, true, ["verify"]);
+    const verified = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, signature, signed)
     if (!verified) throw new Error(`Invalid signature for ID cert`)
   }
 
