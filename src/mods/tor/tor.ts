@@ -83,8 +83,8 @@ export class Tor extends EventTarget {
   readonly streams = new TransformStream<Buffer, Buffer>()
 
   private buffer = Buffer.allocUnsafe(4 * 4096)
-  private wbuffer = new Binary(this.buffer)
-  private rbuffer = new Binary(this.buffer)
+  private wbinary = new Binary(this.buffer)
+  private rbinary = new Binary(this.buffer)
 
   fallbacks = {
     exits: new Array<Fallback>(),
@@ -146,25 +146,25 @@ export class Tor extends EventTarget {
     }
   }
 
-  private async read(reader: ReadableStreamReader<Buffer>) {
+  private async read(reader: ReadableStreamDefaultReader<Buffer>) {
     while (true) {
       const { done, value } = await reader.read()
 
       if (done) break
 
-      this.wbuffer.write(value)
+      this.wbinary.write(value)
       await this.onRead()
     }
   }
 
   private async onRead() {
-    this.rbuffer.buffer = this.buffer.subarray(0, this.wbuffer.offset)
+    this.rbinary.buffer = this.buffer.subarray(0, this.wbinary.offset)
 
-    while (this.rbuffer.remaining) {
+    while (this.rbinary.remaining) {
       try {
         const rawCell = this._state.type === "none"
-          ? OldCell.tryRead(this.rbuffer)
-          : NewCell.tryRead(this.rbuffer)
+          ? OldCell.tryRead(this.rbinary)
+          : NewCell.tryRead(this.rbinary)
 
         if (!rawCell) break
 
@@ -178,28 +178,28 @@ export class Tor extends EventTarget {
       }
     }
 
-    if (!this.rbuffer.offset)
+    if (!this.rbinary.offset)
       return
 
-    if (this.rbuffer.offset === this.wbuffer.offset) {
-      this.rbuffer.offset = 0
-      this.wbuffer.offset = 0
+    if (this.rbinary.offset === this.wbinary.offset) {
+      this.rbinary.offset = 0
+      this.wbinary.offset = 0
       return
     }
 
-    if (this.rbuffer.remaining && this.wbuffer.remaining < 4096) {
+    if (this.rbinary.remaining && this.wbinary.remaining < 4096) {
       console.debug(`Reallocating buffer`)
 
-      const remaining = this.buffer.subarray(this.rbuffer.offset, this.wbuffer.offset)
+      const remaining = this.buffer.subarray(this.rbinary.offset, this.wbinary.offset)
 
-      this.rbuffer.offset = 0
-      this.wbuffer.offset = 0
+      this.rbinary.offset = 0
+      this.wbinary.offset = 0
 
       this.buffer = Buffer.allocUnsafe(4 * 4096)
-      this.rbuffer.buffer = this.buffer
-      this.wbuffer.buffer = this.buffer
+      this.rbinary.buffer = this.buffer
+      this.wbinary.buffer = this.buffer
 
-      this.wbuffer.write(remaining)
+      this.wbinary.write(remaining)
       return
     }
   }
