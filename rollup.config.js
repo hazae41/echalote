@@ -29,7 +29,20 @@ export const config = [
     }],
     plugins: [dts(), resolve(), ts({ typescript })],
     external: ["tslib", "@peculiar/x509", "@hazae41/berith", "@hazae41/paimon", "@hazae41/zepar", "@hazae41/morax", "@hazae41/foras"]
-  }
+  },
+  {
+    input: "./src/index.test.ts",
+    output: [{
+      dir: "./dist/test",
+      format: "cjs",
+      exports: "named",
+      preserveModules: true,
+      sourcemap: true,
+      entryFileNames: "[name].cjs",
+    }],
+    plugins: [resolve(), ts({ typescript }), commonjs()],
+    external: ["tslib", "@peculiar/x509", "@hazae41/berith", "@hazae41/paimon", "@hazae41/zepar", "@hazae41/morax", "@hazae41/foras", "uvu"]
+  },
 ]
 
 export default config

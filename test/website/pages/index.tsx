@@ -1,11 +1,15 @@
-import { TlsOverHttp, TlsOverWs, Tor } from "@hazae41/echalote";
+import { Circuit, TlsOverHttp, TlsOverWs, Tor } from "@hazae41/echalote";
 import fallbacks from "assets/fallbacks.json";
 import lorem from "assets/lorem.json";
 import { useCallback, useEffect, useState } from "react";
 
 lorem;
 
-async function ws() {
+export function randomOf<T>(array: T[]): T | undefined {
+  return array[Math.floor(Math.random() * array.length)]
+}
+
+async function createTlsOverWs() {
   const ws = new WebSocket("ws://localhost:8080")
 
   await new Promise((ok, err) => {
@@ -13,31 +17,82 @@ async function ws() {
     ws.addEventListener("error", err)
   })
 
-  return new TlsOverWs(ws)
-}
-
-async function http() {
-  const headers = { "x-session-id": crypto.randomUUID() }
-  const request = new Request("https://meek.bamsoftware.com/", { headers })
-
-  const tls = new TlsOverHttp(request)
+  const tls = new TlsOverWs(ws)
   await tls.open()
   return tls
 }
 
+async function createTlsOverHttp() {
+  while (true)
+    try {
+      const headers = new Headers({ "x-session-id": crypto.randomUUID() })
+      const request = new Request("https://meek.bamsoftware.com/", { headers })
+
+      const tls = new TlsOverHttp(request)
+      await tls.open()
+      return tls
+    } catch (e: unknown) {
+      console.warn(e)
+    }
+}
+
 async function createTor() {
-  const tls = await http()
-  // const tls = await ws()
+  const tls = await createTlsOverHttp()
 
-  const tor = new Tor(tls)
-  await tor.init()
+  while (true)
+    try {
+      const tor = new Tor(tls)
+      await tor.init()
+      await tor.handshake()
+      return tor
+    } catch (e: unknown) {
+      console.warn(e)
+    }
+}
 
-  const exits = fallbacks.filter(it => it.exit)
-  const middles = fallbacks
-  tor.fallbacks = { exits, middles }
+async function extendMiddle(circuit: Circuit) {
+  while (true)
+    try {
+      // const middleid = randomOf(middles)!
+      // const middle = fallbacks.find(it => it.id === middleid)!
 
-  await tor.handshake()
-  return tor
+      const middle = randomOf(fallbacks)!
+
+      console.log("middle", middle.id)
+      await circuit._extend(middle)
+      return
+    } catch (e: unknown) {
+      console.warn(e)
+    }
+}
+
+async function extendExit(circuit: Circuit) {
+  while (true)
+    try {
+      // const exitid = randomOf(exits)!
+      // const exit = fallbacks.find(it => it.id === exitid)!
+
+      const exit = randomOf(fallbacks.filter(it => it.exit))!
+
+      console.log("exit", exit.id)
+      await circuit._extend(exit)
+      return
+    } catch (e: unknown) {
+      console.warn(e)
+    }
+}
+
+async function createCircuit(tor: Tor) {
+  while (true)
+    try {
+      const circuit = await tor.create()
+      await extendMiddle(circuit)
+      await extendExit(circuit)
+      await circuit.fetch("http://google.com")
+      return circuit
+    } catch (e: unknown) {
+      console.warn(e)
+    }
 }
 
 export default function Page() {
@@ -47,13 +102,7 @@ export default function Page() {
     try {
       if (!tor) return
 
-      const circuit = await tor.create()
-
-      const middle = tor.fallbacks.middles.find(it => it.id === "42A955B09A4E327FBFB46A08F6E21705271CCA12")!
-      await circuit._extend(middle)
-
-      const exit = tor.fallbacks.exits.find(it => it.id === "A868303126987902D51F2B6F06DD90038C45B119")!
-      await circuit._extend(exit)
+      const circuit = await createCircuit(tor)
 
       const aborter = new AbortController()
       const { signal } = aborter

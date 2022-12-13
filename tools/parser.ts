@@ -22,5 +22,5 @@ function parse(text: string) {
   return JSON.stringify(fallbacks2)
 }
 
-const text = await Deno.readTextFile("./fallbacks.inc")
+const text = await Deno.readTextFile("./tor-arti_fallback_dirs.inc")
 await Deno.writeTextFile("./fallbacks.json", parse(text))
