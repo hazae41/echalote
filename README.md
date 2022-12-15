@@ -10,8 +10,8 @@ npm i @hazae41/echalote
 
 ### Current features
 - 100% TypeScript and ESM
-- Zero-copy buffering and parsing
-- All crypto use either WebCrypto or reproducible WebAssembly ports of audited Rust implementations
+- Zero-copy reading and writing
+- All cryptography use either WebCrypto or reproducible WebAssembly ports of audited Rust implementations
 - Unsafe TLS with modified node-forge (thanks to node-tor)
 - Partial Meek transport support without domain-fronting
 - Partial Tor protocol support with Ed25519, ntor, kdf-tor
