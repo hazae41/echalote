@@ -1,5 +1,6 @@
 <p align="center">
-<img width="500" src="https://user-images.githubusercontent.com/4405263/207918214-84022346-9298-4483-9acc-4eb2c5e9b318.png" />
+<img width="500" src="https://user-images.githubusercontent.com/4405263/207923057-9a9fafcd-e097-447d-97b9-45c92e1f2962.png" />
+<h3 align="center">Zero-copy Tor protocol for the browser 🏎️</h3>
 </p>
 
 ```bash
