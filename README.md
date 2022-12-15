@@ -1,8 +1,12 @@
 <p align="center">
-<img width="500" src="https://user-images.githubusercontent.com/4405263/207913604-117b1ea2-5e17-4a1b-a97e-2a7a4fdf7a07.png" />
+<img width="500" src="https://user-images.githubusercontent.com/4405263/207918214-84022346-9298-4483-9acc-4eb2c5e9b318.png" />
 </p>
 
-**DO NOT USE: Although it works well, it is still very unsafe to use, even for MVP purpose, as not all Tor features are implemented, TLS is not implemented yet, and it uses Meek without domain-fronting**
+```bash
+npm i @hazae41/echalote
+```
+
+**DO NOT USE: it works well, but it is still very unsafe to use, even for MVP purpose, as not all Tor features are implemented, TLS is not implemented yet, and it uses Meek without domain-fronting**
 
 ### Current features
 - 100% TypeScript and ESM
