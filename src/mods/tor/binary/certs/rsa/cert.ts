@@ -1,5 +1,4 @@
-import { X509 } from "@hazae41/x509";
-import { X509Certificate } from "@peculiar/x509";
+import { Certificate } from "@hazae41/x509";
 import { Binary } from "libs/binary.js";
 import { Cert as ICert } from "mods/tor/binary/certs/cert.js";
 
@@ -15,8 +14,7 @@ export class Cert implements ICert {
   constructor(
     readonly type: number,
     readonly data: Buffer,
-    readonly cert: X509Certificate,
-    readonly cert2: X509.Certificate
+    readonly x509: Certificate
   ) { }
 
   write(binary: Binary) {
@@ -28,9 +26,9 @@ export class Cert implements ICert {
   check() {
     const now = new Date()
 
-    if (now > this.cert2.tbsCertificate.validity.notAfter.value)
+    if (now > this.x509.tbsCertificate.validity.notAfter.value)
       throw new Error(`Late certificate`)
-    if (now < this.cert2.tbsCertificate.validity.notBefore.value)
+    if (now < this.x509.tbsCertificate.validity.notBefore.value)
       throw new Error(`Early certificate`)
   }
 
@@ -38,12 +36,11 @@ export class Cert implements ICert {
     const start = binary.offset
 
     const data = binary.read(length)
-    const cert = new X509Certificate(data)
-    const cert2 = X509.Certificate.fromBuffer(data)
+    const x509 = Certificate.fromBuffer(data)
 
     if (binary.offset - start !== length)
       throw new Error(`Invalid RSA cert length ${length}`)
-    return new this(type, data, cert, cert2)
+    return new this(type, data, x509)
   }
 
 }

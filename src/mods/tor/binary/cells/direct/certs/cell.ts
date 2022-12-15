@@ -35,7 +35,7 @@ export class CertsCell {
     if (!this.certs.id)
       throw new Error(`Undefined ID cert`)
 
-    const key = this.certs.id.cert2.tbsCertificate.subjectPublicKeyInfo.toBuffer()
+    const key = this.certs.id.x509.tbsCertificate.subjectPublicKeyInfo.toBuffer()
     const hash = await crypto.subtle.digest("SHA-1", key)
 
     return Buffer.from(hash)
@@ -46,18 +46,10 @@ export class CertsCell {
       throw new Error(`Undefined ID cert`)
     this.certs.id.check()
 
-    const algo = this.certs.id.cert.publicKey.algorithm as any
-
-    if (!("modulusLength" in algo))
-      throw new Error(`Undefined modulus length for ID cert`)
-    if (algo.modulusLength !== 1024)
-      throw new Error(`Invalid modulus length for ID cert`)
-    const cert = this.certs.id
-
-    const signed = cert.cert2.tbsCertificate.toBuffer()
-    const publicKey = cert.cert2.tbsCertificate.subjectPublicKeyInfo.toBuffer()
+    const signed = this.certs.id.x509.tbsCertificate.toBuffer()
+    const publicKey = this.certs.id.x509.tbsCertificate.subjectPublicKeyInfo.toBuffer()
     const signatureAlgorithm = { name: "RSASSA-PKCS1-v1_5", hash: { name: "SHA-256" } }
-    const signature = cert.cert2.signatureValue.buffer
+    const signature = this.certs.id.x509.signatureValue.buffer
 
     const key = await crypto.subtle.importKey("spki", publicKey, signatureAlgorithm, true, ["verify"]);
     const verified = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, signature, signed)
@@ -71,9 +63,13 @@ export class CertsCell {
       throw new Error(`Undefined ID_TO_TLS cert`)
     this.certs.id_to_tls.check()
 
-    const { publicKey, signatureAlgorithm } = this.certs.id.cert
-    const key = await crypto.subtle.importKey("spki", publicKey.rawData, signatureAlgorithm, true, ["verify"]);
-    const verified = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, this.certs.id_to_tls.cert.signature, (this.certs.id_to_tls.cert as any).tbs)
+    const signed = this.certs.id_to_tls.x509.tbsCertificate.toBuffer()
+    const publicKey = this.certs.id.x509.tbsCertificate.subjectPublicKeyInfo.toBuffer()
+    const signatureAlgorithm = { name: "RSASSA-PKCS1-v1_5", hash: { name: "SHA-256" } }
+    const signature = this.certs.id_to_tls.x509.signatureValue.buffer
+
+    const key = await crypto.subtle.importKey("spki", publicKey, signatureAlgorithm, true, ["verify"]);
+    const verified = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, signature, signed)
     if (!verified) throw new Error(`Invalid signature for ID_TO_TLS cert`)
 
     console.warn("Could not verify ID_TO_TLS cert key")
@@ -86,8 +82,8 @@ export class CertsCell {
       throw new Error(`Undefined ID_TO_EID cert`)
     this.certs.id_to_eid.check()
 
-    const key = Buffer.from(this.certs.id.cert.publicKey.rawData)
-    const identity = RsaPublicKey.from_public_key_der(key)
+    const publicKey = this.certs.id.x509.tbsCertificate.subjectPublicKeyInfo.toBuffer()
+    const identity = RsaPublicKey.from_public_key_der(publicKey)
 
     const prefix = Buffer.from("Tor TLS RSA/Ed25519 cross-certificate")
     const prefixed = Buffer.concat([prefix, this.certs.id_to_eid.payload])
