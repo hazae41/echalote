@@ -1,4 +1,6 @@
-# Tor in the browser using JavaScript + WebAssembly
+<p align="center">
+<img width="500" src="https://user-images.githubusercontent.com/4405263/207913604-117b1ea2-5e17-4a1b-a97e-2a7a4fdf7a07.png" />
+</p>
 
 **DO NOT USE: Although it works well, it is still very unsafe to use, even for MVP purpose, as not all Tor features are implemented, TLS is not implemented yet, and it uses Meek without domain-fronting**
 
