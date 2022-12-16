@@ -1,4 +1,4 @@
-import { Binary } from "libs/binary.js";
+import { Binary } from "@hazae41/binary";
 import { Cert as ICert } from "mods/tor/binary/certs/cert.js";
 
 export class Cert implements ICert {

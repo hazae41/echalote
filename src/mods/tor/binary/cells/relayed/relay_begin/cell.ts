@@ -1,4 +1,4 @@
-import { Binary } from "libs/binary.js";
+import { Binary } from "@hazae41/binary";
 import { Bitmask } from "libs/bits.js";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/index.js";
 import { InvalidRelayCommand, InvalidStream } from "mods/tor/binary/cells/errors.js";
@@ -31,11 +31,11 @@ export class RelayBeginCell {
   cell() {
     const binary = Binary.allocUnsafe(PAYLOAD_LEN)
 
-    binary.writeNullString(this.address)
+    binary.writeNulledString(this.address)
     binary.writeUint32(this.flags.n)
     binary.fill()
 
-    return new RelayCell(this.circuit, this.stream, this.#class.rcommand, binary.sliced)
+    return new RelayCell(this.circuit, this.stream, this.#class.rcommand, binary.before)
   }
 
   static uncell(cell: RelayCell) {
@@ -46,7 +46,7 @@ export class RelayBeginCell {
 
     const binary = new Binary(cell.data)
 
-    const address = binary.readNullString()
+    const address = binary.readNulledString()
     const flagsn = binary.readUint32()
     const flags = new Bitmask(flagsn)
 

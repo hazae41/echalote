@@ -1,5 +1,5 @@
 import { Ed25519PublicKey, Ed25519Signature } from "@hazae41/berith";
-import { Binary } from "libs/binary.js";
+import { Binary } from "@hazae41/binary";
 import { Cert } from "mods/tor/binary/certs/ed25519/cert.js";
 import { Extension } from "mods/tor/binary/certs/ed25519/extensions/extension.js";
 

@@ -1,4 +1,4 @@
-import { Binary } from "libs/binary.js"
+import { Binary } from "@hazae41/binary"
 import { HASH_LEN, KEY_LEN } from "mods/tor/constants.js"
 
 export function request(

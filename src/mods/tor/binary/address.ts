@@ -1,4 +1,4 @@
-import { Binary } from "libs/binary.js";
+import { Binary } from "@hazae41/binary";
 
 export class TypedAddress {
   readonly #class = TypedAddress

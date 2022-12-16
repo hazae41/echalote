@@ -1,4 +1,4 @@
-import { Binary } from "libs/binary.js";
+import { Binary } from "@hazae41/binary";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { InvalidRelayCommand, InvalidStream } from "mods/tor/binary/cells/errors.js";
 import { RelayEndReason, RelayEndReasonExitPolicy, RelayEndReasonOther } from "mods/tor/binary/cells/relayed/relay_end/reason.js";
@@ -45,7 +45,7 @@ export class RelayEndCell {
     binary.writeUint8(this.reason.id)
     this.reason.write(binary)
 
-    return new RelayCell(this.circuit, this.stream, this.#class.rcommand, binary.sliced)
+    return new RelayCell(this.circuit, this.stream, this.#class.rcommand, binary.before)
   }
 
   static uncell(cell: RelayCell) {

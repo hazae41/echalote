@@ -1,4 +1,4 @@
-import { Binary } from "libs/binary.js"
+import { Binary } from "@hazae41/binary"
 import { RelayEarlyCell } from "mods/tor/binary/cells/direct/relay_early/cell.js"
 import { RelayExtend2Link } from "mods/tor/binary/cells/relayed/relay_extend2/link.js"
 import { Circuit } from "mods/tor/circuit.js"
@@ -45,6 +45,6 @@ export class RelayExtend2Cell {
     binary.writeUint16(this.data.length)
     binary.write(this.data)
 
-    return new RelayEarlyCell(this.circuit, this.stream, this.#class.rcommand, binary.sliced)
+    return new RelayEarlyCell(this.circuit, this.stream, this.#class.rcommand, binary.before)
   }
 }

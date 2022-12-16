@@ -16,7 +16,7 @@ export const config = [
       entryFileNames: "[name].cjs",
     }],
     plugins: [resolve(), ts({ typescript }), commonjs()],
-    external: ["tslib", "@hazae41/berith", "@hazae41/paimon", "@hazae41/zepar", "@hazae41/morax", "@hazae41/foras", "@hazae41/x509", "@hazae41/asn1"]
+    external: ["tslib", "@hazae41/binary", "@hazae41/berith", "@hazae41/paimon", "@hazae41/zepar", "@hazae41/morax", "@hazae41/foras", "@hazae41/x509", "@hazae41/asn1"]
   },
   {
     input: "./src/index.ts",
@@ -28,7 +28,7 @@ export const config = [
       entryFileNames: "[name].d.ts",
     }],
     plugins: [dts(), resolve(), ts({ typescript })],
-    external: ["tslib", "@hazae41/berith", "@hazae41/paimon", "@hazae41/zepar", "@hazae41/morax", "@hazae41/foras", "@hazae41/x509", "@hazae41/asn1"]
+    external: ["tslib", "@hazae41/binary", "@hazae41/berith", "@hazae41/paimon", "@hazae41/zepar", "@hazae41/morax", "@hazae41/foras", "@hazae41/x509", "@hazae41/asn1"]
   },
   {
     input: "./src/index.test.ts",
@@ -41,7 +41,7 @@ export const config = [
       entryFileNames: "[name].cjs",
     }],
     plugins: [resolve(), ts({ typescript }), commonjs()],
-    external: ["tslib", "@hazae41/berith", "@hazae41/paimon", "@hazae41/zepar", "@hazae41/morax", "@hazae41/foras", "@hazae41/x509", "@hazae41/asn1", "uvu"]
+    external: ["tslib", "@hazae41/binary", "@hazae41/berith", "@hazae41/paimon", "@hazae41/zepar", "@hazae41/morax", "@hazae41/foras", "@hazae41/x509", "@hazae41/asn1", "uvu"]
   },
 ]
 

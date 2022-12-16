@@ -1,5 +1,5 @@
+import { Binary } from "@hazae41/binary";
 import { GzDecoder } from "@hazae41/foras";
-import { Binary } from "libs/binary.js";
 import { Future } from "libs/future.js";
 import { Strings } from "libs/strings.js";
 

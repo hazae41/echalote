@@ -1,4 +1,4 @@
-import { Binary } from "libs/binary.js"
+import { Binary } from "@hazae41/binary"
 import { ttlToDate } from "libs/time.js"
 import { Address4, Address6 } from "mods/tor/binary/address.js"
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js"

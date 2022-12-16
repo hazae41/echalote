@@ -1,5 +1,5 @@
+import { Binary } from "@hazae41/binary";
 import { lastOf } from "libs/array.js";
-import { Binary } from "libs/binary.js";
 import { NewCell } from "mods/tor/binary/cells/cell.js";
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js";
 import { Circuit } from "mods/tor/circuit.js";
@@ -89,7 +89,7 @@ export class RelayCell {
       if (streamId && !stream)
         throw new Error(`Unknown ${this.name} stream id ${streamId}`)
 
-      const digest = Buffer.from(binary.read(4, true))
+      const digest = Buffer.from(binary.get(4))
       binary.writeUint32(0)
 
       target.backwardDigest.update(binary.buffer)

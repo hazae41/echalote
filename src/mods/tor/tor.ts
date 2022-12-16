@@ -1,9 +1,9 @@
 import { Berith } from "@hazae41/berith";
+import { Binary } from "@hazae41/binary";
 import { Foras } from "@hazae41/foras";
 import { Morax, Sha1Hasher } from "@hazae41/morax";
 import { Paimon } from "@hazae41/paimon";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
-import { Binary } from "libs/binary.js";
 import { Bitmask } from "libs/bits.js";
 import { Events } from "libs/events.js";
 import { Future } from "libs/future.js";

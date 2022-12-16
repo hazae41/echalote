@@ -1,4 +1,4 @@
-import { Binary } from "libs/binary.js"
+import { Binary } from "@hazae41/binary"
 import { HASH_LEN, KEY_LEN } from "mods/tor/constants.js"
 
 export interface KDFResult {
@@ -16,7 +16,7 @@ export async function kdftor(k0: Buffer): Promise<KDFResult> {
   const k = Binary.allocUnsafe(HASH_LEN * 5)
 
   for (let i = 0; k.remaining > 0; i++) {
-    ki.writeUint8(i, true)
+    ki.setUint8(i)
     const h = await crypto.subtle.digest("SHA-1", ki.buffer)
     k.write(Buffer.from(h))
   }
