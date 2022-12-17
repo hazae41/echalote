@@ -9,6 +9,8 @@ Zero-copy Tor protocol for the web 🏎️
 npm i @hazae41/echalote
 ```
 
+[**Node Package 📦**](https://www.npmjs.com/package/@hazae41/echalote)
+
 **DO NOT USE: it works well, but it is still very unsafe to use, even for MVP purpose, as not all Tor features are implemented, TLS is not implemented yet, and it uses Meek without domain-fronting**
 
 ### Current features
