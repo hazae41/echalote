@@ -4,7 +4,7 @@
   "version": "0.0.10",
   "author": "hazae41",
   "license": "MIT",
-  "description": "Tor in the browser using JavaScript + WebAssembly",
+  "description": "Zero-copy Tor protocol for the web",
   "types": "./dist/types/index.d.ts",
   "main": "./dist/cjs/index.cjs",
   "sideEffects": false,
