@@ -1,13 +1,20 @@
 {
   "type": "module",
   "name": "@hazae41/echalote",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "author": "hazae41",
   "license": "MIT",
   "description": "Zero-copy Tor protocol for the web",
+  "homepage": "https://github.com/hazae41/echalote",
+  "repository": "github:hazae41/echalote",
   "types": "./dist/types/index.d.ts",
   "main": "./dist/cjs/index.cjs",
   "sideEffects": false,
+  "files": [
+    "./dist/esm",
+    "./dist/cjs",
+    "./dist/types"
+  ],
   "scripts": {
     "build": "rimraf dist && rollup -c",
     "test": "node ./dist/test/index.test.cjs",
@@ -45,7 +52,28 @@
       "require": "./dist/cjs/index.cjs"
     }
   },
-  "files": [
-    "/dist"
+  "keywords": [
+    "tor",
+    "onion",
+    "protocol",
+    "browser",
+    "buffer",
+    "stream",
+    "streaming",
+    "http",
+    "https",
+    "privacy",
+    "tls",
+    "packets",
+    "binary",
+    "encoding",
+    "decoding",
+    "compression",
+    "cryptography",
+    "crypto",
+    "typescript",
+    "esmodules",
+    "tested",
+    "unit-tested"
   ]
 }
