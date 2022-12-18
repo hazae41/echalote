@@ -21,7 +21,6 @@
     "prepare": "npm run build"
   },
   "peerDependencies": {
-    "@hazae41/asn1": "^1.0.3",
     "@hazae41/berith": "^1.1.32",
     "@hazae41/binary": "^1.0.0",
     "@hazae41/foras": "^2.0.2",
