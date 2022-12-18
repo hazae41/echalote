@@ -1,14 +1,15 @@
 {
   "type": "module",
   "name": "@hazae41/echalote",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "author": "hazae41",
   "license": "MIT",
   "description": "Zero-copy Tor protocol for the web",
   "homepage": "https://github.com/hazae41/echalote",
   "repository": "github:hazae41/echalote",
-  "types": "./dist/types/index.d.ts",
   "main": "./dist/cjs/index.cjs",
+  "module": "./dist/esm/index.mjs",
+  "types": "./dist/types/index.d.ts",
   "sideEffects": false,
   "files": [
     "./dist/esm",
@@ -48,7 +49,7 @@
   "exports": {
     ".": {
       "types": "./dist/types/index.d.ts",
-      "import": "./dist/cjs/index.cjs",
+      "import": "./dist/esm/index.mjs",
       "require": "./dist/cjs/index.cjs"
     }
   },

@@ -1,17 +1,19 @@
 import commonjs from "@rollup/plugin-commonjs";
 import resolve from "@rollup/plugin-node-resolve";
 import ts from "@rollup/plugin-typescript";
+import dts from "rollup-plugin-dts";
 import typescript from "ttypescript";
 
 export const config = [
   {
     input: "./src/index.ts",
     output: [{
-      dir: "./dist/types",
+      dir: "./dist/esm",
       format: "esm",
       exports: "named",
       preserveModules: true,
-      entryFileNames: "[name].d.ts",
+      sourcemap: true,
+      entryFileNames: "[name].mjs",
     }, {
       dir: "./dist/cjs",
       format: "cjs",
@@ -21,6 +23,18 @@ export const config = [
       entryFileNames: "[name].cjs",
     }],
     plugins: [resolve(), ts({ typescript }), commonjs()],
+    external: ["tslib", "@hazae41/binary", "@hazae41/berith", "@hazae41/paimon", "@hazae41/zepar", "@hazae41/morax", "@hazae41/foras", "@hazae41/x509"]
+  },
+  {
+    input: "./src/index.ts",
+    output: [{
+      dir: "./dist/types",
+      format: "esm",
+      exports: "named",
+      preserveModules: true,
+      entryFileNames: "[name].d.ts",
+    }],
+    plugins: [dts(), resolve(), ts({ typescript })],
     external: ["tslib", "@hazae41/binary", "@hazae41/berith", "@hazae41/paimon", "@hazae41/zepar", "@hazae41/morax", "@hazae41/foras", "@hazae41/x509", "@hazae41/asn1"]
   },
   {
@@ -34,7 +48,7 @@ export const config = [
       entryFileNames: "[name].cjs",
     }],
     plugins: [resolve(), ts({ typescript }), commonjs()],
-    external: ["tslib", "@hazae41/binary", "@hazae41/berith", "@hazae41/paimon", "@hazae41/zepar", "@hazae41/morax", "@hazae41/foras", "@hazae41/x509", "@hazae41/asn1", "uvu"]
+    external: ["tslib", "@hazae41/binary", "@hazae41/berith", "@hazae41/paimon", "@hazae41/zepar", "@hazae41/morax", "@hazae41/foras", "@hazae41/x509"]
   },
 ]
 
