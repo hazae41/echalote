@@ -149,7 +149,7 @@ export class TcpStream extends EventTarget {
     }
   }
 
-  private async write(reader: ReadableStreamReader<Buffer>) {
+  private async write(reader: ReadableStreamDefaultReader<Buffer>) {
     while (true) {
       const { done, value } = await reader.read()
 

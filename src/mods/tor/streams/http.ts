@@ -102,7 +102,7 @@ export class HttpStream extends EventTarget {
     }
   }
 
-  private async write(reader: ReadableStreamReader<Uint8Array>) {
+  private async write(reader: ReadableStreamDefaultReader<Uint8Array>) {
     await this.onWriteStart()
 
     while (true) {
@@ -169,7 +169,7 @@ export class HttpStream extends EventTarget {
     }
   }
 
-  private async read(reader: ReadableStreamReader<Buffer>) {
+  private async read(reader: ReadableStreamDefaultReader<Buffer>) {
     while (true) {
       const { done, value } = await reader.read()
 

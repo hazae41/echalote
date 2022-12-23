@@ -111,10 +111,11 @@ export class Circuit extends EventTarget {
     this.streams.delete(message.data.stream.id)
   }
 
-  private async waitExtended() {
+  private async waitExtended(signal?: AbortSignal) {
     const future = new Future<Event, Event>()
 
     try {
+      signal?.addEventListener("abort", future.err, { passive: true })
       this.tor.tls.addEventListener("close", future.err, { passive: true })
       this.tor.tls.addEventListener("error", future.err, { passive: true })
       this.addEventListener("DESTROY", future.err, { passive: true })
@@ -124,6 +125,7 @@ export class Circuit extends EventTarget {
     } catch (e: unknown) {
       throw Events.error(e)
     } finally {
+      signal?.removeEventListener("abort", future.err)
       this.tor.tls.removeEventListener("error", future.err)
       this.tor.tls.removeEventListener("close", future.err)
       this.removeEventListener("DESTROY", future.err)
@@ -154,7 +156,7 @@ export class Circuit extends EventTarget {
     return await this._extend(fallback)
   }
 
-  async _extend(fallback: Fallback) {
+  async _extend(fallback: Fallback, signal?: AbortSignal) {
     const idh = Buffer.from(fallback.id, "hex")
 
     const eid = fallback.eid
@@ -174,7 +176,7 @@ export class Circuit extends EventTarget {
 
     const request = ntor.request(publicx, idh, publicb)
 
-    const pextended2 = this.waitExtended()
+    const pextended2 = this.waitExtended(signal)
     this.tor.send(await new RelayExtend2Cell(this, undefined, RelayExtend2Cell.types.NTOR, links, request).pack())
     const extended2 = await pextended2
 
