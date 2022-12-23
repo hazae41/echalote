@@ -19,22 +19,22 @@ export class TcpStream extends EventTarget {
   /**
    * Output stream bufferer
    */
-  readonly rstreams = new TransformStream<Buffer, Buffer>()
+  readonly input = new TransformStream<Buffer, Buffer>()
 
   /**
    * Input stream bufferer
    */
-  readonly wstreams = new TransformStream<Buffer, Buffer>()
+  readonly output = new TransformStream<Buffer, Buffer>()
 
   /**
    * Output stream
    */
-  readonly readable = this.rstreams.readable
+  readonly readable = this.input.readable
 
   /**
    * Input stream
    */
-  readonly writable = this.wstreams.writable
+  readonly writable = this.output.writable
 
   private closed = false
 
@@ -70,11 +70,11 @@ export class TcpStream extends EventTarget {
 
     this.closed = true
 
-    const rwriter = this.rstreams.writable.getWriter()
+    const rwriter = this.input.writable.getWriter()
     rwriter.abort(abort.target.reason).catch(console.warn)
     rwriter.releaseLock()
 
-    const wwriter = this.wstreams.writable.getWriter()
+    const wwriter = this.output.writable.getWriter()
     wwriter.abort(abort.target.reason).catch(console.warn)
     wwriter.releaseLock()
 
@@ -93,7 +93,7 @@ export class TcpStream extends EventTarget {
 
     if (this.closed) return
 
-    const rwriter = this.rstreams.writable.getWriter()
+    const rwriter = this.input.writable.getWriter()
     rwriter.write(message.data.data).catch(console.warn)
     rwriter.releaseLock()
   }
@@ -109,12 +109,12 @@ export class TcpStream extends EventTarget {
 
     this.closed = true
 
-    const rwriter = this.rstreams.writable.getWriter()
-    rwriter.close().catch(console.warn)
+    const rwriter = this.input.writable.getWriter()
+    rwriter.close().catch((e) => console.log("rwriter.close", e))
     rwriter.releaseLock()
 
-    const wwriter = this.wstreams.writable.getWriter()
-    wwriter.close().catch(console.warn)
+    const wwriter = this.output.writable.getWriter()
+    wwriter.close().catch((e) => console.log("wwriter.close", e))
     wwriter.releaseLock()
   }
 
@@ -128,17 +128,17 @@ export class TcpStream extends EventTarget {
 
     this.closed = true
 
-    const rwriter = this.rstreams.writable.getWriter()
+    const rwriter = this.input.writable.getWriter()
     rwriter.abort(event).catch(console.warn)
     rwriter.releaseLock()
 
-    const wwriter = this.wstreams.writable.getWriter()
+    const wwriter = this.output.writable.getWriter()
     wwriter.abort(event).catch(console.warn)
     wwriter.releaseLock()
   }
 
   private async tryWrite() {
-    const reader = this.wstreams.readable.getReader()
+    const reader = this.output.readable.getReader()
 
     try {
       await this.write(reader)
