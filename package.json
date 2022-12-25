@@ -27,7 +27,7 @@
     "@hazae41/foras": "^2.0.2",
     "@hazae41/morax": "^1.0.8",
     "@hazae41/paimon": "^1.0.10",
-    "@hazae41/x509": "^1.0.8",
+    "@hazae41/x509": "^1.0.10",
     "@hazae41/zepar": "^1.0.5"
   },
   "devDependencies": {
