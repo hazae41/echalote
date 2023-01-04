@@ -65,8 +65,10 @@ export class TlsOverHttp extends Tls {
   }
 
   async fetch(body?: Buffer) {
+    console.log("->", body?.toString("hex"))
     const res = await fetch(this.info, { method: "POST", body })
     const buffer = Buffer.from(await res.arrayBuffer())
+    console.log("<-", buffer.toString("hex"))
     this.connection.process(buffer.toString("binary"))
   }
 
