@@ -11,7 +11,12 @@ npm i @hazae41/echalote
 
 [**Node Package 📦**](https://www.npmjs.com/package/@hazae41/echalote)
 
-**DO NOT USE: it works well, but it is still very unsafe to use, even for MVP purpose, as not all Tor features are implemented, TLS is not implemented yet, and it uses Meek without domain-fronting**
+### DO NOT USE
+
+This is experimental software in early development
+
+1. It has security issues
+2. Things change quickly
 
 ### Current features
 - 100% TypeScript and ESM
@@ -23,7 +28,7 @@ npm i @hazae41/echalote
 - Partial HTTP1.1 using WebStreams with support for chunked transfer and gzip compression
 - Support for Chromium and Safari (Firefox needs to fix its WebStreams implementation)
 
-### Upcoming features
+### [Upcoming features](https://github.com/sponsors/hazae41)
 - Tor consensus and directories support
 - Implementation of TLS for both Tor and HTTP (which becomes HTTPS)
 - Snowflake transport support
