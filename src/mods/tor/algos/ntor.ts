@@ -15,7 +15,7 @@ export function request(
   return binary.buffer
 }
 
-export function response(data: Buffer) {
+export function response(data: Uint8Array) {
   const binary = new Binary(data)
 
   const publicy = binary.read(32)
@@ -25,21 +25,21 @@ export function response(data: Buffer) {
 }
 
 export interface NtorResult {
-  auth: Buffer,
-  nonce: Buffer,
-  forwardDigest: Buffer,
-  backwardDigest: Buffer,
-  forwardKey: Buffer,
-  backwardKey: Buffer
+  auth: Uint8Array,
+  nonce: Uint8Array,
+  forwardDigest: Uint8Array,
+  backwardDigest: Uint8Array,
+  forwardKey: Uint8Array,
+  backwardKey: Uint8Array
 }
 
 export async function finalize(
-  sharedxy: Buffer,
-  sharedxb: Buffer,
-  publici: Buffer,
-  publicb: Buffer,
-  publicx: Buffer,
-  publicy: Buffer
+  sharedxy: Uint8Array,
+  sharedxb: Uint8Array,
+  publici: Uint8Array,
+  publicb: Uint8Array,
+  publicx: Uint8Array,
+  publicy: Uint8Array
 ): Promise<NtorResult> {
   const protoid = "ntor-curve25519-sha256-1"
 

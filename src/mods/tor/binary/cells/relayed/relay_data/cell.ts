@@ -11,7 +11,7 @@ export class RelayDataCell {
   constructor(
     readonly circuit: Circuit,
     readonly stream: TcpStream,
-    readonly data: Buffer
+    readonly data: Uint8Array
   ) { }
 
   async pack() {

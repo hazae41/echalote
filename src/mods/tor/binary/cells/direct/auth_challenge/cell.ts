@@ -10,7 +10,7 @@ export class AuthChallengeCell {
 
   constructor(
     readonly circuit: undefined,
-    readonly challenge: Buffer,
+    readonly challenge: Uint8Array,
     readonly methods: number[]
   ) { }
 

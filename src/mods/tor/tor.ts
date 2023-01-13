@@ -5,6 +5,7 @@ import { Morax, Sha1Hasher } from "@hazae41/morax";
 import { Paimon } from "@hazae41/paimon";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
 import { Bitmask } from "libs/bits.js";
+import { Bytes } from "libs/bytes/bytes.js";
 import { Events } from "libs/events.js";
 import { Future } from "libs/future.js";
 import { Tls } from "mods/tls/tls.js";
@@ -158,7 +159,7 @@ export class Tor extends EventTarget {
   }
 
   private async onRead() {
-    this.rbinary.buffer = this.buffer.subarray(0, this.wbinary.offset)
+    this.rbinary.view = this.buffer.subarray(0, this.wbinary.offset)
 
     while (this.rbinary.remaining) {
       try {
@@ -196,8 +197,8 @@ export class Tor extends EventTarget {
       this.wbinary.offset = 0
 
       this.buffer = Buffer.allocUnsafe(4 * 4096)
-      this.rbinary.buffer = this.buffer
-      this.wbinary.buffer = this.buffer
+      this.rbinary.view = this.buffer
+      this.wbinary.view = this.buffer
 
       this.wbinary.write(remaining)
       return
@@ -517,7 +518,7 @@ export class Tor extends EventTarget {
     const k0 = Buffer.concat([material, created.material])
     const result = await kdftor(k0)
 
-    if (!result.keyHash.equals(created.derivative))
+    if (!Bytes.equals(result.keyHash, created.derivative))
       throw new Error(`Invalid KDF-TOR key hash`)
 
     const forwardDigest = new Sha1Hasher()

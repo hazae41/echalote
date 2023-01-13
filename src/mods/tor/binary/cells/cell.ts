@@ -11,14 +11,14 @@ export interface OldCellRaw {
   type: "old",
   circuitId: number,
   command: number,
-  payload: Buffer
+  payload: Uint8Array
 }
 
 export interface NewCellRaw {
   type: "new",
   circuitId: number,
   command: number,
-  payload: Buffer
+  payload: Uint8Array
 }
 
 export class OldCell {
@@ -27,7 +27,7 @@ export class OldCell {
   constructor(
     readonly circuit: Circuit | undefined,
     readonly command: number,
-    readonly payload: Buffer
+    readonly payload: Uint8Array
   ) { }
 
   pack() {
@@ -78,7 +78,7 @@ export class NewCell {
   constructor(
     readonly circuit: Circuit | undefined,
     readonly command: number,
-    readonly payload: Buffer
+    readonly payload: Uint8Array
   ) { }
 
   pack() {

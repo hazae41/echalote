@@ -24,7 +24,7 @@ export class Create2Cell {
   constructor(
     readonly circuit: Circuit,
     readonly type: number,
-    readonly data: Buffer
+    readonly data: Uint8Array
   ) { }
 
   pack() {

@@ -15,7 +15,7 @@ export class CreateFastCell {
    */
   constructor(
     readonly circuit: Circuit,
-    readonly material: Buffer
+    readonly material: Uint8Array
   ) { }
 
   pack() {

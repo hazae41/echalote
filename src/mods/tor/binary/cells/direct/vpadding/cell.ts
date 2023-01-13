@@ -1,3 +1,4 @@
+import { Bytes } from "libs/bytes/bytes.js"
 import { NewCell } from "mods/tor/binary/cells/cell.js"
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
 import { PAYLOAD_LEN } from "mods/tor/constants.js"
@@ -9,7 +10,7 @@ export class VariablePaddingCell {
 
   constructor(
     readonly circuit: undefined,
-    readonly data = Buffer.alloc(PAYLOAD_LEN)
+    readonly data = Bytes.alloc(PAYLOAD_LEN)
   ) { }
 
   pack() {

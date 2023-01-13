@@ -11,7 +11,7 @@ export class SignedWithEd25519Key implements Extension {
   constructor(
     readonly length: number,
     readonly flags: number,
-    readonly key: Buffer
+    readonly key: Uint8Array
   ) { }
 
   get type() {

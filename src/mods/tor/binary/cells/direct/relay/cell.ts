@@ -15,7 +15,7 @@ export class RelayCell {
     readonly circuit: Circuit,
     readonly stream: TcpStream | undefined,
     readonly rcommand: number,
-    readonly data: Buffer
+    readonly data: Uint8Array
   ) { }
 
   protected get class() {

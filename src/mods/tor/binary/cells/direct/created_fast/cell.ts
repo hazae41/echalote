@@ -11,8 +11,8 @@ export class CreatedFastCell {
 
   constructor(
     readonly circuit: Circuit,
-    readonly material: Buffer,
-    readonly derivative: Buffer
+    readonly material: Uint8Array,
+    readonly derivative: Uint8Array
   ) { }
 
   pack() {

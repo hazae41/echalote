@@ -19,12 +19,12 @@ export class TcpStream extends EventTarget {
   /**
    * Output stream bufferer
    */
-  readonly input = new TransformStream<Buffer, Buffer>()
+  readonly input = new TransformStream<Uint8Array, Uint8Array>()
 
   /**
    * Input stream bufferer
    */
-  readonly output = new TransformStream<Buffer, Buffer>()
+  readonly output = new TransformStream<Uint8Array, Uint8Array>()
 
   /**
    * Output stream
@@ -149,7 +149,7 @@ export class TcpStream extends EventTarget {
     }
   }
 
-  private async write(reader: ReadableStreamDefaultReader<Buffer>) {
+  private async write(reader: ReadableStreamDefaultReader<Uint8Array>) {
     while (true) {
       const { done, value } = await reader.read()
 
@@ -159,7 +159,7 @@ export class TcpStream extends EventTarget {
     }
   }
 
-  private async onWrite(chunk: Buffer) {
+  private async onWrite(chunk: Uint8Array) {
     if (chunk.length <= DATA_LEN) {
       const cell = new RelayDataCell(this.circuit, this, chunk)
       return this.circuit.tor.send(await cell.pack())

@@ -2,11 +2,11 @@ import { Binary } from "@hazae41/binary"
 import { HASH_LEN, KEY_LEN } from "mods/tor/constants.js"
 
 export interface KDFResult {
-  keyHash: Buffer,
-  forwardDigest: Buffer,
-  backwardDigest: Buffer,
-  forwardKey: Buffer,
-  backwardKey: Buffer
+  keyHash: Uint8Array,
+  forwardDigest: Uint8Array,
+  backwardDigest: Uint8Array,
+  forwardKey: Uint8Array,
+  backwardKey: Uint8Array
 }
 
 export async function kdftor(k0: Buffer): Promise<KDFResult> {

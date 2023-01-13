@@ -8,7 +8,7 @@ export class TypedAddress {
 
   constructor(
     readonly type: number,
-    readonly value: Buffer
+    readonly value: Uint8Array
   ) { }
 
   write(binary: Binary) {

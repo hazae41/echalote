@@ -11,7 +11,7 @@ export class RelayExtended2Cell {
   constructor(
     readonly circuit: Circuit,
     readonly stream: undefined,
-    readonly data: Buffer
+    readonly data: Uint8Array
   ) { }
 
   async pack() {

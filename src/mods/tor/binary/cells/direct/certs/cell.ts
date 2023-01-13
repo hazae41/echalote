@@ -35,7 +35,7 @@ export class CertsCell {
     if (!this.certs.id)
       throw new Error(`Undefined ID cert`)
 
-    const key = this.certs.id.x509.tbsCertificate.subjectPublicKeyInfo.toBuffer()
+    const key = this.certs.id.x509.tbsCertificate.subjectPublicKeyInfo.toBytes()
     const hash = await crypto.subtle.digest("SHA-1", key)
 
     return Buffer.from(hash)
@@ -46,10 +46,10 @@ export class CertsCell {
       throw new Error(`Undefined ID cert`)
     this.certs.id.check()
 
-    const signed = this.certs.id.x509.tbsCertificate.toBuffer()
-    const publicKey = this.certs.id.x509.tbsCertificate.subjectPublicKeyInfo.toBuffer()
+    const signed = this.certs.id.x509.tbsCertificate.toBytes()
+    const publicKey = this.certs.id.x509.tbsCertificate.subjectPublicKeyInfo.toBytes()
     const signatureAlgorithm = { name: "RSASSA-PKCS1-v1_5", hash: { name: "SHA-256" } }
-    const signature = this.certs.id.x509.signatureValue.buffer
+    const signature = this.certs.id.x509.signatureValue.bytes
 
     const key = await crypto.subtle.importKey("spki", publicKey, signatureAlgorithm, true, ["verify"]);
     const verified = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, signature, signed)
@@ -63,10 +63,10 @@ export class CertsCell {
       throw new Error(`Undefined ID_TO_TLS cert`)
     this.certs.id_to_tls.check()
 
-    const signed = this.certs.id_to_tls.x509.tbsCertificate.toBuffer()
-    const publicKey = this.certs.id.x509.tbsCertificate.subjectPublicKeyInfo.toBuffer()
+    const signed = this.certs.id_to_tls.x509.tbsCertificate.toBytes()
+    const publicKey = this.certs.id.x509.tbsCertificate.subjectPublicKeyInfo.toBytes()
     const signatureAlgorithm = { name: "RSASSA-PKCS1-v1_5", hash: { name: "SHA-256" } }
-    const signature = this.certs.id_to_tls.x509.signatureValue.buffer
+    const signature = this.certs.id_to_tls.x509.signatureValue.bytes
 
     const key = await crypto.subtle.importKey("spki", publicKey, signatureAlgorithm, true, ["verify"]);
     const verified = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, signature, signed)
@@ -82,7 +82,7 @@ export class CertsCell {
       throw new Error(`Undefined ID_TO_EID cert`)
     this.certs.id_to_eid.check()
 
-    const publicKey = this.certs.id.x509.tbsCertificate.subjectPublicKeyInfo.toBuffer()
+    const publicKey = this.certs.id.x509.tbsCertificate.subjectPublicKeyInfo.toBytes()
     const identity = RsaPublicKey.from_public_key_der(publicKey)
 
     const prefix = Buffer.from("Tor TLS RSA/Ed25519 cross-certificate")

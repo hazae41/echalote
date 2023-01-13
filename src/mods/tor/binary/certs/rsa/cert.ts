@@ -13,7 +13,7 @@ export class Cert implements ICert {
 
   constructor(
     readonly type: number,
-    readonly data: Buffer,
+    readonly data: Uint8Array,
     readonly x509: Certificate
   ) { }
 
@@ -36,7 +36,7 @@ export class Cert implements ICert {
     const start = binary.offset
 
     const data = binary.read(length)
-    const x509 = Certificate.fromBuffer(data)
+    const x509 = Certificate.fromBytes(data)
 
     if (binary.offset - start !== length)
       throw new Error(`Invalid RSA cert length ${length}`)

@@ -25,10 +25,10 @@ export class Cert implements ICert {
     readonly certType: number,
     readonly expiration: Date,
     readonly certKeyType: number,
-    readonly certKey: Buffer,
+    readonly certKey: Uint8Array,
     readonly extensions: Extensions,
-    readonly payload: Buffer,
-    readonly signature: Buffer
+    readonly payload: Uint8Array,
+    readonly signature: Uint8Array
   ) { }
 
   write(binary: Binary) {

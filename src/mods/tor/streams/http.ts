@@ -53,7 +53,7 @@ export class HttpStream extends EventTarget {
   /**
    * HTTP output bufferer
    */
-  readonly rstreams = new TransformStream<Buffer, Buffer>()
+  readonly rstreams = new TransformStream<Uint8Array, Uint8Array>()
 
   /**
    * HTTP input bufferer
@@ -70,7 +70,7 @@ export class HttpStream extends EventTarget {
    * @implements gzip compressed response
    */
   constructor(
-    readonly sstreams: ReadableWritablePair<Buffer, Buffer>,
+    readonly sstreams: ReadableWritablePair<Uint8Array, Uint8Array>,
     readonly req: Request
   ) {
     super()
@@ -169,7 +169,7 @@ export class HttpStream extends EventTarget {
     }
   }
 
-  private async read(reader: ReadableStreamDefaultReader<Buffer>) {
+  private async read(reader: ReadableStreamDefaultReader<Uint8Array>) {
     while (true) {
       const { done, value } = await reader.read()
 
@@ -179,7 +179,7 @@ export class HttpStream extends EventTarget {
     }
   }
 
-  private async onRead(chunk: Buffer) {
+  private async onRead(chunk: Uint8Array) {
     if (this.state.type === "none") {
       const result = await this.onReadNone(chunk)
       if (!result) return
@@ -231,7 +231,7 @@ export class HttpStream extends EventTarget {
     throw new Error(`Unsupported compression ${type}`)
   }
 
-  private async onReadNone(chunk: Buffer) {
+  private async onReadNone(chunk: Uint8Array) {
     if (this.state.type !== "none")
       return
     const { buffer } = this.state
@@ -260,7 +260,7 @@ export class HttpStream extends EventTarget {
     return body
   }
 
-  private async onReadLenghted(chunk: Buffer) {
+  private async onReadLenghted(chunk: Uint8Array) {
     if (this.state.type !== "headed")
       return
     if (this.state.transfer.type !== "lengthed")
@@ -298,7 +298,7 @@ export class HttpStream extends EventTarget {
     writer.releaseLock()
   }
 
-  private async onReadChunked(chunk: Buffer) {
+  private async onReadChunked(chunk: Uint8Array) {
     if (this.state.type !== "headed")
       return
     if (this.state.transfer.type !== "chunked")
