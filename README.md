@@ -24,7 +24,7 @@ This is experimental software in early development
 - Works in the browser
 - Partial Meek (TCP-over-HTTP) transport (without domain-fronting)
 - Partial and unsafe Tor protocol (with Ed25519, ntor, kdf-tor)
-- Partial and unsafe TLS with [Cadenas](https://github.com/hazae41/cadenas)
+- Partial and unsafe TLS using [Cadenas](https://github.com/hazae41/cadenas)
 - Partial HTTP messaging using [Fleche](https://github.com/hazae41/fleche)
 - All cryptography use either WebCrypto or reproducible WebAssembly ports of audited Rust implementations
 
