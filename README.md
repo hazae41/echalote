@@ -21,16 +21,14 @@ This is experimental software in early development
 ### Current features
 - 100% TypeScript and ESM
 - Zero-copy reading and writing
+- Works in the browser
+- Partial Meek (TCP-over-HTTP) transport (without domain-fronting)
+- Partial and unsafe Tor protocol (with Ed25519, ntor, kdf-tor)
+- Partial and unsafe TLS with [Cadenas](https://github.com/hazae41/cadenas)
+- Partial HTTP messaging using [Fleche](https://github.com/hazae41/fleche)
 - All cryptography use either WebCrypto or reproducible WebAssembly ports of audited Rust implementations
-- Unsafe TLS with [Cadenas](https://github.com/hazae41/cadenas)
-- Partial Meek transport support without domain-fronting
-- Partial Tor protocol support with Ed25519, ntor, kdf-tor
-- Partial HTTP1.1 using WebStreams with support for chunked transfer and gzip compression
-- Support for Chromium and Safari (Firefox needs to fix its WebStreams implementation)
 
 ### [Upcoming features](https://github.com/sponsors/hazae41)
 - Tor consensus and directories support
-- Implementation of TLS for both Tor and HTTP (which becomes HTTPS)
-- Snowflake transport support
-- More HTTP1.1 features
-- HTTP2, HTTP3 (QUIC)
+- Implementation of TLS for HTTP (which becomes HTTPS)
+- Snowflake (TCP-over-WebRTC) transport

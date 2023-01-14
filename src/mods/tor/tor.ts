@@ -168,8 +168,6 @@ export class Tor extends EventTarget {
   }
 
   private async onRead(chunk: Uint8Array) {
-    console.log("<- tor", chunk)
-
     this.wbinary.write(chunk)
     this.rbinary.view = this.buffer.subarray(0, this.wbinary.offset)
 
