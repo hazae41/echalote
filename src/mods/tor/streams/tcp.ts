@@ -2,7 +2,6 @@ import { Binary } from "@hazae41/binary";
 import { Events } from "libs/events.js";
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
-import { RelayEndReasonOther } from "mods/tor/binary/cells/relayed/relay_end/reason.js";
 import { RelayTruncatedCell } from "mods/tor/binary/cells/relayed/relay_truncated/cell.js";
 import { Circuit } from "mods/tor/circuit.js";
 import { PAYLOAD_LEN } from "mods/tor/constants.js";
@@ -16,27 +15,11 @@ export interface AbortEvent extends Event {
 const DATA_LEN = PAYLOAD_LEN - (1 + 2 + 2 + 4 + 2)
 
 export class TcpStream extends EventTarget {
-  /**
-   * Output stream bufferer
-   */
-  readonly input = new TransformStream<Uint8Array, Uint8Array>()
+  readonly readable: ReadableStream<Uint8Array>
+  readonly writable: WritableStream<Uint8Array>
 
-  /**
-   * Input stream bufferer
-   */
-  readonly output = new TransformStream<Uint8Array, Uint8Array>()
-
-  /**
-   * Output stream
-   */
-  readonly readable = this.input.readable
-
-  /**
-   * Input stream
-   */
-  readonly writable = this.output.writable
-
-  private closed = false
+  private _input?: ReadableStreamController<Uint8Array>
+  private _output?: WritableStreamDefaultController
 
   constructor(
     readonly circuit: Circuit,
@@ -57,31 +40,37 @@ export class TcpStream extends EventTarget {
     const onAbort = this.onAbort.bind(this)
     this.signal?.addEventListener("abort", onAbort, { passive: true, once: true })
 
-    this.tryWrite().catch(console.warn)
+    this.readable = new ReadableStream({
+      start: this.onReadStart.bind(this)
+    })
+
+    this.writable = new WritableStream({
+      start: this.onWriteStart.bind(this),
+      write: this.onWrite.bind(this)
+    })
+  }
+
+  get input() {
+    return this._input!
+  }
+
+  get output() {
+    return this._output!
+  }
+
+  private async onReadStart(controller: ReadableStreamController<Uint8Array>) {
+    this._input = controller
+  }
+
+  private async onWriteStart(controller: WritableStreamDefaultController) {
+    this._output = controller
   }
 
   private async onAbort(event: Event) {
     const abort = event as AbortEvent
 
-    const event2 = Events.clone(event)
-    if (!this.dispatchEvent(event2)) return
-
-    if (this.closed) return
-
-    this.closed = true
-
-    const rwriter = this.input.writable.getWriter()
-    rwriter.abort(abort.target.reason).catch(console.warn)
-    rwriter.releaseLock()
-
-    const wwriter = this.output.writable.getWriter()
-    wwriter.abort(abort.target.reason).catch(console.warn)
-    wwriter.releaseLock()
-
-    const reason = RelayEndCell.reasons.REASON_UNKNOWN
-    const reason2 = new RelayEndReasonOther(reason)
-    const cell = new RelayEndCell(this.circuit, this, reason2)
-    this.circuit.tor.output.enqueue(await cell.pack())
+    this.input.error(abort.target.reason)
+    this.output.error(abort.target.reason)
   }
 
   private async onRelayDataCell(event: Event) {
@@ -91,11 +80,7 @@ export class TcpStream extends EventTarget {
     const message2 = Events.clone(message)
     if (!this.dispatchEvent(message2)) return
 
-    if (this.closed) return
-
-    const rwriter = this.input.writable.getWriter()
-    rwriter.write(message.data.data).catch(console.warn)
-    rwriter.releaseLock()
+    this.input.enqueue(message.data.data)
   }
 
   private async onRelayEndCell(event: Event) {
@@ -105,17 +90,8 @@ export class TcpStream extends EventTarget {
     const message2 = Events.clone(message)
     if (!this.dispatchEvent(message2)) return
 
-    if (this.closed) return
-
-    this.closed = true
-
-    const rwriter = this.input.writable.getWriter()
-    rwriter.close().catch((e) => console.log("rwriter.close", e))
-    rwriter.releaseLock()
-
-    const wwriter = this.output.writable.getWriter()
-    wwriter.close().catch((e) => console.log("wwriter.close", e))
-    wwriter.releaseLock()
+    this.input.close()
+    this.output.error()
   }
 
   private async onRelayTruncatedCell(event: Event) {
@@ -124,39 +100,8 @@ export class TcpStream extends EventTarget {
     const message2 = Events.clone(message)
     if (!this.dispatchEvent(message2)) return
 
-    if (this.closed) return
-
-    this.closed = true
-
-    const rwriter = this.input.writable.getWriter()
-    rwriter.abort(event).catch(console.warn)
-    rwriter.releaseLock()
-
-    const wwriter = this.output.writable.getWriter()
-    wwriter.abort(event).catch(console.warn)
-    wwriter.releaseLock()
-  }
-
-  private async tryWrite() {
-    const reader = this.output.readable.getReader()
-
-    try {
-      await this.write(reader)
-    } catch (e: unknown) {
-      console.warn(e)
-    } finally {
-      reader.releaseLock()
-    }
-  }
-
-  private async write(reader: ReadableStreamDefaultReader<Uint8Array>) {
-    while (true) {
-      const { done, value } = await reader.read()
-
-      if (done) break
-
-      await this.onWrite(value)
-    }
+    this.input.error(message)
+    this.output.error(message)
   }
 
   private async onWrite(chunk: Uint8Array) {

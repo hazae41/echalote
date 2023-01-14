@@ -9,6 +9,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@hazae41/cadenas": "^0.0.2",
+    "@hazae41/echalote": "^0.0.15",
     "next": "13.0.3",
     "react": "18.2.0",
     "react-dom": "18.2.0"

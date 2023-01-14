@@ -10,8 +10,8 @@ export function randomOf<T>(array: T[]): T | undefined {
   return array[Math.floor(Math.random() * array.length)]
 }
 
-async function createWebSocketStream() {
-  const websocket = new WebSocket("ws://localhost:8080")
+async function createWebSocketStream(url: string) {
+  const websocket = new WebSocket(url)
 
   websocket.binaryType = "arraybuffer"
 
@@ -73,7 +73,7 @@ async function createCircuit(tor: Tor) {
 
       await extendMiddle(circuit)
       await extendExit(circuit)
-      await circuit.fetch("http://google.com")
+      // await circuit.fetch("https://google.com")
 
       return circuit
     } catch (e: unknown) {
@@ -124,7 +124,7 @@ export const fixedCiphersuites = {
 
 export default function Page() {
   const tls = useAsyncMemo(async () => {
-    const xxx = await createWebSocketStream()
+    const xxx = await createWebSocketStream("ws://localhost:8080")
 
     const fakes = Object.values(fixedCiphersuites).map(code => new Cipher(code, DHE_RSA, AES_256_CBC, SHA))
     const ciphers = [Ciphers.TLS_DHE_RSA_WITH_AES_256_CBC_SHA, ...fakes]
@@ -152,10 +152,7 @@ export default function Page() {
 
       const circuit = await createCircuit(tor)
 
-      const aborter = new AbortController()
-      const { signal } = aborter
-
-      const res = await circuit.fetch("http://postman-echo.com/post", { signal, method: "POST", body: "Hello world" })
+      const res = await circuit.fetch("https://7.tcp.eu.ngrok.io:12680")
 
       console.log(res)
       console.log(await res.text())

@@ -1,4 +1,5 @@
 import { X25519PublicKey, X25519StaticSecret } from "@hazae41/berith";
+import { Ciphers, TlsStream } from "@hazae41/cadenas";
 import { fetch } from "@hazae41/fleche";
 import { Sha1Hasher } from "@hazae41/morax";
 import { Aes128Ctr128BEKey } from "@hazae41/zepar";
@@ -262,6 +263,15 @@ export class Circuit extends EventTarget {
 
     if (url.protocol === "http:")
       return fetch(input, { ...init, stream: tcp })
+
+    if (url.protocol === "https:") {
+      const ciphers = [Ciphers.TLS_DHE_RSA_WITH_AES_256_CBC_SHA]
+      const tls = new TlsStream(tcp, { ciphers })
+
+      await tls.handshake()
+
+      return fetch(input, { ...init, stream: tls })
+    }
 
     throw new Error(`Unknown protocol ${url.protocol}`)
   }
