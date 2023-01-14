@@ -1,4 +1,5 @@
 import { X25519PublicKey, X25519StaticSecret } from "@hazae41/berith";
+import { fetch } from "@hazae41/fleche";
 import { Sha1Hasher } from "@hazae41/morax";
 import { Aes128Ctr128BEKey } from "@hazae41/zepar";
 import { randomOf } from "libs/array.js";
@@ -16,7 +17,6 @@ import { RelayExtend2Link, RelayExtend2LinkIPv4, RelayExtend2LinkIPv6, RelayExte
 import { RelayExtended2Cell } from "mods/tor/binary/cells/relayed/relay_extended2/cell.js";
 import { RelayTruncateCell } from "mods/tor/binary/cells/relayed/relay_truncate/cell.js";
 import { RelayTruncatedCell } from "mods/tor/binary/cells/relayed/relay_truncated/cell.js";
-import { HttpStream } from "mods/tor/streams/http.js";
 import { TcpStream } from "mods/tor/streams/tcp.js";
 import { Target } from "mods/tor/target.js";
 import { Fallback, Tor } from "mods/tor/tor.js";
@@ -251,13 +251,16 @@ export class Circuit extends EventTarget {
    * @param init Fetch init
    * @returns Response promise
    */
-  async fetch(input: RequestInfo, init?: RequestInit) {
+  async fetch(input: RequestInfo, init: RequestInit = {}) {
     const req = new Request(input, init)
 
     const url = new URL(req.url)
     const port = Number(url.port) || 80
     const tcp = await this.open(url.hostname, port, req.signal)
 
-    return await new HttpStream(tcp, req).res.promise
+    if (url.protocol === "http:")
+      return fetch(input, { ...init, stream: tcp })
+
+    throw new Error(`Unknown protocol ${url.protocol}`)
   }
 }

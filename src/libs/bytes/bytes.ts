@@ -56,7 +56,7 @@ export namespace Bytes {
   }
 
   export function equals(a: Uint8Array, b: Uint8Array) {
-    return Buffers.fromView(a).equals(b)
+    return Buffers.fromView(a).equals(Buffers.fromView(b))
   }
 
   export function concat(list: Uint8Array[]) {
