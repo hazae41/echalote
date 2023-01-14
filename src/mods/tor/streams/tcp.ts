@@ -81,7 +81,7 @@ export class TcpStream extends EventTarget {
     const reason = RelayEndCell.reasons.REASON_UNKNOWN
     const reason2 = new RelayEndReasonOther(reason)
     const cell = new RelayEndCell(this.circuit, this, reason2)
-    this.circuit.tor.send(await cell.pack())
+    this.circuit.tor.output.enqueue(await cell.pack())
   }
 
   private async onRelayDataCell(event: Event) {
@@ -162,7 +162,7 @@ export class TcpStream extends EventTarget {
   private async onWrite(chunk: Uint8Array) {
     if (chunk.length <= DATA_LEN) {
       const cell = new RelayDataCell(this.circuit, this, chunk)
-      return this.circuit.tor.send(await cell.pack())
+      return this.circuit.tor.output.enqueue(await cell.pack())
     }
 
     const binary = new Binary(chunk)
@@ -170,7 +170,7 @@ export class TcpStream extends EventTarget {
 
     for (const chunk of chunks) {
       const cell = new RelayDataCell(this.circuit, this, chunk)
-      this.circuit.tor.send(await cell.pack())
+      this.circuit.tor.output.enqueue(await cell.pack())
     }
   }
 }

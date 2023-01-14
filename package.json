@@ -19,6 +19,7 @@
   "scripts": {
     "build": "rimraf dist && rollup -c",
     "test": "node ./dist/test/src/index.test.cjs",
+    "fallbacks": "cd ./tools/fallbacks && deno run -A ./parser.ts && deno fmt ./fallbacks.json",
     "prepare": "npm run build"
   },
   "dependencies": {
@@ -37,7 +38,6 @@
     "@hazae41/phobos": "^1.0.7",
     "@rollup/plugin-typescript": "^11.0.0",
     "@types/node": "^18.11.18",
-    "@types/node-forge": "^1.3.1",
     "rimraf": "^4.0.4",
     "rollup": "^3.10.0",
     "rollup-plugin-dts": "^5.1.1",

@@ -1,5 +1,0 @@
-{
-  "scripts": {
-    "parse": "deno run -A parser.ts && deno fmt ./fallbacks.json"
-  }
-}

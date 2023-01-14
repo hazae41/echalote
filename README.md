@@ -22,7 +22,7 @@ This is experimental software in early development
 - 100% TypeScript and ESM
 - Zero-copy reading and writing
 - All cryptography use either WebCrypto or reproducible WebAssembly ports of audited Rust implementations
-- Unsafe TLS with modified node-forge (thanks to node-tor)
+- Unsafe TLS with [Cadenas](https://github.com/hazae41/cadenas)
 - Partial Meek transport support without domain-fronting
 - Partial Tor protocol support with Ed25519, ntor, kdf-tor
 - Partial HTTP1.1 using WebStreams with support for chunked transfer and gzip compression

@@ -6,8 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "forge": "browserify ./libs/forge.js | terser -o ./public/forge.min.js"
+    "lint": "next lint"
   },
   "dependencies": {
     "next": "13.0.3",

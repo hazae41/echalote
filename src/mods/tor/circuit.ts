@@ -116,8 +116,8 @@ export class Circuit extends EventTarget {
 
     try {
       signal?.addEventListener("abort", future.err, { passive: true })
-      this.tor.tls.addEventListener("close", future.err, { passive: true })
-      this.tor.tls.addEventListener("error", future.err, { passive: true })
+      // this.tor.tls.addEventListener("close", future.err, { passive: true })
+      // this.tor.tls.addEventListener("error", future.err, { passive: true })
       this.addEventListener("DESTROY", future.err, { passive: true })
       this.addEventListener("RELAY_TRUNCATED", future.err, { passive: true })
       this.addEventListener("RELAY_EXTENDED2", future.ok, { passive: true })
@@ -126,8 +126,8 @@ export class Circuit extends EventTarget {
       throw Events.error(e)
     } finally {
       signal?.removeEventListener("abort", future.err)
-      this.tor.tls.removeEventListener("error", future.err)
-      this.tor.tls.removeEventListener("close", future.err)
+      // this.tor.tls.removeEventListener("error", future.err)
+      // this.tor.tls.removeEventListener("close", future.err)
       this.removeEventListener("DESTROY", future.err)
       this.removeEventListener("RELAY_TRUNCATED", future.err)
       this.removeEventListener("RELAY_EXTENDED2", future.ok)
@@ -177,7 +177,8 @@ export class Circuit extends EventTarget {
     const request = ntor.request(publicx, idh, publicb)
 
     const pextended2 = this.waitExtended(signal)
-    this.tor.send(await new RelayExtend2Cell(this, undefined, RelayExtend2Cell.types.NTOR, links, request).pack())
+    const relay_extend2 = new RelayExtend2Cell(this, undefined, RelayExtend2Cell.types.NTOR, links, request)
+    this.tor.output.enqueue(await relay_extend2.pack())
     const extended2 = await pextended2
 
     const response = ntor.response(extended2.data.data)
@@ -209,16 +210,16 @@ export class Circuit extends EventTarget {
     const future = new Future<Event, Event>()
 
     try {
-      this.tor.tls.addEventListener("close", future.err, { passive: true })
-      this.tor.tls.addEventListener("error", future.err, { passive: true })
+      // this.tor.tls.addEventListener("close", future.err, { passive: true })
+      // this.tor.tls.addEventListener("error", future.err, { passive: true })
       this.addEventListener("DESTROY", future.err, { passive: true })
       this.addEventListener("RELAY_TRUNCATED", future.ok, { passive: true })
       return await future.promise as MessageEvent<RelayTruncatedCell>
     } catch (e: unknown) {
       throw Events.error(e)
     } finally {
-      this.tor.tls.removeEventListener("error", future.err)
-      this.tor.tls.removeEventListener("close", future.err)
+      // this.tor.tls.removeEventListener("error", future.err)
+      // this.tor.tls.removeEventListener("close", future.err)
       this.removeEventListener("DESTROY", future.err)
       this.removeEventListener("RELAY_TRUNCATED", future.ok)
     }
@@ -226,7 +227,8 @@ export class Circuit extends EventTarget {
 
   async truncate(reason = RelayTruncateCell.reasons.NONE) {
     const ptruncated = this.waitTruncated()
-    this.tor.send(await new RelayTruncateCell(this, undefined, reason).pack())
+    const relay_truncate = new RelayTruncateCell(this, undefined, reason)
+    this.tor.output.enqueue(await relay_truncate.pack())
     await ptruncated
   }
 
@@ -240,7 +242,7 @@ export class Circuit extends EventTarget {
       .set(RelayBeginCell.flags.IPV4_OK, true)
       .set(RelayBeginCell.flags.IPV6_NOT_OK, false)
       .set(RelayBeginCell.flags.IPV6_PREFER, true)
-    this.tor.send(await new RelayBeginCell(this, stream, `${hostname}:${port}`, flags).pack())
+    this.tor.output.enqueue(await new RelayBeginCell(this, stream, `${hostname}:${port}`, flags).pack())
 
     return stream
   }

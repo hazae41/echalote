@@ -8,7 +8,6 @@ import { Bitmask } from "libs/bits.js";
 import { Bytes } from "libs/bytes/bytes.js";
 import { Events } from "libs/events.js";
 import { Future } from "libs/future.js";
-import { Tls } from "mods/tls/tls.js";
 import { kdftor } from "mods/tor/algos/kdftor.js";
 import { TypedAddress } from "mods/tor/binary/address.js";
 import { Cell, NewCell, OldCell } from "mods/tor/binary/cells/cell.js";
@@ -73,15 +72,21 @@ export interface Fallback {
   hosts: string[]
 }
 
+export interface TorParams {
+  signal?: AbortSignal
+}
+
 export class Tor extends EventTarget {
-  readonly #class = Tor
+  readonly readable: ReadableStream<Uint8Array>
+  readonly writable: WritableStream<Uint8Array>
 
   private _state: TorState = { type: "none" }
 
   readonly authorities = new Array<Authority>()
   readonly circuits = new Map<number, Circuit>()
 
-  readonly streams = new TransformStream<Buffer, Buffer>()
+  private _input?: TransformStreamDefaultController<Uint8Array>
+  private _output?: TransformStreamDefaultController<Uint8Array>
 
   private buffer = Buffer.allocUnsafe(4 * 4096)
   private wbinary = new Binary(this.buffer)
@@ -93,20 +98,57 @@ export class Tor extends EventTarget {
   }
 
   constructor(
-    readonly tls: Tls
+    readonly stream: ReadableWritablePair<Uint8Array>,
+    readonly params: TorParams = {}
   ) {
     super()
 
-    const onMessage = this.onMessage.bind(this)
-    this.tls.addEventListener("message", onMessage, { passive: true })
-
     this.authorities = parseAuthorities()
 
-    this.tryRead()
+    const { signal } = params
+
+    const read = new TransformStream<Uint8Array>({
+      start: this.onReadStart.bind(this),
+      transform: this.onRead.bind(this),
+    })
+
+    const write = new TransformStream<Uint8Array>({
+      start: this.onWriteStart.bind(this),
+    })
+
+    const [readable, trashable] = read.readable.tee()
+
+    this.readable = readable
+    this.writable = write.writable
+
+    stream.readable
+      .pipeTo(read.writable, { signal })
+      .catch(() => { })
+
+    write.readable
+      .pipeTo(stream.writable, { signal })
+      .catch(() => { })
+
+    const trash = new WritableStream()
+
+    /**
+     * Force call to read.readable.transform()
+     */
+    trashable
+      .pipeTo(trash, { signal })
+      .catch(() => { })
   }
 
   get state() {
     return this._state
+  }
+
+  get input() {
+    return this._input!
+  }
+
+  get output() {
+    return this._output!
   }
 
   async init() {
@@ -117,48 +159,18 @@ export class Tor extends EventTarget {
     await Foras.initBundledOnce()
   }
 
-  send(...arrays: Buffer[]) {
-    let length = 0
-
-    for (let i = 0; i < arrays.length; i++)
-      length += arrays[i].length
-    const packet = Binary.allocUnsafe(length)
-
-    for (const array of arrays)
-      packet.write(array)
-    this.tls.send(packet.buffer)
+  private async onReadStart(controller: TransformStreamDefaultController<Uint8Array>) {
+    this._input = controller
   }
 
-  private async onMessage(event: Event) {
-    const message = event as MessageEvent<Buffer>
-
-    const writer = this.streams.writable.getWriter()
-    writer.write(message.data).catch(console.warn)
-    writer.releaseLock()
+  private async onWriteStart(controller: TransformStreamDefaultController<Uint8Array>) {
+    this._output = controller
   }
 
-  private async tryRead() {
-    const reader = this.streams.readable.getReader()
+  private async onRead(chunk: Uint8Array) {
+    console.log("<- tor", chunk)
 
-    try {
-      await this.read(reader)
-    } finally {
-      reader.releaseLock()
-    }
-  }
-
-  private async read(reader: ReadableStreamDefaultReader<Buffer>) {
-    while (true) {
-      const { done, value } = await reader.read()
-
-      if (done) break
-
-      this.wbinary.write(value)
-      await this.onRead()
-    }
-  }
-
-  private async onRead() {
+    this.wbinary.write(chunk)
     this.rbinary.view = this.buffer.subarray(0, this.wbinary.offset)
 
     while (this.rbinary.remaining) {
@@ -343,10 +355,12 @@ export class Tor extends EventTarget {
 
     const address = new TypedAddress(4, Buffer.from([127, 0, 0, 1]))
     const netinfo = new NetinfoCell(undefined, 0, address, [])
+    this.output.enqueue(netinfo.pack())
+
     const pversion = PaddingNegociateCell.versions.ZERO
     const pcommand = PaddingNegociateCell.commands.STOP
     const padding = new PaddingNegociateCell(undefined, pversion, pcommand, 0, 0)
-    this.send(netinfo.pack(), padding.pack())
+    this.output.enqueue(padding.pack())
 
     const { version, guard } = this._state
     this._state = { type: "handshaked", version, guard }
@@ -456,22 +470,23 @@ export class Tor extends EventTarget {
     const future = new Future<Event, Event>()
 
     try {
-      this.tls.addEventListener("close", future.err, { passive: true })
-      this.tls.addEventListener("error", future.err, { passive: true })
+      // this.tls.addEventListener("close", future.err, { passive: true })
+      // this.tls.addEventListener("error", future.err, { passive: true })
       this.addEventListener("handshake", future.ok, { passive: true })
       await future.promise
     } catch (e: unknown) {
       throw Events.error(e)
     } finally {
-      this.tls.removeEventListener("error", future.err)
-      this.tls.removeEventListener("close", future.err)
+      // this.tls.removeEventListener("error", future.err)
+      // this.tls.removeEventListener("close", future.err)
       this.removeEventListener("handshake", future.ok)
     }
   }
 
   async handshake() {
     const handshake = this.waitHandshake()
-    this.send(new VersionsCell(undefined, [5]).pack())
+    const version = new VersionsCell(undefined, [5])
+    this.output.enqueue(version.pack())
     await handshake
   }
 
@@ -484,15 +499,15 @@ export class Tor extends EventTarget {
     }
 
     try {
-      this.tls.addEventListener("close", future.err, { passive: true })
-      this.tls.addEventListener("error", future.err, { passive: true })
+      // this.tls.addEventListener("close", future.err, { passive: true })
+      // this.tls.addEventListener("error", future.err, { passive: true })
       this.addEventListener("CREATED_FAST", onCreatedFastCell, { passive: true })
       return await future.promise
     } catch (e: unknown) {
       throw Events.error(e)
     } finally {
-      this.tls.removeEventListener("error", future.err)
-      this.tls.removeEventListener("close", future.err)
+      // this.tls.removeEventListener("error", future.err)
+      // this.tls.removeEventListener("close", future.err)
       this.removeEventListener("CREATED_FAST", onCreatedFastCell)
     }
   }
@@ -512,7 +527,9 @@ export class Tor extends EventTarget {
     crypto.getRandomValues(material)
 
     const pcreated = this.waitCreatedFast(circuit)
-    this.send(new CreateFastCell(circuit, material).pack())
+    const create_fast = new CreateFastCell(circuit, material)
+    this.output.enqueue(create_fast.pack())
+
     const created = await pcreated
 
     const k0 = Buffer.concat([material, created.material])
