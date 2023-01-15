@@ -1,16 +1,9 @@
 import { Binary } from "@hazae41/binary";
-import { Events } from "libs/events.js";
+import { AbortEvent, Events } from "libs/events.js";
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
-import { RelayTruncatedCell } from "mods/tor/binary/cells/relayed/relay_truncated/cell.js";
 import { Circuit } from "mods/tor/circuit.js";
 import { PAYLOAD_LEN } from "mods/tor/constants.js";
-
-export interface AbortEvent extends Event {
-  type: "abort"
-  target: AbortSignal
-  currentTarget: AbortSignal
-}
 
 const DATA_LEN = PAYLOAD_LEN - (1 + 2 + 2 + 4 + 2)
 
@@ -28,17 +21,20 @@ export class TcpStream extends EventTarget {
   ) {
     super()
 
+    const onClose = this.onClose.bind(this)
+    this.circuit.addEventListener("error", onClose, { passive: true })
+
+    const onError = this.onError.bind(this)
+    this.circuit.addEventListener("error", onError, { passive: true })
+
+    const onAbort = this.onAbort.bind(this)
+    this.signal?.addEventListener("abort", onAbort, { passive: true, once: true })
+
     const onRelayDataCell = this.onRelayDataCell.bind(this)
     this.circuit.addEventListener("RELAY_DATA", onRelayDataCell, { passive: true })
 
     const onRelayEndCell = this.onRelayEndCell.bind(this)
     this.circuit.addEventListener("RELAY_END", onRelayEndCell, { passive: true })
-
-    const onRelayTruncatedCell = this.onRelayTruncatedCell.bind(this)
-    this.circuit.addEventListener("RELAY_TRUNCATED", onRelayTruncatedCell, { passive: true })
-
-    const onAbort = this.onAbort.bind(this)
-    this.signal?.addEventListener("abort", onAbort, { passive: true, once: true })
 
     this.readable = new ReadableStream({
       start: this.onReadStart.bind(this)
@@ -66,42 +62,45 @@ export class TcpStream extends EventTarget {
     this._output = controller
   }
 
-  private async onAbort(event: Event) {
-    const abort = event as AbortEvent
+  private async onClose(e: Event) {
+    const event = Events.clone(e) as CloseEvent
+    if (!this.dispatchEvent(event)) return
 
-    this.input.error(abort.target.reason)
-    this.output.error(abort.target.reason)
+    try { this.input.close() } catch (e: unknown) { }
+    try { this.output.error() } catch (e: unknown) { }
   }
 
-  private async onRelayDataCell(event: Event) {
-    const message = event as MessageEvent<RelayDataCell>
-    if (message.data.stream !== this) return
+  private async onError(e: Event) {
+    const error = Events.clone(e) as ErrorEvent
+    if (!this.dispatchEvent(e)) return
 
-    const message2 = Events.clone(message)
-    if (!this.dispatchEvent(message2)) return
-
-    this.input.enqueue(message.data.data)
+    try { this.input.error(error) } catch (e: unknown) { }
+    try { this.output.error(error) } catch (e: unknown) { }
   }
 
-  private async onRelayEndCell(event: Event) {
-    const message = event as MessageEvent<RelayEndCell>
-    if (message.data.stream !== this) return
+  private async onAbort(e: Event) {
+    const event = Events.clone(e) as AbortEvent
+    if (!this.dispatchEvent(event)) return
 
-    const message2 = Events.clone(message)
-    if (!this.dispatchEvent(message2)) return
-
-    this.input.close()
-    this.output.error()
+    try { this.input.error(event.target.reason) } catch (e: unknown) { }
+    try { this.output.error(event.target.reason) } catch (e: unknown) { }
   }
 
-  private async onRelayTruncatedCell(event: Event) {
-    const message = event as MessageEvent<RelayTruncatedCell>
+  private async onRelayDataCell(e: Event) {
+    const event = Events.clone(e) as MessageEvent<RelayDataCell>
+    if (event.data.stream !== this) return
+    if (!this.dispatchEvent(event)) return
 
-    const message2 = Events.clone(message)
-    if (!this.dispatchEvent(message2)) return
+    this.input.enqueue(event.data.data)
+  }
 
-    this.input.error(message)
-    this.output.error(message)
+  private async onRelayEndCell(e: Event) {
+    const event = Events.clone(e) as MessageEvent<RelayEndCell>
+    if (event.data.stream !== this) return
+    if (!this.dispatchEvent(event)) return
+
+    try { this.input.close() } catch (e: unknown) { }
+    try { this.output.error() } catch (e: unknown) { }
   }
 
   private async onWrite(chunk: Uint8Array) {

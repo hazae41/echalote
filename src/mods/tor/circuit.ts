@@ -37,6 +37,12 @@ export class Circuit extends EventTarget {
   ) {
     super()
 
+    const onClose = this.onClose.bind(this)
+    this.tor.addEventListener("close", onClose, { passive: true })
+
+    const onError = this.onError.bind(this)
+    this.tor.addEventListener("error", onError, { passive: true })
+
     const onDestroyCell = this.onDestroyCell.bind(this)
     this.tor.addEventListener("DESTROY", onDestroyCell, { passive: true })
 
@@ -60,77 +66,74 @@ export class Circuit extends EventTarget {
     return this._closed
   }
 
-  private async onDestroyCell(event: Event) {
-    const message = event as MessageEvent<DestroyCell>
-    if (message.data.circuit !== this) return
-
-    const message2 = Events.clone(message)
-    if (!this.dispatchEvent(message2)) return
-
-    this._closed = true
+  private async onClose(e: Event) {
+    const event = Events.clone(e) as CloseEvent
+    if (!this.dispatchEvent(event)) return
   }
 
-  private async onRelayExtended2Cell(event: Event) {
-    const message = event as MessageEvent<RelayExtended2Cell>
-    if (message.data.circuit !== this) return
-
-    const message2 = Events.clone(message)
-    if (!this.dispatchEvent(message2)) return
+  private async onError(e: Event) {
+    const event = Events.clone(e) as ErrorEvent
+    if (!this.dispatchEvent(event)) return
   }
 
-  private async onRelayTruncatedCell(event: Event) {
-    const message = event as MessageEvent<RelayTruncatedCell>
-    if (message.data.circuit !== this) return
+  private async onDestroyCell(e: Event) {
+    const event = Events.clone(e) as MessageEvent<DestroyCell>
+    if (event.data.circuit !== this) return
+    if (!this.dispatchEvent(event)) return
 
-    const message2 = Events.clone(message)
-    if (!this.dispatchEvent(message2)) return
+    const event2 = new ErrorEvent("error", { error: event.data })
+    if (!this.dispatchEvent(event2)) return
   }
 
-  private async onRelayConnectedCell(event: Event) {
-    const message = event as MessageEvent<RelayConnectedCell>
-    if (message.data.circuit !== this) return
-
-    const message2 = Events.clone(message)
-    if (!this.dispatchEvent(message2)) return
+  private async onRelayExtended2Cell(e: Event) {
+    const event = Events.clone(e) as MessageEvent<RelayExtended2Cell>
+    if (event.data.circuit !== this) return
+    if (!this.dispatchEvent(event)) return
   }
 
-  private async onRelayDataCell(event: Event) {
-    const message = event as MessageEvent<RelayDataCell>
-    if (message.data.circuit !== this) return
+  private async onRelayTruncatedCell(e: Event) {
+    const event = Events.clone(e) as MessageEvent<RelayTruncatedCell>
+    if (event.data.circuit !== this) return
+    if (!this.dispatchEvent(event)) return
 
-    const message2 = Events.clone(message)
-    if (!this.dispatchEvent(message2)) return
+    const event2 = new ErrorEvent("error", { error: event.data })
+    if (!this.dispatchEvent(event2)) return
   }
 
-  private async onRelayEndCell(event: Event) {
-    const message = event as MessageEvent<RelayEndCell>
-    if (message.data.circuit !== this) return
+  private async onRelayConnectedCell(e: Event) {
+    const event = Events.clone(e) as MessageEvent<RelayConnectedCell>
+    if (event.data.circuit !== this) return
+    if (!this.dispatchEvent(event)) return
+  }
 
-    const message2 = Events.clone(message)
-    if (!this.dispatchEvent(message2)) return
+  private async onRelayDataCell(e: Event) {
+    const event = Events.clone(e) as MessageEvent<RelayDataCell>
+    if (event.data.circuit !== this) return
+    if (!this.dispatchEvent(event)) return
+  }
 
-    this.streams.delete(message.data.stream.id)
+  private async onRelayEndCell(e: Event) {
+    const event = Events.clone(e) as MessageEvent<RelayEndCell>
+    if (event.data.circuit !== this) return
+    if (!this.dispatchEvent(event)) return
+
+    this.streams.delete(event.data.stream.id)
   }
 
   private async waitExtended(signal?: AbortSignal) {
-    const future = new Future<Event, Event>()
+    const future = new Future<Event>()
 
     try {
       signal?.addEventListener("abort", future.err, { passive: true })
-      // this.tor.tls.addEventListener("close", future.err, { passive: true })
-      // this.tor.tls.addEventListener("error", future.err, { passive: true })
-      this.addEventListener("DESTROY", future.err, { passive: true })
-      this.addEventListener("RELAY_TRUNCATED", future.err, { passive: true })
+      this.addEventListener("close", future.err, { passive: true })
+      this.addEventListener("error", future.err, { passive: true })
       this.addEventListener("RELAY_EXTENDED2", future.ok, { passive: true })
+
       return await future.promise as MessageEvent<RelayExtended2Cell>
-    } catch (e: unknown) {
-      throw Events.error(e)
     } finally {
       signal?.removeEventListener("abort", future.err)
-      // this.tor.tls.removeEventListener("error", future.err)
-      // this.tor.tls.removeEventListener("close", future.err)
-      this.removeEventListener("DESTROY", future.err)
-      this.removeEventListener("RELAY_TRUNCATED", future.err)
+      this.removeEventListener("error", future.err)
+      this.removeEventListener("close", future.err)
       this.removeEventListener("RELAY_EXTENDED2", future.ok)
     }
   }
@@ -207,21 +210,20 @@ export class Circuit extends EventTarget {
     this.targets.push(target)
   }
 
-  private async waitTruncated() {
+  private async waitTruncated(signal?: AbortSignal) {
     const future = new Future<Event, Event>()
 
     try {
-      // this.tor.tls.addEventListener("close", future.err, { passive: true })
-      // this.tor.tls.addEventListener("error", future.err, { passive: true })
-      this.addEventListener("DESTROY", future.err, { passive: true })
+      signal?.addEventListener("abort", future.err, { passive: true })
+      this.addEventListener("close", future.err, { passive: true })
+      this.addEventListener("error", future.err, { passive: true })
       this.addEventListener("RELAY_TRUNCATED", future.ok, { passive: true })
+
       return await future.promise as MessageEvent<RelayTruncatedCell>
-    } catch (e: unknown) {
-      throw Events.error(e)
     } finally {
-      // this.tor.tls.removeEventListener("error", future.err)
-      // this.tor.tls.removeEventListener("close", future.err)
-      this.removeEventListener("DESTROY", future.err)
+      signal?.removeEventListener("abort", future.err)
+      this.removeEventListener("error", future.err)
+      this.removeEventListener("close", future.err)
       this.removeEventListener("RELAY_TRUNCATED", future.ok)
     }
   }
@@ -266,7 +268,7 @@ export class Circuit extends EventTarget {
 
     if (url.protocol === "https:") {
       const ciphers = [Ciphers.TLS_DHE_RSA_WITH_AES_256_CBC_SHA]
-      const tls = new TlsStream(tcp, { ciphers })
+      const tls = new TlsStream(tcp, { ciphers, debug: true })
 
       await tls.handshake()
 

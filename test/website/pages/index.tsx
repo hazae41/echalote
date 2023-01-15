@@ -1,4 +1,4 @@
-import { AES_256_CBC, BatchedFetchStream, Cipher, Ciphers, DHE_RSA, SHA, TlsStream, WebSocketStream } from "@hazae41/cadenas";
+import { BatchedFetchStream, WebSocketStream } from "@hazae41/cadenas";
 import { Circuit, Tor } from "@hazae41/echalote";
 import fallbacks from "assets/fallbacks.json";
 import lorem from "assets/lorem.json";
@@ -23,47 +23,35 @@ async function createWebSocketStream(url: string) {
   return new WebSocketStream(websocket)
 }
 
-async function createHttpStream() {
+async function createMeekStream(url: string) {
   const headers = { "x-session-id": crypto.randomUUID() }
-  const request = new Request("https://meek.bamsoftware.com/", { headers })
+  const request = new Request(url, { headers })
 
   return new BatchedFetchStream(request)
 }
 
-async function createTor(tls: ReadableWritablePair<Uint8Array>) {
-  const tor = new Tor(tls, {})
-
-  await tor.init()
-
-  return tor
-}
-
 async function extendMiddle(circuit: Circuit) {
-  while (true)
-    try {
-      const middle = randomOf(fallbacks)!
+  // const middle = fallbacks.find(it => it.id = "F50A8F16C555ADFF3E5827B0DD035CE86F71A0E9")!
+  const middle = randomOf(fallbacks)!
 
-      console.log("middle", middle.id)
-      await circuit._extend(middle)
+  const aborter = new AbortController()
+  const { signal } = aborter
 
-      return
-    } catch (e: unknown) {
-      console.warn(e)
-    }
+  setTimeout(() => aborter.abort(), 3000)
+
+  await circuit._extend(middle, signal)
 }
 
 async function extendExit(circuit: Circuit) {
-  while (true)
-    try {
-      const exit = randomOf(fallbacks.filter(it => it.exit))!
+  // const exit = fallbacks.find(it => it.id = "68C3B540E5D151461A37CB1ED928563EC3B6CDCB")!
+  const exit = randomOf(fallbacks.filter(it => it.exit))!
 
-      console.log("exit", exit.id)
-      await circuit._extend(exit)
+  const aborter = new AbortController()
+  const { signal } = aborter
 
-      return
-    } catch (e: unknown) {
-      console.warn(e)
-    }
+  setTimeout(() => aborter.abort(), 3000)
+
+  await circuit._extend(exit, signal)
 }
 
 async function createCircuit(tor: Tor) {
@@ -73,12 +61,25 @@ async function createCircuit(tor: Tor) {
 
       await extendMiddle(circuit)
       await extendExit(circuit)
-      // await circuit.fetch("https://google.com")
+      // await circuit.fetch("http://google.com")
 
       return circuit
     } catch (e: unknown) {
-      console.warn(e)
+      console.warn("circuit creation failed", e)
     }
+}
+
+async function fetch(tor: Tor) {
+  const circuit = await createCircuit(tor)
+
+  // const body = JSON.stringify({ "jsonrpc": "2.0", "method": "web3_clientVersion", "params": [], "id": 67 })
+  // const headers = { "content-type": "application/json" }
+
+  const res = await circuit.fetch("https://2.tcp.eu.ngrok.io:12979", {})
+
+  console.log(circuit.targets.map(it => it.idHash.toString("hex").toUpperCase()))
+
+  return res
 }
 
 function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
@@ -92,72 +93,35 @@ function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
   return state
 }
 
-export const fixedCiphersuites = {
-  TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA: 0xc00a,
-  TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA: 0xc014,
-  TLS_DHE_DSS_WITH_AES_256_CBC_SHA: 0x0038,
-  TLS_ECDH_RSA_WITH_AES_256_CBC_SHA: 0xc00f,
-  TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA: 0xc005,
-  TLS_RSA_WITH_AES_256_CBC_SHA: 0x0035,
-  TLS_ECDHE_ECDSA_WITH_RC4_128_SHA: 0xc007,
-  TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA: 0xc009,
-  TLS_ECDH_RSA_WITH_RC4_128_SHA: 0xc00c,
-  TLS_ECDH_RSA_WITH_AES_128_CBC_SHA: 0xc00e,
-  TLS_DHE_RSA_WITH_AES_128_CBC_SHA: 0x0033,
-  TLS_DHE_DSS_WITH_AES_128_CBC_SHA: 0x0032,
-  TLS_ECDHE_RSA_WITH_RC4_128_SHA: 0xc011,
-  TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA: 0xc013,
-  TLS_ECDH_ECDSA_WITH_RC4_128_SHA: 0xc002,
-  TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA: 0xc004,
-  TLS_RSA_WITH_RC4_128_MD5: 0x0004,
-  TLS_RSA_WITH_RC4_128_SHA: 0x0005,
-  TLS_RSA_WITH_AES_128_CBC_SHA: 0x002f,
-  TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA: 0xc008,
-  TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA: 0xc012,
-  TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA: 0x0016,
-  TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA: 0x0013,
-  TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA: 0xc00d,
-  TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA: 0xc003,
-  SSL_RSA_FIPS_WITH_3DES_EDE_CBC_SHA: 0xfeff,
-  TLS_RSA_WITH_3DES_EDE_CBC_SHA: 0x000a,
-}
-
 export default function Page() {
-  const tls = useAsyncMemo(async () => {
-    const xxx = await createWebSocketStream("ws://localhost:8080")
-
-    const fakes = Object.values(fixedCiphersuites).map(code => new Cipher(code, DHE_RSA, AES_256_CBC, SHA))
-    const ciphers = [Ciphers.TLS_DHE_RSA_WITH_AES_256_CBC_SHA, ...fakes]
-    const tls = new TlsStream(xxx, { ciphers })
-
-    await tls.handshake()
-
-    return tls
+  const tcp = useAsyncMemo(async () => {
+    // return await createWebSocketStream("ws://localhost:8080")
+    return await createMeekStream("https://meek.bamsoftware.com/")
   }, [])
 
   const tor = useAsyncMemo(async () => {
-    if (!tls) return
+    if (!tcp) return
 
-    const tor = new Tor(tls)
-
-    await tor.init()
+    const tor = new Tor(tcp)
     await tor.handshake()
-
     return tor
-  }, [tls])
+  }, [tcp])
 
   const onClick = useCallback(async () => {
+    if (!tor) return
+
     try {
-      if (!tor) return
+      const fetches = new Array<Promise<Response>>()
 
-      const circuit = await createCircuit(tor)
+      for (let i = 0; i < 10; i++)
+        fetches.push(fetch(tor))
 
-      const res = await circuit.fetch("https://7.tcp.eu.ngrok.io:12680")
+      const res = await Promise.any(fetches) as Response
 
       console.log(res)
       console.log(await res.text())
     } catch (e: unknown) {
-      console.error(e)
+      console.error("fetch error", e)
     }
   }, [tor])
 

@@ -1,12 +1,12 @@
 import { Berith } from "@hazae41/berith";
 import { Binary } from "@hazae41/binary";
+import { TlsStream } from "@hazae41/cadenas";
 import { Foras } from "@hazae41/foras";
 import { Morax, Sha1Hasher } from "@hazae41/morax";
 import { Paimon } from "@hazae41/paimon";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
 import { Bitmask } from "libs/bits.js";
 import { Bytes } from "libs/bytes/bytes.js";
-import { Events } from "libs/events.js";
 import { Future } from "libs/future.js";
 import { kdftor } from "mods/tor/algos/kdftor.js";
 import { TypedAddress } from "mods/tor/binary/address.js";
@@ -28,6 +28,7 @@ import { RelayDropCell } from "mods/tor/binary/cells/relayed/relay_drop/cell.js"
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { RelayExtended2Cell } from "mods/tor/binary/cells/relayed/relay_extended2/cell.js";
 import { RelayTruncatedCell } from "mods/tor/binary/cells/relayed/relay_truncated/cell.js";
+import { TorCiphers } from "mods/tor/ciphers.js";
 import { Circuit } from "mods/tor/circuit.js";
 import { Authority, parseAuthorities } from "mods/tor/consensus/authorities.js";
 import { Target } from "mods/tor/target.js";
@@ -88,24 +89,36 @@ export class Tor extends EventTarget {
   private _input?: TransformStreamDefaultController<Uint8Array>
   private _output?: TransformStreamDefaultController<Uint8Array>
 
+  private _tls: TlsStream
+
   private buffer = Buffer.allocUnsafe(4 * 4096)
   private wbinary = new Binary(this.buffer)
   private rbinary = new Binary(this.buffer)
 
-  fallbacks = {
+  readonly fallbacks = {
     exits: new Array<Fallback>(),
     middles: new Array<Fallback>()
-  }
+  } as const
 
+  /**
+   * Create a new Tor client
+   * @param tcp Some TCP stream
+   * @param params Tor params
+   */
   constructor(
-    readonly stream: ReadableWritablePair<Uint8Array>,
+    readonly tcp: ReadableWritablePair<Uint8Array>,
     readonly params: TorParams = {}
   ) {
     super()
 
+    const { signal } = params
+
     this.authorities = parseAuthorities()
 
-    const { signal } = params
+    const ciphers = Object.values(TorCiphers)
+    const tls = new TlsStream(tcp, { signal, ciphers })
+
+    this._tls = tls
 
     const read = new TransformStream<Uint8Array>({
       start: this.onReadStart.bind(this),
@@ -121,13 +134,15 @@ export class Tor extends EventTarget {
     this.readable = readable
     this.writable = write.writable
 
-    stream.readable
+    tls.readable
       .pipeTo(read.writable, { signal })
-      .catch(() => { })
+      .then(this.onClose.bind(this))
+      .catch(this.onError.bind(this))
 
     write.readable
-      .pipeTo(stream.writable, { signal })
-      .catch(() => { })
+      .pipeTo(tls.writable, { signal })
+      .then(this.onClose.bind(this))
+      .catch(this.onError.bind(this))
 
     const trash = new WritableStream()
 
@@ -136,7 +151,16 @@ export class Tor extends EventTarget {
      */
     trashable
       .pipeTo(trash, { signal })
-      .catch(() => { })
+      .then(this.onClose.bind(this))
+      .catch(this.onError.bind(this))
+  }
+
+  private async init() {
+    await Paimon.initBundledOnce()
+    await Berith.initBundledOnce()
+    await Zepar.initBundledOnce()
+    await Morax.initBundledOnce()
+    await Foras.initBundledOnce()
   }
 
   get state() {
@@ -151,12 +175,17 @@ export class Tor extends EventTarget {
     return this._output!
   }
 
-  async init() {
-    await Paimon.initBundledOnce()
-    await Berith.initBundledOnce()
-    await Zepar.initBundledOnce()
-    await Morax.initBundledOnce()
-    await Foras.initBundledOnce()
+  private async onClose() {
+    const event = new CloseEvent("close", {})
+    if (!this.dispatchEvent(event)) return
+  }
+
+  private async onError(error?: unknown) {
+    const event = new ErrorEvent("error", { error })
+    if (!this.dispatchEvent(event)) return
+
+    try { this.input.error(error) } catch (e: unknown) { }
+    try { this.output.error(error) } catch (e: unknown) { }
   }
 
   private async onReadStart(controller: TransformStreamDefaultController<Uint8Array>) {
@@ -464,48 +493,58 @@ export class Tor extends EventTarget {
     console.debug(`RELAY_TRUNCATED`, data)
   }
 
-  private async waitHandshake() {
-    const future = new Future<Event, Event>()
+  private async waitHandshake(signal?: AbortSignal) {
+    const future = new Future<Event>()
 
     try {
-      // this.tls.addEventListener("close", future.err, { passive: true })
-      // this.tls.addEventListener("error", future.err, { passive: true })
+      signal?.addEventListener("abort", future.err, { passive: true })
+      this.addEventListener("close", future.err, { passive: true })
+      this.addEventListener("error", future.err, { passive: true })
       this.addEventListener("handshake", future.ok, { passive: true })
+
       await future.promise
-    } catch (e: unknown) {
-      throw Events.error(e)
     } finally {
-      // this.tls.removeEventListener("error", future.err)
-      // this.tls.removeEventListener("close", future.err)
+      signal?.removeEventListener("abort", future.err)
+      this.removeEventListener("error", future.err)
+      this.removeEventListener("close", future.err)
       this.removeEventListener("handshake", future.ok)
     }
   }
 
   async handshake() {
+    await this.init()
+
+    await this._tls.handshake()
+
     const handshake = this.waitHandshake()
+
     const version = new VersionsCell(undefined, [5])
     this.output.enqueue(version.pack())
+
     await handshake
   }
 
-  private async waitCreatedFast(circuit: Circuit) {
-    const future = new Future<CreatedFastCell, Event>()
+  private async waitCreatedFast(circuit: Circuit, signal?: AbortSignal) {
+    const future = new Future<CreatedFastCell>()
 
     const onCreatedFastCell = (event: Event) => {
       const message = event as MessageEvent<CreatedFastCell>
-      if (message.data.circuit === circuit) future.ok(message.data)
+      if (message.data.circuit !== circuit) return
+
+      future.ok(message.data)
     }
 
     try {
-      // this.tls.addEventListener("close", future.err, { passive: true })
-      // this.tls.addEventListener("error", future.err, { passive: true })
+      signal?.addEventListener("abort", future.err, { passive: true })
+      this.addEventListener("close", future.err, { passive: true })
+      this.addEventListener("error", future.err, { passive: true })
       this.addEventListener("CREATED_FAST", onCreatedFastCell, { passive: true })
+
       return await future.promise
-    } catch (e: unknown) {
-      throw Events.error(e)
     } finally {
-      // this.tls.removeEventListener("error", future.err)
-      // this.tls.removeEventListener("close", future.err)
+      signal?.removeEventListener("abort", future.err)
+      this.removeEventListener("error", future.err)
+      this.removeEventListener("close", future.err)
       this.removeEventListener("CREATED_FAST", onCreatedFastCell)
     }
   }

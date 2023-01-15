@@ -1,3 +1,9 @@
+export interface AbortEvent extends Event {
+  type: "abort"
+  target: AbortSignal
+  currentTarget: AbortSignal
+}
+
 export namespace Events {
 
   export function clone(event: Event) {

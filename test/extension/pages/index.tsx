@@ -85,7 +85,6 @@ async function extendExit(circuit: Circuit) {
 async function createCircuit(tor: Tor) {
   while (true)
     try {
-      console.log("creating")
       const circuit = await tor.create()
       await extendMiddle(circuit)
       await extendExit(circuit)
