@@ -70,11 +70,15 @@ export class Circuit extends EventTarget {
   private async onClose(e: Event) {
     const event = Events.clone(e) as CloseEvent
     if (!this.dispatchEvent(event)) return
+
+    this._closed = true
   }
 
   private async onError(e: Event) {
     const event = Events.clone(e) as ErrorEvent
     if (!this.dispatchEvent(event)) return
+
+    this._closed = true
   }
 
   private async onDestroyCell(e: Event) {
@@ -84,6 +88,8 @@ export class Circuit extends EventTarget {
 
     const event2 = new ErrorEvent("error", { error: event.data })
     if (!this.dispatchEvent(event2)) return
+
+    this._closed = true
   }
 
   private async onRelayExtended2Cell(e: Event) {
@@ -154,23 +160,24 @@ export class Circuit extends EventTarget {
 
   async extend(exit: boolean) {
     while (true) {
+      if (this.closed)
+        throw new Error(`Circuit is closed`)
+
+      const fallbacks = exit
+        ? this.tor.params.fallbacks.filter(it => it.exit)
+        : this.tor.params.fallbacks
+      const fallback = Arrays.randomOf(fallbacks)
+
+      if (!fallback)
+        throw new Error(`Could not find fallback`)
+
+      const aborter = new AbortController()
+      const { signal } = aborter
+
+      setTimeout(() => aborter.abort(), 5 * 1000)
+
       try {
-        const fallbacks = exit
-          ? this.tor.params.fallbacks.filter(it => it.exit)
-          : this.tor.params.fallbacks
-        const fallback = Arrays.randomOf(fallbacks)
-
-        if (!fallback)
-          throw new Error(`Could not find fallback`)
-
-        const aborter = new AbortController()
-        const { signal } = aborter
-
-        setTimeout(() => aborter.abort(), 5 * 1000)
-
-        await this.extendTo(fallback, signal)
-
-        return
+        return await this.extendTo(fallback, signal)
       } catch (e: unknown) {
         console.warn(e)
       }
