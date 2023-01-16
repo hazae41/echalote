@@ -6,10 +6,6 @@ import { DependencyList, useCallback, useEffect, useState } from "react";
 
 lorem;
 
-export function randomOf<T>(array: T[]): T | undefined {
-  return array[Math.floor(Math.random() * array.length)]
-}
-
 async function createWebSocketStream(url: string) {
   const websocket = new WebSocket(url)
 
@@ -30,38 +26,13 @@ async function createMeekStream(url: string) {
   return new BatchedFetchStream(request, { highDelay: 100 })
 }
 
-async function extendMiddle(circuit: Circuit) {
-  // const middle = fallbacks.find(it => it.id = "F50A8F16C555ADFF3E5827B0DD035CE86F71A0E9")!
-  const middle = randomOf(fallbacks)!
-
-  const aborter = new AbortController()
-  const { signal } = aborter
-
-  setTimeout(() => aborter.abort(), 5 * 1000)
-
-  await circuit._extend(middle, signal)
-}
-
-async function extendExit(circuit: Circuit) {
-  // const exit = fallbacks.find(it => it.id = "68C3B540E5D151461A37CB1ED928563EC3B6CDCB")!
-  const exit = randomOf(fallbacks.filter(it => it.exit))!
-
-  const aborter = new AbortController()
-  const { signal } = aborter
-
-  setTimeout(() => aborter.abort(), 5 * 1000)
-
-  await circuit._extend(exit, signal)
-}
-
 async function createCircuit(tor: Tor) {
   while (true)
     try {
-      console.log("creating...")
       const circuit = await tor.create()
 
-      await extendMiddle(circuit)
-      await extendExit(circuit)
+      await circuit.extend(false)
+      await circuit.extend(true)
 
       return circuit
     } catch (e: unknown) {
@@ -73,14 +44,12 @@ async function fetchCircuit(circuit: Circuit) {
   const aborter = new AbortController()
   const { signal } = aborter
 
-  setTimeout(() => aborter.abort(), 15000)
+  setTimeout(() => aborter.abort(), 15 * 1000)
 
   // const body = JSON.stringify({ "jsonrpc": "2.0", "method": "web3_clientVersion", "params": [], "id": 67 })
   // const headers = { "content-type": "application/json" }
 
   const res = await circuit.fetch("http://google.com", { signal })
-
-  console.log(circuit.targets.map(it => new TextDecoder().decode(it.idHash).toUpperCase()))
 
   console.log(res)
   console.log(await res.text())
@@ -116,7 +85,7 @@ export default function Page() {
   const tor = useAsyncMemo(async () => {
     if (!tcp) return
 
-    const tor = new Tor(tcp)
+    const tor = new Tor(tcp, { fallbacks })
     await tor.handshake()
     return tor
   }, [tcp])
@@ -124,18 +93,12 @@ export default function Page() {
   const onClick = useCallback(async () => {
     if (!tor) return
 
-    try {
-      const fetches = new Array<Promise<Response>>()
+    const routines = new Array<Promise<Response>>()
 
-      for (let i = 0; i < 10; i++) {
-        // await new Promise(ok => setTimeout(ok, 1000))
-        fetches.push(routine(tor))
-      }
+    for (let i = 0; i < 1; i++)
+      routines.push(routine(tor))
 
-      const first = await Promise.any(fetches) as Response
-    } catch (e: unknown) {
-      console.error("fetch error", e)
-    }
+    await Promise.allSettled(routines)
   }, [tor])
 
   return <>

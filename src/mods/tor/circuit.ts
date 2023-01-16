@@ -145,7 +145,7 @@ export class Circuit extends EventTarget {
     if (!authority)
       throw new Error(`Could not find authority`)
 
-    await this._extend({
+    await this.extendTo({
       hosts: [authority.ipv4],
       id: authority.v3ident!,
       onion: authority.fingerprint,
@@ -153,15 +153,31 @@ export class Circuit extends EventTarget {
   }
 
   async extend(exit: boolean) {
-    const fallback = Arrays.randomOf(this.tor.fallbacks[exit ? "exits" : "middles"])
+    while (true) {
+      try {
+        const fallbacks = exit
+          ? this.tor.params.fallbacks.filter(it => it.exit)
+          : this.tor.params.fallbacks
+        const fallback = Arrays.randomOf(fallbacks)
 
-    if (!fallback)
-      throw new Error(`Could not find fallback`)
+        if (!fallback)
+          throw new Error(`Could not find fallback`)
 
-    return await this._extend(fallback)
+        const aborter = new AbortController()
+        const { signal } = aborter
+
+        setTimeout(() => aborter.abort(), 5 * 1000)
+
+        await this.extendTo(fallback, signal)
+
+        return
+      } catch (e: unknown) {
+        console.warn(e)
+      }
+    }
   }
 
-  async _extend(fallback: Fallback, signal?: AbortSignal) {
+  async extendTo(fallback: Fallback, signal?: AbortSignal) {
     const idh = Bytes.fromHex(fallback.id)
 
     const eid = fallback.eid

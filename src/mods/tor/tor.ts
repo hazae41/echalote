@@ -75,7 +75,8 @@ export interface Fallback {
 }
 
 export interface TorParams {
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  fallbacks: Fallback[]
 }
 
 export class Tor extends EventTarget {
@@ -96,11 +97,6 @@ export class Tor extends EventTarget {
   private wbinary = new Binary(this.buffer)
   private rbinary = new Binary(this.buffer)
 
-  readonly fallbacks = {
-    exits: new Array<Fallback>(),
-    middles: new Array<Fallback>()
-  } as const
-
   /**
    * Create a new Tor client
    * @param tcp Some TCP stream
@@ -108,7 +104,7 @@ export class Tor extends EventTarget {
    */
   constructor(
     readonly tcp: ReadableWritablePair<Uint8Array>,
-    readonly params: TorParams = {}
+    readonly params: TorParams
   ) {
     super()
 
