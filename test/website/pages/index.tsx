@@ -75,9 +75,9 @@ async function fetch(tor: Tor) {
   // const body = JSON.stringify({ "jsonrpc": "2.0", "method": "web3_clientVersion", "params": [], "id": 67 })
   // const headers = { "content-type": "application/json" }
 
-  const res = await circuit.fetch("https://2.tcp.eu.ngrok.io:12979", {})
+  const res = await circuit.fetch("http://google.com", {})
 
-  console.log(circuit.targets.map(it => it.idHash.toString("hex").toUpperCase()))
+  console.log(circuit.targets.map(it => new TextDecoder().decode(it.idHash).toUpperCase()))
 
   return res
 }

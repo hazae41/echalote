@@ -5,9 +5,10 @@ import { Sha1Hasher } from "@hazae41/morax";
 import { Aes128Ctr128BEKey } from "@hazae41/zepar";
 import { randomOf } from "libs/array.js";
 import { Bitmask } from "libs/bits.js";
+import { Bytes } from "libs/bytes/bytes.js";
 import { Events } from "libs/events.js";
 import { Future } from "libs/future.js";
-import { ntor } from "mods/tor/algos/index.js";
+import { Ntor } from "mods/tor/algos/ntor/index.js";
 import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
 import { RelayBeginCell } from "mods/tor/binary/cells/relayed/relay_begin/cell.js";
 import { RelayConnectedCell } from "mods/tor/binary/cells/relayed/relay_connected/cell.js";
@@ -161,10 +162,10 @@ export class Circuit extends EventTarget {
   }
 
   async _extend(fallback: Fallback, signal?: AbortSignal) {
-    const idh = Buffer.from(fallback.id, "hex")
+    const idh = Bytes.fromHex(fallback.id)
 
     const eid = fallback.eid
-      ? Buffer.from(fallback.eid, "base64")
+      ? Bytes.fromBase64(fallback.eid)
       : undefined
 
     const links: RelayExtend2Link[] = fallback.hosts
@@ -175,26 +176,26 @@ export class Circuit extends EventTarget {
     if (eid) links.push(new RelayExtend2LinkModernID(eid))
 
     const xsecretx = new X25519StaticSecret()
-    const publicx = Buffer.from(xsecretx.to_public().to_bytes().buffer)
-    const publicb = Buffer.from(fallback.onion)
+    const publicx = xsecretx.to_public().to_bytes()
+    const publicb = new Uint8Array(fallback.onion)
 
-    const request = ntor.request(publicx, idh, publicb)
+    const request = Ntor.request(publicx, idh, publicb)
 
     const pextended2 = this.waitExtended(signal)
     const relay_extend2 = new RelayExtend2Cell(this, undefined, RelayExtend2Cell.types.NTOR, links, request)
     this.tor.output.enqueue(await relay_extend2.pack())
     const extended2 = await pextended2
 
-    const response = ntor.response(extended2.data.data)
+    const response = Ntor.response(extended2.data.data)
 
     const { publicy } = response
     const xpublicy = new X25519PublicKey(publicy)
     const xpublicb = new X25519PublicKey(publicb)
 
-    const sharedxy = Buffer.from(xsecretx.diffie_hellman(xpublicy).to_bytes().buffer)
-    const sharedxb = Buffer.from(xsecretx.diffie_hellman(xpublicb).to_bytes().buffer)
+    const sharedxy = xsecretx.diffie_hellman(xpublicy).to_bytes()
+    const sharedxb = xsecretx.diffie_hellman(xpublicb).to_bytes()
 
-    const result = await ntor.finalize(sharedxy, sharedxb, idh, publicb, publicx, publicy)
+    const result = await Ntor.finalize(sharedxy, sharedxb, idh, publicb, publicx, publicy)
 
     const forwardDigest = new Sha1Hasher()
     const backwardDigest = new Sha1Hasher()
@@ -202,8 +203,8 @@ export class Circuit extends EventTarget {
     forwardDigest.update(result.forwardDigest)
     backwardDigest.update(result.backwardDigest)
 
-    const forwardKey = new Aes128Ctr128BEKey(result.forwardKey, Buffer.alloc(16))
-    const backwardKey = new Aes128Ctr128BEKey(result.backwardKey, Buffer.alloc(16))
+    const forwardKey = new Aes128Ctr128BEKey(result.forwardKey, Bytes.alloc(16))
+    const backwardKey = new Aes128Ctr128BEKey(result.backwardKey, Bytes.alloc(16))
 
     const target = new Target(idh, this, forwardDigest, backwardDigest, forwardKey, backwardKey)
 

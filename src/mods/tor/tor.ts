@@ -61,7 +61,7 @@ export interface TorHandshakedState {
 }
 
 export interface Guard {
-  readonly idh: Buffer
+  readonly idh: Uint8Array
   readonly certs: Certs
 }
 
@@ -91,7 +91,7 @@ export class Tor extends EventTarget {
 
   private _tls: TlsStream
 
-  private buffer = Buffer.allocUnsafe(4 * 4096)
+  private buffer = Bytes.allocUnsafe(4 * 4096)
   private wbinary = new Binary(this.buffer)
   private rbinary = new Binary(this.buffer)
 
@@ -235,7 +235,7 @@ export class Tor extends EventTarget {
       this.rbinary.offset = 0
       this.wbinary.offset = 0
 
-      this.buffer = Buffer.allocUnsafe(4 * 4096)
+      this.buffer = Bytes.allocUnsafe(4 * 4096)
       this.rbinary.view = this.buffer
       this.wbinary.view = this.buffer
 
@@ -380,7 +380,7 @@ export class Tor extends EventTarget {
     const event = new MessageEvent("NETINFO", { data })
     if (!this.dispatchEvent(event)) return
 
-    const address = new TypedAddress(4, Buffer.from([127, 0, 0, 1]))
+    const address = new TypedAddress(4, new Uint8Array([127, 0, 0, 1]))
     const netinfo = new NetinfoCell(undefined, 0, address, [])
     this.output.enqueue(netinfo.pack())
 
@@ -560,8 +560,7 @@ export class Tor extends EventTarget {
     const circuit = new Circuit(this, circuitId)
     this.circuits.set(circuitId, circuit)
 
-    const material = Buffer.allocUnsafe(20)
-    crypto.getRandomValues(material)
+    const material = Bytes.random(20)
 
     const pcreated = this.waitCreatedFast(circuit)
     const create_fast = new CreateFastCell(circuit, material)
@@ -569,7 +568,7 @@ export class Tor extends EventTarget {
 
     const created = await pcreated
 
-    const k0 = Buffer.concat([material, created.material])
+    const k0 = Bytes.concat([material, created.material])
     const result = await kdftor(k0)
 
     if (!Bytes.equals(result.keyHash, created.derivative))
@@ -581,8 +580,8 @@ export class Tor extends EventTarget {
     forwardDigest.update(result.forwardDigest)
     backwardDigest.update(result.backwardDigest)
 
-    const forwardKey = new Aes128Ctr128BEKey(result.forwardKey, Buffer.alloc(16))
-    const backwardKey = new Aes128Ctr128BEKey(result.backwardKey, Buffer.alloc(16))
+    const forwardKey = new Aes128Ctr128BEKey(result.forwardKey, Bytes.alloc(16))
+    const backwardKey = new Aes128Ctr128BEKey(result.backwardKey, Bytes.alloc(16))
 
     const target = new Target(this._state.guard.idh, circuit, forwardDigest, backwardDigest, forwardKey, backwardKey)
 

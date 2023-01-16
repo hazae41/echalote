@@ -1,5 +1,6 @@
 import { Binary } from "@hazae41/binary";
 import { lastOf } from "libs/array.js";
+import { Bytes } from "libs/bytes/bytes.js";
 import { NewCell } from "mods/tor/binary/cells/cell.js";
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js";
 import { Circuit } from "mods/tor/circuit.js";
@@ -41,16 +42,14 @@ export class RelayCell {
     binary.write(this.data)
     binary.fill(Math.min(binary.remaining, 4))
 
-    if (binary.remaining > 0) {
-      const random = Buffer.allocUnsafe(binary.remaining)
-      binary.write(crypto.getRandomValues(random))
-    }
+    if (binary.remaining > 0)
+      binary.write(Bytes.random(binary.remaining))
 
     const exit = lastOf(this.circuit.targets)
 
     exit.forwardDigest.update(binary.buffer)
 
-    const digest = Buffer.from(exit.forwardDigest.finalize().buffer).subarray(0, 4)
+    const digest = exit.forwardDigest.finalize().subarray(0, 4)
 
     binary.offset = digestOffset
     binary.write(digest)
@@ -89,14 +88,14 @@ export class RelayCell {
       if (streamId && !stream)
         throw new Error(`Unknown ${this.name} stream id ${streamId}`)
 
-      const digest = Buffer.from(binary.get(4))
+      const digest = new Uint8Array(binary.get(4))
       binary.writeUint32(0)
 
       target.backwardDigest.update(binary.buffer)
 
-      const digest2 = Buffer.from(target.backwardDigest.finalize().buffer).subarray(0, 4)
+      const digest2 = target.backwardDigest.finalize().subarray(0, 4)
 
-      if (!digest.equals(digest2))
+      if (!Bytes.equals(digest, digest2))
         throw new Error(`Invalid ${this.name} digest`)
 
       const length = binary.readUint16()

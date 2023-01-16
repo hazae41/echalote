@@ -6,7 +6,7 @@ export class Target {
   readonly #class = Target
 
   constructor(
-    readonly idHash: Buffer,
+    readonly idHash: Uint8Array,
     readonly circuit: Circuit,
     readonly forwardDigest: Sha1Hasher,
     readonly backwardDigest: Sha1Hasher,

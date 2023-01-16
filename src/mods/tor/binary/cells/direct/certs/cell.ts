@@ -1,6 +1,7 @@
 import { Ed25519PublicKey, Ed25519Signature } from "@hazae41/berith"
 import { Binary } from "@hazae41/binary"
 import { PaddingScheme, RsaPublicKey } from "@hazae41/paimon"
+import { Bytes } from "libs/bytes/bytes.js"
 import { NewCell } from "mods/tor/binary/cells/cell.js"
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
 import { Duplicated } from "mods/tor/binary/certs/errors.js"
@@ -36,9 +37,9 @@ export class CertsCell {
       throw new Error(`Undefined ID cert`)
 
     const key = this.certs.id.x509.tbsCertificate.subjectPublicKeyInfo.toBytes()
-    const hash = await crypto.subtle.digest("SHA-1", key)
+    const hash = new Uint8Array(await crypto.subtle.digest("SHA-1", key))
 
-    return Buffer.from(hash)
+    return hash
   }
 
   async checkId() {
@@ -85,9 +86,9 @@ export class CertsCell {
     const publicKey = this.certs.id.x509.tbsCertificate.subjectPublicKeyInfo.toBytes()
     const identity = RsaPublicKey.from_public_key_der(publicKey)
 
-    const prefix = Buffer.from("Tor TLS RSA/Ed25519 cross-certificate")
-    const prefixed = Buffer.concat([prefix, this.certs.id_to_eid.payload])
-    const hashed = Buffer.from(await crypto.subtle.digest("SHA-256", prefixed))
+    const prefix = Bytes.fromUtf8("Tor TLS RSA/Ed25519 cross-certificate")
+    const prefixed = Bytes.concat([prefix, this.certs.id_to_eid.payload])
+    const hashed = new Uint8Array(await crypto.subtle.digest("SHA-256", prefixed))
 
     const verified = identity.verify(PaddingScheme.new_pkcs1v15_sign_raw(), hashed, this.certs.id_to_eid.signature)
     if (!verified) throw new Error(`Invalid signature for ID_TO_EID cert`)

@@ -1,10 +1,11 @@
 import { Binary } from "@hazae41/binary"
+import { Bytes } from "libs/bytes/bytes.js"
 import { HASH_LEN, KEY_LEN } from "mods/tor/constants.js"
 
 export function request(
-  publicx: Buffer,
-  idh: Buffer,
-  oid: Buffer
+  publicx: Uint8Array,
+  idh: Uint8Array,
+  oid: Uint8Array
 ) {
   const binary = Binary.allocUnsafe(20 + 32 + 32)
 
@@ -52,14 +53,14 @@ export async function finalize(
   secreti.write(publicy)
   secreti.writeString(protoid)
 
-  const t_mac = Buffer.from(`${protoid}:mac`)
-  const t_key = Buffer.from(`${protoid}:key_extract`)
-  const t_verify = Buffer.from(`${protoid}:verify`)
+  const t_mac = Bytes.fromUtf8(`${protoid}:mac`)
+  const t_key = Bytes.fromUtf8(`${protoid}:key_extract`)
+  const t_verify = Bytes.fromUtf8(`${protoid}:verify`)
 
   const hmac = { name: "HMAC", hash: "SHA-256" }
 
   const kt_verify = await crypto.subtle.importKey("raw", t_verify, hmac, false, ["sign"])
-  const verify = Buffer.from(await crypto.subtle.sign("HMAC", kt_verify, secreti.buffer))
+  const verify = new Uint8Array(await crypto.subtle.sign("HMAC", kt_verify, secreti.buffer))
 
   const server = "Server"
 
@@ -73,13 +74,13 @@ export async function finalize(
   authi.writeString(server)
 
   const kt_mac = await crypto.subtle.importKey("raw", t_mac, hmac, false, ["sign"])
-  const auth = Buffer.from(await crypto.subtle.sign("HMAC", kt_mac, authi.buffer))
+  const auth = new Uint8Array(await crypto.subtle.sign("HMAC", kt_mac, authi.buffer))
 
-  const m_expand = Buffer.from(`${protoid}:key_expand`)
+  const m_expand = Bytes.fromUtf8(`${protoid}:key_expand`)
 
   const hkdf = { name: "HKDF", hash: "SHA-256", info: m_expand, salt: t_key }
   const ksecret = await crypto.subtle.importKey("raw", secreti.buffer, "HKDF", false, ["deriveBits"])
-  const key = Buffer.from(await crypto.subtle.deriveBits(hkdf, ksecret, 8 * ((HASH_LEN * 3) + (KEY_LEN * 2))))
+  const key = new Uint8Array(await crypto.subtle.deriveBits(hkdf, ksecret, 8 * ((HASH_LEN * 3) + (KEY_LEN * 2))))
 
   const k = new Binary(key)
   const forwardDigest = k.read(HASH_LEN)

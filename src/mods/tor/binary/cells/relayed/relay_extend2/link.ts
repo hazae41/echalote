@@ -74,7 +74,7 @@ export class RelayExtend2LinkLegacyID {
   static type = 2
 
   constructor(
-    readonly fingerprint: Buffer
+    readonly fingerprint: Uint8Array
   ) { }
 
   write(binary: Binary) {
@@ -90,7 +90,7 @@ export class RelayExtend2LinkModernID {
   static type = 3
 
   constructor(
-    readonly fingerprint: Buffer
+    readonly fingerprint: Uint8Array
   ) { }
 
   write(binary: Binary) {

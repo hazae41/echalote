@@ -26,7 +26,7 @@ export class RelayExtend2Cell {
     readonly stream: undefined,
     readonly type: number,
     readonly links: RelayExtend2Link[],
-    readonly data: Buffer
+    readonly data: Uint8Array
   ) { }
 
   async pack() {

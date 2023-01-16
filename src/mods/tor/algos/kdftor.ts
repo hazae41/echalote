@@ -9,7 +9,7 @@ export interface KDFResult {
   backwardKey: Uint8Array
 }
 
-export async function kdftor(k0: Buffer): Promise<KDFResult> {
+export async function kdftor(k0: Uint8Array): Promise<KDFResult> {
   const ki = Binary.allocUnsafe(k0.length + 1)
   ki.write(k0)
 
@@ -18,7 +18,7 @@ export async function kdftor(k0: Buffer): Promise<KDFResult> {
   for (let i = 0; k.remaining > 0; i++) {
     ki.setUint8(i)
     const h = await crypto.subtle.digest("SHA-1", ki.buffer)
-    k.write(Buffer.from(h))
+    k.write(new Uint8Array(h))
   }
 
   k.offset = 0

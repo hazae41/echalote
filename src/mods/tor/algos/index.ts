@@ -1,3 +1,3 @@
 export * from "./kdftor.js";
-export * as ntor from "./ntor.js";
+export * from "./ntor/index.js";
 
