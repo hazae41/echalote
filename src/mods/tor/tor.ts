@@ -2,12 +2,13 @@ import { Berith } from "@hazae41/berith";
 import { Binary } from "@hazae41/binary";
 import { TlsStream } from "@hazae41/cadenas";
 import { Foras } from "@hazae41/foras";
-import { Morax, Sha1Hasher } from "@hazae41/morax";
+import { Morax } from "@hazae41/morax";
 import { Paimon } from "@hazae41/paimon";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
 import { Bitmask } from "libs/bits.js";
 import { Bytes } from "libs/bytes/bytes.js";
-import { Future } from "libs/future.js";
+import { Future } from "libs/futures/future.js";
+import { Mutex } from "libs/mutex/mutex.js";
 import { kdftor } from "mods/tor/algos/kdftor.js";
 import { TypedAddress } from "mods/tor/binary/address.js";
 import { Cell, NewCell, OldCell } from "mods/tor/binary/cells/cell.js";
@@ -549,20 +550,33 @@ export class Tor extends EventTarget {
     }
   }
 
-  async create() {
+  private circuitsMutex = new Mutex()
+
+  private async createCircuitAtomic() {
+    return await this.circuitsMutex.lock(async () => {
+      while (true) {
+        const rawCircuitId = new Binary(Bytes.random(4)).getUint32()
+        if (rawCircuitId === 0) continue
+
+        const circuitId = new Bitmask(rawCircuitId).set(31, true).export()
+        if (this.circuits.has(circuitId)) continue
+
+        const circuit = new Circuit(this, circuitId)
+        this.circuits.set(circuitId, circuit)
+
+        return circuit
+      }
+    })
+  }
+
+  async create(signal?: AbortSignal) {
     if (this._state.type !== "handshaked")
       throw new Error(`Can't create a circuit yet`)
 
-    const circuitId = new Bitmask(Date.now())
-      .set(31, true)
-      .export()
-
-    const circuit = new Circuit(this, circuitId)
-    this.circuits.set(circuitId, circuit)
-
+    const circuit = await this.createCircuitAtomic()
     const material = Bytes.random(20)
 
-    const pcreated = this.waitCreatedFast(circuit)
+    const pcreated = this.waitCreatedFast(circuit, signal)
     const create_fast = new CreateFastCell(circuit, material)
     this.output.enqueue(create_fast.pack())
 
@@ -574,8 +588,8 @@ export class Tor extends EventTarget {
     if (!Bytes.equals(result.keyHash, created.derivative))
       throw new Error(`Invalid KDF-TOR key hash`)
 
-    const forwardDigest = new Sha1Hasher()
-    const backwardDigest = new Sha1Hasher()
+    const forwardDigest = new Morax.Sha1Hasher()
+    const backwardDigest = new Morax.Sha1Hasher()
 
     forwardDigest.update(result.forwardDigest)
     backwardDigest.update(result.backwardDigest)

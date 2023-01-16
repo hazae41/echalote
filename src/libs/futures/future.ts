@@ -1,14 +1,13 @@
-/**
- * Promise that's manually fullfilled or rejected
- */
-export class Future<T = any, E = any> {
-  readonly #class = Future
+export class Future<T = unknown, E = unknown> {
 
   readonly ok: (x: T) => void
   readonly err: (e: E) => void
 
   readonly promise: Promise<T>
 
+  /**
+   * A promise that's manually fullfilled or rejected
+   */
   constructor() {
     let ok: (x: T) => void
     let err: (e: E) => void

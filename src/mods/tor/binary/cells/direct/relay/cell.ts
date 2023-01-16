@@ -1,5 +1,5 @@
 import { Binary } from "@hazae41/binary";
-import { lastOf } from "libs/array.js";
+import { Arrays } from "libs/arrays/arrays.js";
 import { Bytes } from "libs/bytes/bytes.js";
 import { NewCell } from "mods/tor/binary/cells/cell.js";
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js";
@@ -45,7 +45,7 @@ export class RelayCell {
     if (binary.remaining > 0)
       binary.write(Bytes.random(binary.remaining))
 
-    const exit = lastOf(this.circuit.targets)
+    const exit = Arrays.lastOf(this.circuit.targets)
 
     exit.forwardDigest.update(binary.buffer)
 

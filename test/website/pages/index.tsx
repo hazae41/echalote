@@ -27,7 +27,7 @@ async function createMeekStream(url: string) {
   const headers = { "x-session-id": crypto.randomUUID() }
   const request = new Request(url, { headers })
 
-  return new BatchedFetchStream(request)
+  return new BatchedFetchStream(request, { highDelay: 100 })
 }
 
 async function extendMiddle(circuit: Circuit) {
@@ -37,7 +37,7 @@ async function extendMiddle(circuit: Circuit) {
   const aborter = new AbortController()
   const { signal } = aborter
 
-  setTimeout(() => aborter.abort(), 3000)
+  setTimeout(() => aborter.abort(), 5 * 1000)
 
   await circuit._extend(middle, signal)
 }
@@ -49,7 +49,7 @@ async function extendExit(circuit: Circuit) {
   const aborter = new AbortController()
   const { signal } = aborter
 
-  setTimeout(() => aborter.abort(), 3000)
+  setTimeout(() => aborter.abort(), 5 * 1000)
 
   await circuit._extend(exit, signal)
 }
@@ -57,11 +57,11 @@ async function extendExit(circuit: Circuit) {
 async function createCircuit(tor: Tor) {
   while (true)
     try {
+      console.log("creating...")
       const circuit = await tor.create()
 
       await extendMiddle(circuit)
       await extendExit(circuit)
-      // await circuit.fetch("http://google.com")
 
       return circuit
     } catch (e: unknown) {
@@ -69,17 +69,31 @@ async function createCircuit(tor: Tor) {
     }
 }
 
-async function fetch(tor: Tor) {
-  const circuit = await createCircuit(tor)
+async function fetchCircuit(circuit: Circuit) {
+  const aborter = new AbortController()
+  const { signal } = aborter
+
+  setTimeout(() => aborter.abort(), 15000)
 
   // const body = JSON.stringify({ "jsonrpc": "2.0", "method": "web3_clientVersion", "params": [], "id": 67 })
   // const headers = { "content-type": "application/json" }
 
-  const res = await circuit.fetch("http://google.com", {})
+  const res = await circuit.fetch("http://google.com", { signal })
 
   console.log(circuit.targets.map(it => new TextDecoder().decode(it.idHash).toUpperCase()))
 
+  console.log(res)
+  console.log(await res.text())
+
   return res
+}
+
+async function routine(tor: Tor) {
+  const circuit = await createCircuit(tor)
+  const response = await fetchCircuit(circuit)
+  const response2 = await fetchCircuit(circuit)
+
+  return response
 }
 
 function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
@@ -113,13 +127,12 @@ export default function Page() {
     try {
       const fetches = new Array<Promise<Response>>()
 
-      for (let i = 0; i < 10; i++)
-        fetches.push(fetch(tor))
+      for (let i = 0; i < 10; i++) {
+        // await new Promise(ok => setTimeout(ok, 1000))
+        fetches.push(routine(tor))
+      }
 
-      const res = await Promise.any(fetches) as Response
-
-      console.log(res)
-      console.log(await res.text())
+      const first = await Promise.any(fetches) as Response
     } catch (e: unknown) {
       console.error("fetch error", e)
     }

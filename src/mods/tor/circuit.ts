@@ -3,11 +3,11 @@ import { Ciphers, TlsStream } from "@hazae41/cadenas";
 import { fetch } from "@hazae41/fleche";
 import { Sha1Hasher } from "@hazae41/morax";
 import { Aes128Ctr128BEKey } from "@hazae41/zepar";
-import { randomOf } from "libs/array.js";
+import { Arrays } from "libs/arrays/arrays.js";
 import { Bitmask } from "libs/bits.js";
 import { Bytes } from "libs/bytes/bytes.js";
 import { Events } from "libs/events.js";
-import { Future } from "libs/future.js";
+import { Future } from "libs/futures/future.js";
 import { Ntor } from "mods/tor/algos/ntor/index.js";
 import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
 import { RelayBeginCell } from "mods/tor/binary/cells/relayed/relay_begin/cell.js";
@@ -140,7 +140,7 @@ export class Circuit extends EventTarget {
   }
 
   async extendDir() {
-    const authority = randomOf(this.tor.authorities.filter(it => it.v3ident))
+    const authority = Arrays.randomOf(this.tor.authorities.filter(it => it.v3ident))
 
     if (!authority)
       throw new Error(`Could not find authority`)
@@ -153,7 +153,7 @@ export class Circuit extends EventTarget {
   }
 
   async extend(exit: boolean) {
-    const fallback = randomOf(this.tor.fallbacks[exit ? "exits" : "middles"])
+    const fallback = Arrays.randomOf(this.tor.fallbacks[exit ? "exits" : "middles"])
 
     if (!fallback)
       throw new Error(`Could not find fallback`)

@@ -37,8 +37,8 @@ export class CreatedFastCell {
 
     const binary = new Binary(cell.payload)
 
-    const material = binary.read(20)
-    const derivative = binary.read(20)
+    const material = new Uint8Array(binary.read(20))
+    const derivative = new Uint8Array(binary.read(20))
 
     return new this(cell.circuit, material, derivative)
   }
