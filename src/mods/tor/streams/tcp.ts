@@ -28,7 +28,7 @@ export class TcpStream extends EventTarget {
     this.circuit.addEventListener("error", onError, { passive: true })
 
     const onAbort = this.onAbort.bind(this)
-    this.signal?.addEventListener("abort", onAbort, { passive: true, once: true })
+    this.signal?.addEventListener("abort", onAbort, { passive: true })
 
     const onRelayDataCell = this.onRelayDataCell.bind(this)
     this.circuit.addEventListener("RELAY_DATA", onRelayDataCell, { passive: true })

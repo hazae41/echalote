@@ -105,6 +105,8 @@ export class Circuit extends EventTarget {
 
     const event2 = new ErrorEvent("error", { error: event.data })
     if (!this.dispatchEvent(event2)) return
+
+    this._closed = true
   }
 
   private async onRelayConnectedCell(e: Event) {
