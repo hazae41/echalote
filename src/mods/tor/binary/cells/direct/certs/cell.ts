@@ -1,6 +1,6 @@
 import { Ed25519PublicKey, Ed25519Signature } from "@hazae41/berith"
 import { Binary } from "@hazae41/binary"
-import { PaddingScheme, RsaPublicKey } from "@hazae41/paimon"
+import { RsaPublicKey } from "@hazae41/paimon"
 import { Bytes } from "libs/bytes/bytes.js"
 import { NewCell } from "mods/tor/binary/cells/cell.js"
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
@@ -90,7 +90,7 @@ export class CertsCell {
     const prefixed = Bytes.concat([prefix, this.certs.id_to_eid.payload])
     const hashed = new Uint8Array(await crypto.subtle.digest("SHA-256", prefixed))
 
-    const verified = identity.verify(PaddingScheme.new_pkcs1v15_sign_raw(), hashed, this.certs.id_to_eid.signature)
+    const verified = identity.verify_pkcs1v15_raw(hashed, this.certs.id_to_eid.signature)
     if (!verified) throw new Error(`Invalid signature for ID_TO_EID cert`)
   }
 

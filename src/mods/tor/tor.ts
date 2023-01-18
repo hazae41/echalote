@@ -80,9 +80,6 @@ export interface TorParams {
 }
 
 export class Tor extends EventTarget {
-  readonly readable: ReadableStream<Uint8Array>
-  readonly writable: WritableStream<Uint8Array>
-
   private _state: TorState = { type: "none" }
 
   readonly authorities = new Array<Authority>()
@@ -126,16 +123,6 @@ export class Tor extends EventTarget {
       start: this.onWriteStart.bind(this),
     })
 
-    const [readable, trashable] = read.readable.tee()
-
-    this.readable = readable
-    this.writable = write.writable
-
-    tls.readable
-      .pipeTo(read.writable, { signal })
-      .then(this.onClose.bind(this))
-      .catch(this.onError.bind(this))
-
     write.readable
       .pipeTo(tls.writable, { signal })
       .then(this.onClose.bind(this))
@@ -143,10 +130,7 @@ export class Tor extends EventTarget {
 
     const trash = new WritableStream()
 
-    /**
-     * Force call to read.readable.transform()
-     */
-    trashable
+    read.readable
       .pipeTo(trash, { signal })
       .then(this.onClose.bind(this))
       .catch(this.onError.bind(this))
