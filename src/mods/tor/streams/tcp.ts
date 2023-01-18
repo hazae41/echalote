@@ -1,5 +1,6 @@
 import { Binary } from "@hazae41/binary";
-import { AbortEvent, Events } from "libs/events.js";
+import { AbortEvent } from "libs/events/abort.js";
+import { Events } from "libs/events/events.js";
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { Circuit } from "mods/tor/circuit.js";

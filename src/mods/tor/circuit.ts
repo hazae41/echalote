@@ -6,7 +6,8 @@ import { Aes128Ctr128BEKey } from "@hazae41/zepar";
 import { Arrays } from "libs/arrays/arrays.js";
 import { Bitmask } from "libs/bits.js";
 import { Bytes } from "libs/bytes/bytes.js";
-import { Events } from "libs/events.js";
+import { ErrorEvent } from "libs/events/error.js";
+import { Events } from "libs/events/events.js";
 import { Future } from "libs/futures/future.js";
 import { Ntor } from "mods/tor/algos/ntor/index.js";
 import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
@@ -26,11 +27,13 @@ import { Fallback, Tor } from "mods/tor/tor.js";
 export class Circuit extends EventTarget {
   readonly #class = Circuit
 
-  private _nonce = 1
-  private _closed = false
+  readonly read = new EventTarget()
 
   readonly targets = new Array<Target>()
   readonly streams = new Map<number, TcpStream>()
+
+  private _nonce = 1
+  private _closed = false
 
   constructor(
     readonly tor: Tor,
@@ -38,8 +41,8 @@ export class Circuit extends EventTarget {
   ) {
     super()
 
-    const onClose = this.onClose.bind(this)
-    this.tor.addEventListener("close", onClose, { passive: true })
+    const onClose = this.onReadClose.bind(this)
+    this.tor.read.addEventListener("close", onClose, { passive: true })
 
     const onError = this.onError.bind(this)
     this.tor.addEventListener("error", onError, { passive: true })
@@ -67,9 +70,9 @@ export class Circuit extends EventTarget {
     return this._closed
   }
 
-  private async onClose(e: Event) {
+  private async onReadClose(e: Event) {
     const event = Events.clone(e) as CloseEvent
-    if (!this.dispatchEvent(event)) return
+    if (!this.read.dispatchEvent(event)) return
 
     this._closed = true
   }
@@ -134,15 +137,15 @@ export class Circuit extends EventTarget {
 
     try {
       signal?.addEventListener("abort", future.err, { passive: true })
-      this.addEventListener("close", future.err, { passive: true })
+      this.read.addEventListener("close", future.err, { passive: true })
       this.addEventListener("error", future.err, { passive: true })
       this.addEventListener("RELAY_EXTENDED2", future.ok, { passive: true })
 
       return await future.promise as MessageEvent<RelayExtended2Cell>
     } finally {
       signal?.removeEventListener("abort", future.err)
+      this.read.removeEventListener("close", future.err)
       this.removeEventListener("error", future.err)
-      this.removeEventListener("close", future.err)
       this.removeEventListener("RELAY_EXTENDED2", future.ok)
     }
   }
@@ -241,15 +244,15 @@ export class Circuit extends EventTarget {
 
     try {
       signal?.addEventListener("abort", future.err, { passive: true })
-      this.addEventListener("close", future.err, { passive: true })
+      this.read.addEventListener("close", future.err, { passive: true })
       this.addEventListener("error", future.err, { passive: true })
       this.addEventListener("RELAY_TRUNCATED", future.ok, { passive: true })
 
       return await future.promise as MessageEvent<RelayTruncatedCell>
     } finally {
       signal?.removeEventListener("abort", future.err)
+      this.read.removeEventListener("close", future.err)
       this.removeEventListener("error", future.err)
-      this.removeEventListener("close", future.err)
       this.removeEventListener("RELAY_TRUNCATED", future.ok)
     }
   }

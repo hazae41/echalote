@@ -7,6 +7,8 @@ import { Paimon } from "@hazae41/paimon";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
 import { Bitmask } from "libs/bits.js";
 import { Bytes } from "libs/bytes/bytes.js";
+import { CloseEvent } from "libs/events/close.js";
+import { ErrorEvent } from "libs/events/error.js";
 import { Future } from "libs/futures/future.js";
 import { Mutex } from "libs/mutex/mutex.js";
 import { kdftor } from "mods/tor/algos/kdftor.js";
@@ -80,6 +82,9 @@ export interface TorParams {
 }
 
 export class Tor extends EventTarget {
+  readonly read = new EventTarget()
+  readonly write = new EventTarget()
+
   private _state: TorState = { type: "none" }
 
   readonly authorities = new Array<Authority>()
@@ -125,15 +130,20 @@ export class Tor extends EventTarget {
 
     write.readable
       .pipeTo(tls.writable, { signal })
-      .then(this.onClose.bind(this))
-      .catch(this.onError.bind(this))
+      .then(this.onWriteClose.bind(this))
+      .catch(this.onWriteError.bind(this))
 
     const trash = new WritableStream()
 
     read.readable
       .pipeTo(trash, { signal })
-      .then(this.onClose.bind(this))
-      .catch(this.onError.bind(this))
+      .then(this.onReadClose.bind(this))
+      .catch(this.onReadError.bind(this))
+
+    const onError = this.onError.bind(this)
+
+    this.read.addEventListener("error", onError, { passive: true })
+    this.write.addEventListener("error", onError, { passive: true })
   }
 
   private async init() {
@@ -156,17 +166,35 @@ export class Tor extends EventTarget {
     return this._output!
   }
 
-  private async onClose() {
+  private async onReadClose() {
     const event = new CloseEvent("close", {})
-    if (!this.dispatchEvent(event)) return
+    if (!this.read.dispatchEvent(event)) return
+  }
+
+  private async onWriteClose() {
+    const event = new CloseEvent("close", {})
+    if (!this.write.dispatchEvent(event)) return
+  }
+
+  private async onReadError(error?: unknown) {
+    const event = new ErrorEvent("error", { error })
+    if (!this.read.dispatchEvent(event)) return
+
+    try { this.input.error(error) } catch (e: unknown) { }
+    try { this.output.error(error) } catch (e: unknown) { }
+  }
+
+  private async onWriteError(error?: unknown) {
+    const event = new ErrorEvent("error", { error })
+    if (!this.write.dispatchEvent(event)) return
+
+    try { this.input.error(error) } catch (e: unknown) { }
+    try { this.output.error(error) } catch (e: unknown) { }
   }
 
   private async onError(error?: unknown) {
     const event = new ErrorEvent("error", { error })
     if (!this.dispatchEvent(event)) return
-
-    try { this.input.error(error) } catch (e: unknown) { }
-    try { this.output.error(error) } catch (e: unknown) { }
   }
 
   private async onReadStart(controller: TransformStreamDefaultController<Uint8Array>) {
@@ -479,15 +507,15 @@ export class Tor extends EventTarget {
 
     try {
       signal?.addEventListener("abort", future.err, { passive: true })
-      this.addEventListener("close", future.err, { passive: true })
+      this.read.addEventListener("close", future.err, { passive: true })
       this.addEventListener("error", future.err, { passive: true })
       this.addEventListener("handshake", future.ok, { passive: true })
 
       await future.promise
     } finally {
       signal?.removeEventListener("abort", future.err)
+      this.read.removeEventListener("close", future.err)
       this.removeEventListener("error", future.err)
-      this.removeEventListener("close", future.err)
       this.removeEventListener("handshake", future.ok)
     }
   }
@@ -517,15 +545,15 @@ export class Tor extends EventTarget {
 
     try {
       signal?.addEventListener("abort", future.err, { passive: true })
-      this.addEventListener("close", future.err, { passive: true })
+      this.read.addEventListener("close", future.err, { passive: true })
       this.addEventListener("error", future.err, { passive: true })
       this.addEventListener("CREATED_FAST", onCreatedFastCell, { passive: true })
 
       return await future.promise
     } finally {
       signal?.removeEventListener("abort", future.err)
+      this.read.removeEventListener("close", future.err)
       this.removeEventListener("error", future.err)
-      this.removeEventListener("close", future.err)
       this.removeEventListener("CREATED_FAST", onCreatedFastCell)
     }
   }

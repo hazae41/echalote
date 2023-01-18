@@ -1,8 +1,5 @@
-export interface AbortEvent extends Event {
-  type: "abort"
-  target: AbortSignal
-  currentTarget: AbortSignal
-}
+import { CloseEvent } from "./close.js"
+import { ErrorEvent } from "./error.js"
 
 export namespace Events {
 
@@ -24,18 +21,6 @@ export namespace Events {
 
     const { cancelable } = event
     return new Event(event.type, { cancelable })
-  }
-
-  export function error(error: unknown, message?: string): Error {
-    if (error instanceof Error)
-      return error
-    if (error instanceof ErrorEvent)
-      return Events.error(error.error, error.message)
-    if (error instanceof MessageEvent)
-      return new Error(message ?? error.type, { cause: error.data })
-    if (error instanceof Event)
-      return new Error(message ?? error.type, { cause: error })
-    return new Error(message ?? typeof error, { cause: error })
   }
 
 }
