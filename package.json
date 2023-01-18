@@ -31,8 +31,7 @@
     "@hazae41/morax": "^1.0.17",
     "@hazae41/paimon": "^1.0.13",
     "@hazae41/x509": "^1.0.18",
-    "@hazae41/zepar": "^1.0.10",
-    "tslib": "^2.4.1"
+    "@hazae41/zepar": "^1.0.10"
   },
   "devDependencies": {
     "@hazae41/phobos": "^1.0.10",
