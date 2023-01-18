@@ -25,7 +25,7 @@
   "dependencies": {
     "@hazae41/berith": "^1.1.37",
     "@hazae41/binary": "^1.1.7",
-    "@hazae41/cadenas": "^0.0.3",
+    "@hazae41/cadenas": "^0.0.4",
     "@hazae41/fleche": "^1.0.6",
     "@hazae41/foras": "^2.0.6",
     "@hazae41/morax": "^1.0.17",

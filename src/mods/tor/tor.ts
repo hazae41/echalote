@@ -144,6 +144,9 @@ export class Tor extends EventTarget {
 
     this.read.addEventListener("error", onError, { passive: true })
     this.write.addEventListener("error", onError, { passive: true })
+
+    tls.read.addEventListener("error", onError, { passive: true })
+    tls.write.addEventListener("error", onError, { passive: true })
   }
 
   private async init() {
@@ -179,22 +182,19 @@ export class Tor extends EventTarget {
   private async onReadError(error?: unknown) {
     const event = new ErrorEvent("error", { error })
     if (!this.read.dispatchEvent(event)) return
-
-    try { this.input.error(error) } catch (e: unknown) { }
-    try { this.output.error(error) } catch (e: unknown) { }
   }
 
   private async onWriteError(error?: unknown) {
     const event = new ErrorEvent("error", { error })
     if (!this.write.dispatchEvent(event)) return
-
-    try { this.input.error(error) } catch (e: unknown) { }
-    try { this.output.error(error) } catch (e: unknown) { }
   }
 
   private async onError(error?: unknown) {
     const event = new ErrorEvent("error", { error })
     if (!this.dispatchEvent(event)) return
+
+    try { this.input.error(error) } catch (e: unknown) { }
+    try { this.output.error(error) } catch (e: unknown) { }
   }
 
   private async onReadStart(controller: TransformStreamDefaultController<Uint8Array>) {
