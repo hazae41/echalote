@@ -128,6 +128,11 @@ export class Tor extends EventTarget {
       start: this.onWriteStart.bind(this),
     })
 
+    tls.readable
+      .pipeTo(read.writable, { signal })
+      .then(this.onReadClose.bind(this))
+      .catch(this.onReadError.bind(this))
+
     write.readable
       .pipeTo(tls.writable, { signal })
       .then(this.onWriteClose.bind(this))
