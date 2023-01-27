@@ -46,10 +46,10 @@ async function fetchCircuit(circuit: Circuit) {
 
   setTimeout(() => aborter.abort(), 15 * 1000)
 
-  // const body = JSON.stringify({ "jsonrpc": "2.0", "method": "web3_clientVersion", "params": [], "id": 67 })
-  // const headers = { "content-type": "application/json" }
+  const body = JSON.stringify({ "jsonrpc": "2.0", "method": "web3_clientVersion", "params": [], "id": 67 })
+  const headers = { "content-type": "application/json" }
 
-  const res = await circuit.fetch("http://google.com", { signal })
+  const res = await circuit.fetch("https://eth.llamarpc.com", { method: "POST", headers, body, signal })
 
   console.log(res)
   console.log(await res.text())

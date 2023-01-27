@@ -273,7 +273,7 @@ export class Circuit extends EventTarget {
     const flags = new Bitmask(0)
       .set(RelayBeginCell.flags.IPV4_OK, true)
       .set(RelayBeginCell.flags.IPV6_NOT_OK, false)
-      .set(RelayBeginCell.flags.IPV6_PREFER, true)
+      .set(RelayBeginCell.flags.IPV6_PREFER, false)
     this.tor.output.enqueue(await new RelayBeginCell(this, stream, `${hostname}:${port}`, flags).pack())
 
     return stream
@@ -289,14 +289,19 @@ export class Circuit extends EventTarget {
     const req = new Request(input, init)
 
     const url = new URL(req.url)
-    const port = Number(url.port) || 80
-    const tcp = await this.open(url.hostname, port, req.signal)
 
-    if (url.protocol === "http:")
+    if (url.protocol === "http:") {
+      const port = Number(url.port) || 80
+      const tcp = await this.open(url.hostname, port, req.signal)
+
       return fetch(input, { ...init, stream: tcp })
+    }
 
     if (url.protocol === "https:") {
-      const ciphers = [Ciphers.TLS_DHE_RSA_WITH_AES_256_CBC_SHA]
+      const port = Number(url.port) || 443
+      const tcp = await this.open(url.hostname, port, req.signal)
+
+      const ciphers = [Ciphers.TLS_DHE_RSA_WITH_AES_128_GCM_SHA256]
       const tls = new TlsStream(tcp, { ciphers, debug: true })
 
       await tls.handshake()
