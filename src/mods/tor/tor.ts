@@ -9,6 +9,7 @@ import { Bitmask } from "libs/bits.js";
 import { Bytes } from "libs/bytes/bytes.js";
 import { CloseEvent } from "libs/events/close.js";
 import { ErrorEvent } from "libs/events/error.js";
+import { Events } from "libs/events/events.js";
 import { Future } from "libs/futures/future.js";
 import { Mutex } from "libs/mutex/mutex.js";
 import { kdftor } from "mods/tor/algos/kdftor.js";
@@ -194,12 +195,14 @@ export class Tor extends EventTarget {
     if (!this.write.dispatchEvent(event)) return
   }
 
-  private async onError(error?: unknown) {
-    const event = new ErrorEvent("error", { error })
+  private async onError(e: Event) {
+    const event = Events.clone(e) as ErrorEvent
     if (!this.dispatchEvent(event)) return
 
-    try { this.input.error(error) } catch (e: unknown) { }
-    try { this.output.error(error) } catch (e: unknown) { }
+    console.error(event.error)
+
+    try { this.input.error(event.error) } catch (e: unknown) { }
+    try { this.output.error(event.error) } catch (e: unknown) { }
   }
 
   private async onReadStart(controller: TransformStreamDefaultController<Uint8Array>) {
