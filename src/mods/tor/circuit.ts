@@ -89,7 +89,8 @@ export class Circuit extends EventTarget {
     if (event.data.circuit !== this) return
     if (!this.dispatchEvent(event)) return
 
-    const event2 = new ErrorEvent("error", { error: event.data })
+    const error = new Error(`Circuit destroyed`, { cause: event.data })
+    const event2 = new ErrorEvent("error", { error })
     if (!this.dispatchEvent(event2)) return
 
     this._closed = true
@@ -106,7 +107,8 @@ export class Circuit extends EventTarget {
     if (event.data.circuit !== this) return
     if (!this.dispatchEvent(event)) return
 
-    const event2 = new ErrorEvent("error", { error: event.data })
+    const error = new Error(`Relay truncated`, { cause: event.data })
+    const event2 = new ErrorEvent("error", { error })
     if (!this.dispatchEvent(event2)) return
 
     this._closed = true
@@ -273,7 +275,7 @@ export class Circuit extends EventTarget {
     const flags = new Bitmask(0)
       .set(RelayBeginCell.flags.IPV4_OK, true)
       .set(RelayBeginCell.flags.IPV6_NOT_OK, false)
-      .set(RelayBeginCell.flags.IPV6_PREFER, false)
+      .set(RelayBeginCell.flags.IPV6_PREFER, true)
     this.tor.output.enqueue(await new RelayBeginCell(this, stream, `${hostname}:${port}`, flags).pack())
 
     return stream
@@ -301,7 +303,7 @@ export class Circuit extends EventTarget {
       const port = Number(url.port) || 443
       const tcp = await this.open(url.hostname, port, req.signal)
 
-      const ciphers = [Ciphers.TLS_DHE_RSA_WITH_AES_128_GCM_SHA256]
+      const ciphers = [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
       const tls = new TlsStream(tcp, { ciphers, debug: true })
 
       await tls.handshake()

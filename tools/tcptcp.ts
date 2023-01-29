@@ -6,7 +6,7 @@ for await (const conn of server)
   onconn(conn)
 
 async function onconn(conn: Deno.Conn) {
-  const target = await Deno.connect({ hostname: "127.0.0.1", port: 44330, transport: "tcp" })
+  const target = await Deno.connect({ hostname: "twitter.com", port: 443, transport: "tcp" })
 
   console.log("open")
 

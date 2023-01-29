@@ -72,11 +72,11 @@ export class TcpStream extends EventTarget {
   }
 
   private async onError(e: Event) {
-    const error = Events.clone(e) as ErrorEvent
-    if (!this.dispatchEvent(e)) return
+    const event = Events.clone(e) as ErrorEvent
+    if (!this.dispatchEvent(event)) return
 
-    try { this.input.error(error) } catch (e: unknown) { }
-    try { this.output.error(error) } catch (e: unknown) { }
+    try { this.input.error(event.error) } catch (e: unknown) { }
+    try { this.output.error(event.error) } catch (e: unknown) { }
   }
 
   private async onAbort(e: Event) {
