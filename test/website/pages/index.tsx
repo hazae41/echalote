@@ -57,7 +57,7 @@ async function fetchCircuit(circuit: Circuit) {
   console.log(await res.text())
 }
 
-async function routine(tor: Tor) {
+async function fetchTor(tor: Tor) {
   while (true)
     try {
       const circuit = await createCircuit(tor)
@@ -90,8 +90,8 @@ function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
 
 export default function Page() {
   const tcp = useAsyncMemo(async () => {
-    return await createWebSocketStream("ws://localhost:8080")
-    // return await createMeekStream("https://meek.bamsoftware.com/")
+    // return await createWebSocketStream("ws://localhost:8080")
+    return await createMeekStream("https://meek.bamsoftware.com/")
   }, [])
 
   const tor = useAsyncMemo(async () => {
@@ -105,12 +105,7 @@ export default function Page() {
   const onClick = useCallback(async () => {
     if (!tor) return
 
-    const routines = new Array<Promise<Response>>()
-
-    for (let i = 0; i < 1; i++)
-      routines.push(routine(tor))
-
-    await Promise.all(routines)
+    await fetchTor(tor)
   }, [tor])
 
   return <>
