@@ -7,6 +7,7 @@ import { Paimon } from "@hazae41/paimon";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
 import { Bitmask } from "libs/bits.js";
 import { Bytes } from "libs/bytes/bytes.js";
+import { AbortEvent } from "libs/events/abort.js";
 import { CloseEvent } from "libs/events/close.js";
 import { ErrorEvent } from "libs/events/error.js";
 import { Events } from "libs/events/events.js";
@@ -510,19 +511,41 @@ export class Tor extends AsyncEventTarget {
   }
 
   private async waitHandshake(signal?: AbortSignal) {
-    const future = new Future<Event>()
+    const future = new Future<Event, Error>()
+
+    const onAbort = (event: Event) => {
+      const abortEvent = event as AbortEvent
+
+      const error = new Error(`Handshake aborted`, { cause: abortEvent.target.reason })
+
+      future.err(error)
+    }
+
+    const onClose = (event: Event) => {
+      const closeEvent = event as CloseEvent
+
+      const error = new Error(`Tor closed`, { cause: closeEvent })
+
+      future.err(error)
+    }
+
+    const onError = (event: Event) => {
+      const errorEvent = event as ErrorEvent
+
+      future.err(errorEvent.error)
+    }
 
     try {
-      signal?.addEventListener("abort", future.err, { passive: true })
-      this.read.addEventListener("close", future.err, { passive: true })
-      this.addEventListener("error", future.err, { passive: true })
+      signal?.addEventListener("abort", onAbort, { passive: true })
+      this.read.addEventListener("close", onClose, { passive: true })
+      this.addEventListener("error", onError, { passive: true })
       this.addEventListener("handshake", future.ok, { passive: true })
 
       await future.promise
     } finally {
-      signal?.removeEventListener("abort", future.err)
-      this.read.removeEventListener("close", future.err)
-      this.removeEventListener("error", future.err)
+      signal?.removeEventListener("abort", onAbort)
+      this.read.removeEventListener("close", onClose)
+      this.removeEventListener("error", onError)
       this.removeEventListener("handshake", future.ok)
     }
   }
@@ -541,7 +564,7 @@ export class Tor extends AsyncEventTarget {
   }
 
   private async waitCreatedFast(circuit: Circuit, signal?: AbortSignal) {
-    const future = new Future<CreatedFastCell>()
+    const future = new Future<CreatedFastCell, Error>()
 
     const onCreatedFastCell = (event: Event) => {
       const msgEvent = event as MessageEvent<CreatedFastCell>
@@ -550,17 +573,39 @@ export class Tor extends AsyncEventTarget {
       future.ok(msgEvent.data)
     }
 
+    const onAbort = (event: Event) => {
+      const abortEvent = event as AbortEvent
+
+      const error = new Error(`CreateFast aborted`, { cause: abortEvent.target.reason })
+
+      future.err(error)
+    }
+
+    const onClose = (event: Event) => {
+      const closeEvent = event as CloseEvent
+
+      const error = new Error(`Tor closed`, { cause: closeEvent })
+
+      future.err(error)
+    }
+
+    const onError = (event: Event) => {
+      const errorEvent = event as ErrorEvent
+
+      future.err(errorEvent.error)
+    }
+
     try {
-      signal?.addEventListener("abort", future.err, { passive: true })
-      this.read.addEventListener("close", future.err, { passive: true })
-      this.addEventListener("error", future.err, { passive: true })
+      signal?.addEventListener("abort", onAbort, { passive: true })
+      this.read.addEventListener("close", onClose, { passive: true })
+      this.addEventListener("error", onError, { passive: true })
       this.addEventListener("CREATED_FAST", onCreatedFastCell, { passive: true })
 
       return await future.promise
     } finally {
-      signal?.removeEventListener("abort", future.err)
-      this.read.removeEventListener("close", future.err)
-      this.removeEventListener("error", future.err)
+      signal?.removeEventListener("abort", onAbort)
+      this.read.removeEventListener("close", onClose)
+      this.removeEventListener("error", onError)
       this.removeEventListener("CREATED_FAST", onCreatedFastCell)
     }
   }

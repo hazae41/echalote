@@ -73,29 +73,33 @@ export class TcpStream extends AsyncEventTarget {
   private async onClose(e: Event) {
     const closeEvent = e as CloseEvent
 
+    this._closed = true
+
     const closeEventClone = Events.clone(closeEvent)
     if (!await this.dispatchEvent(closeEventClone)) return
 
-    try { this.input.close() } catch (e: unknown) { }
-    try { this.output.error() } catch (e: unknown) { }
+    const error = new Error(`Stream closed`, { cause: closeEvent })
 
-    this._closed = true
+    try { this.input.close() } catch (e: unknown) { }
+    try { this.output.error(error) } catch (e: unknown) { }
   }
 
   private async onError(e: Event) {
     const errorEvent = e as ErrorEvent
+
+    this._closed = true
 
     const errorEventClone = Events.clone(e)
     if (!await this.dispatchEvent(errorEventClone)) return
 
     try { this.input.error(errorEvent.error) } catch (e: unknown) { }
     try { this.output.error(errorEvent.error) } catch (e: unknown) { }
-
-    this._closed = true
   }
 
   private async onAbort(event: Event) {
     const abortEvent = event as AbortEvent
+
+    this._closed = true
 
     const error = new Error(`Stream aborted`, { cause: abortEvent.target.reason })
 
@@ -104,12 +108,11 @@ export class TcpStream extends AsyncEventTarget {
 
     try { this.input.error(error) } catch (e: unknown) { }
     try { this.output.error(error) } catch (e: unknown) { }
-
-    this._closed = true
   }
 
   private async onRelayDataCell(event: Event) {
     const msgEvent = event as MessageEvent<RelayDataCell>
+    if (msgEvent.data.stream !== this) return
 
     const msgEventClone = Events.clone(msgEvent)
     if (!await this.dispatchEvent(msgEventClone)) return
@@ -126,13 +129,15 @@ export class TcpStream extends AsyncEventTarget {
     const msgEvent = event as MessageEvent<RelayEndCell>
     if (msgEvent.data.stream !== this) return
 
+    this._closed = true
+
     const msgEventClone = Events.clone(msgEvent)
     if (!await this.dispatchEvent(msgEventClone)) return
 
-    try { this.input.close() } catch (e: unknown) { }
-    try { this.output.error() } catch (e: unknown) { }
+    const error = new Error(`Stream closed`, { cause: msgEvent })
 
-    this._closed = true
+    try { this.input.close() } catch (e: unknown) { }
+    try { this.output.error(error) } catch (e: unknown) { }
   }
 
   private async onWrite(chunk: Uint8Array) {

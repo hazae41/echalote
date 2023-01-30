@@ -27,7 +27,7 @@ async function createMeekStream(url: string) {
 }
 
 async function createCircuit(tor: Tor) {
-  while (true)
+  while (true) {
     try {
       const circuit = await tor.create()
 
@@ -38,6 +38,9 @@ async function createCircuit(tor: Tor) {
     } catch (e: unknown) {
       console.warn("circuit creation failed", e)
     }
+
+    await new Promise(ok => setTimeout(ok, 1000))
+  }
 }
 
 async function fetchCircuit(circuit: Circuit) {

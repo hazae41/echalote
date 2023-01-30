@@ -13,13 +13,13 @@ export namespace Events {
       return new MessageEvent(event.type, { data, cancelable })
     }
 
-    if (event instanceof CloseEvent) {
-      const { code, reason, wasClean, cancelable } = event
+    if (event.type === "close") {
+      const { code, reason, wasClean, cancelable } = event as CloseEvent
       return new CloseEvent(event.type, { code, reason, wasClean, cancelable })
     }
 
-    if (event instanceof ErrorEvent) {
-      const { error, message, cancelable } = event
+    if (event.type === "error") {
+      const { error, message, cancelable } = event as ErrorEvent
       return new ErrorEvent(event.type, { error, message, cancelable })
     }
 
