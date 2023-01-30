@@ -36,10 +36,8 @@ async function createCircuit(tor: Tor) {
 
       return circuit
     } catch (e: unknown) {
-      console.warn("circuit creation failed", e)
+      console.warn("Create failed", e)
     }
-
-    await new Promise(ok => setTimeout(ok, 1000))
   }
 }
 
@@ -51,7 +49,7 @@ async function fetchCircuit(circuit: Circuit) {
 
   const body = JSON.stringify({ "jsonrpc": "2.0", "method": "web3_clientVersion", "params": [], "id": 67 })
   const headers = { "content-type": "application/json" }
-  const res = await circuit.fetch("https://eth.llamarpc.com", { method: "POST", headers, body, signal })
+  const res = await circuit.fetch("https://eth.llamarpc.com", { method: "POST", headers, body })
 
   // const res = await circuit.fetch("https://twitter.com", {})
 
@@ -62,11 +60,16 @@ async function fetchCircuit(circuit: Circuit) {
 }
 
 async function routine(tor: Tor) {
-  const circuit = await createCircuit(tor)
-  const response = await fetchCircuit(circuit)
-  const response2 = await fetchCircuit(circuit)
+  while (true)
+    try {
+      const circuit = await createCircuit(tor)
+      const response = await fetchCircuit(circuit)
+      const response2 = await fetchCircuit(circuit)
 
-  return response
+      return response
+    } catch (e: unknown) {
+      console.warn("Fetch failed", e)
+    }
 }
 
 function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
@@ -102,7 +105,7 @@ export default function Page() {
     for (let i = 0; i < 1; i++)
       routines.push(routine(tor))
 
-    await Promise.allSettled(routines)
+    await Promise.all(routines)
   }, [tor])
 
   return <>

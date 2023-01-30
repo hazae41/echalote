@@ -334,6 +334,9 @@ export class Circuit extends AsyncEventTarget {
   }
 
   async open(hostname: string, port: number, signal?: AbortSignal) {
+    if (this.closed)
+      throw new Error(`Circuit is closed`)
+
     const streamId = this._nonce++
 
     const stream = new TcpStream(this, streamId, signal)
@@ -355,6 +358,9 @@ export class Circuit extends AsyncEventTarget {
    * @returns Response promise
    */
   async fetch(input: RequestInfo, init: RequestInit = {}) {
+    if (this.closed)
+      throw new Error(`Circuit is closed`)
+
     const req = new Request(input, init)
 
     const url = new URL(req.url)
@@ -371,9 +377,9 @@ export class Circuit extends AsyncEventTarget {
       const tcp = await this.open(url.hostname, port, req.signal)
 
       const ciphers = [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
-      const tls = new TlsStream(tcp, { ciphers, debug: true })
+      const tls = new TlsStream(tcp, { ciphers })
 
-      await tls.handshake()
+      await tls.handshake(req.signal)
 
       return fetch(input, { ...init, stream: tls })
     }

@@ -94,7 +94,7 @@ export class Tor extends AsyncEventTarget {
   readonly circuits = new Map<number, Circuit>()
 
   private _input?: TransformStreamDefaultController<Uint8Array>
-  private _output?: TransformStreamDefaultController<Uint8Array>
+  private _output?: ReadableStreamDefaultController<Uint8Array>
 
   private _tls: TlsStream
 
@@ -127,26 +127,20 @@ export class Tor extends AsyncEventTarget {
       transform: this.onRead.bind(this),
     })
 
-    const write = new TransformStream<Uint8Array>({
+    const write = new ReadableStream<Uint8Array>({
       start: this.onWriteStart.bind(this),
     })
 
     tls.readable
-      .pipeTo(read.writable, { signal })
+      .pipeThrough(read, { signal })
+      .pipeTo(new WritableStream())
       .then(this.onReadClose.bind(this))
       .catch(this.onReadError.bind(this))
 
-    write.readable
+    write
       .pipeTo(tls.writable, { signal })
       .then(this.onWriteClose.bind(this))
       .catch(this.onWriteError.bind(this))
-
-    const trash = new WritableStream()
-
-    read.readable
-      .pipeTo(trash, { signal })
-      .then(this.onReadClose.bind(this))
-      .catch(this.onReadError.bind(this))
 
     const onError = this.onError.bind(this)
 
@@ -211,7 +205,7 @@ export class Tor extends AsyncEventTarget {
     this._input = controller
   }
 
-  private async onWriteStart(controller: TransformStreamDefaultController<Uint8Array>) {
+  private async onWriteStart(controller: ReadableStreamDefaultController<Uint8Array>) {
     this._output = controller
   }
 
@@ -263,9 +257,9 @@ export class Tor extends AsyncEventTarget {
 
   private async onCell(cell: Cell) {
     if (cell.command === PaddingCell.command)
-      return console.debug(`Received PADDING cell`)
+      return console.debug(`PADDING`, cell)
     if (cell.command === VariablePaddingCell.command)
-      return console.debug(`Received VPADDING cell`)
+      return console.debug(`VPADDING`, cell)
 
     if (this._state.type === "none")
       return await this.onNoneStateCell(cell)
@@ -333,6 +327,8 @@ export class Tor extends AsyncEventTarget {
 
     const data = VersionsCell.uncell(cell)
 
+    console.debug(`VERSIONS`, data)
+
     const cellEvent = new MessageEvent("VERSIONS", { data })
     if (!await this.dispatchEvent(cellEvent)) return
 
@@ -343,8 +339,6 @@ export class Tor extends AsyncEventTarget {
 
     const stateEvent = new MessageEvent("versioned", { data: 5 })
     if (!await this.dispatchEvent(stateEvent)) return
-
-    console.debug(`VERSIONS`, data)
   }
 
   private async onCertsCell(cell: NewCell) {
@@ -352,6 +346,8 @@ export class Tor extends AsyncEventTarget {
       throw new Error(`State is not versioned`)
 
     const data = CertsCell.uncell(cell)
+
+    console.debug(`CERTS`, data)
 
     const cellEvent = new MessageEvent("CERTS", { data })
     if (!await this.dispatchEvent(cellEvent)) return
@@ -372,8 +368,6 @@ export class Tor extends AsyncEventTarget {
 
     const stateEvent = new MessageEvent("handshaking", {})
     if (!await this.dispatchEvent(stateEvent)) return
-
-    console.debug(`CERTS`, data)
   }
 
   private async onAuthChallengeCell(cell: NewCell) {
@@ -382,10 +376,10 @@ export class Tor extends AsyncEventTarget {
 
     const data = AuthChallengeCell.uncell(cell)
 
+    console.debug(`AUTH_CHALLENGE`, data)
+
     const cellEvent = new MessageEvent("AUTH_CHALLENGE", { data })
     if (!await this.dispatchEvent(cellEvent)) return
-
-    console.debug(`AUTH_CHALLENGE`, data)
   }
 
   private async onNetinfoCell(cell: NewCell) {
@@ -393,6 +387,8 @@ export class Tor extends AsyncEventTarget {
       throw new Error(`State is not handshaking`)
 
     const data = NetinfoCell.uncell(cell)
+
+    console.debug(`NETINFO`, data)
 
     const cellEvent = new MessageEvent("NETINFO", { data })
     if (!await this.dispatchEvent(cellEvent)) return
@@ -411,28 +407,26 @@ export class Tor extends AsyncEventTarget {
 
     const stateEvent = new MessageEvent("handshake", {})
     if (!await this.dispatchEvent(stateEvent)) return
-
-    console.debug(`NETINFO`, data)
   }
 
   private async onCreatedFastCell(cell: NewCell) {
     const data = CreatedFastCell.uncell(cell)
 
+    console.debug(`CREATED_FAST`, data)
+
     const cellEvent = new MessageEvent("CREATED_FAST", { data })
     if (!await this.dispatchEvent(cellEvent)) return
-
-    console.debug(`CREATED_FAST`, data)
   }
 
   private async onDestroyCell(cell: NewCell) {
     const data = DestroyCell.uncell(cell)
 
+    console.debug(`DESTROY`, data)
+
     const cellEvent = new MessageEvent("DESTROY", { data })
     if (!await this.dispatchEvent(cellEvent)) return
 
     this.circuits.delete(data.circuit.id)
-
-    console.debug(`DESTROY`, data)
   }
 
   private async onRelayCell(parent: NewCell) {
@@ -457,57 +451,57 @@ export class Tor extends AsyncEventTarget {
   private async onRelayExtended2Cell(cell: RelayCell) {
     const data = RelayExtended2Cell.uncell(cell)
 
+    console.debug(`RELAY_EXTENDED2`, data)
+
     const cellEvent = new MessageEvent("RELAY_EXTENDED2", { data })
     if (!await this.dispatchEvent(cellEvent)) return
-
-    console.debug(`RELAY_EXTENDED2`, data)
   }
 
   private async onRelayConnectedCell(cell: RelayCell) {
     const data = RelayConnectedCell.uncell(cell)
 
+    console.debug(`RELAY_CONNECTED`, data)
+
     const cellEvent = new MessageEvent("RELAY_CONNECTED", { data })
     if (!await this.dispatchEvent(cellEvent)) return
-
-    console.debug(`RELAY_CONNECTED`, data)
   }
 
   private async onRelayDataCell(cell: RelayCell) {
     const data = RelayDataCell.uncell(cell)
 
+    console.debug(`RELAY_DATA`, data)
+
     const cellEvent = new MessageEvent("RELAY_DATA", { data })
     if (!await this.dispatchEvent(cellEvent)) return
-
-    console.debug(`RELAY_DATA`, data)
   }
 
   private async onRelayEndCell(cell: RelayCell) {
     const data = RelayEndCell.uncell(cell)
 
+    console.debug(`RELAY_END`, data)
+
     const cellEvent = new MessageEvent("RELAY_END", { data })
     if (!await this.dispatchEvent(cellEvent)) return
-
-    console.debug(`RELAY_END`, data)
   }
 
   private async onRelayDropCell(cell: RelayCell) {
     const data = RelayDropCell.uncell(cell)
 
+    console.debug(`RELAY_DROP`, data)
+
     const cellEvent = new MessageEvent("RELAY_DROP", { data })
     if (!await this.dispatchEvent(cellEvent)) return
-
-    console.debug(`RELAY_DROP`, data)
   }
 
   private async onRelayTruncatedCell(cell: RelayCell) {
     const data = RelayTruncatedCell.uncell(cell)
 
+    console.debug(`RELAY_TRUNCATED`, data)
+
     const cellEvent = new MessageEvent("RELAY_TRUNCATED", { data })
     if (!await this.dispatchEvent(cellEvent)) return
 
     data.circuit.targets.pop()
-
-    console.debug(`RELAY_TRUNCATED`, data)
   }
 
   private async waitHandshake(signal?: AbortSignal) {

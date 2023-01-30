@@ -46,7 +46,7 @@ export class TcpStream extends AsyncEventTarget {
 
     this.writable = new WritableStream({
       start: this.onWriteStart.bind(this),
-      write: this.onWrite.bind(this)
+      write: this.onWrite.bind(this),
     })
   }
 
@@ -117,12 +117,7 @@ export class TcpStream extends AsyncEventTarget {
     const msgEventClone = Events.clone(msgEvent)
     if (!await this.dispatchEvent(msgEventClone)) return
 
-    if (this.closed) {
-      console.warn(`Received RELAY_DATA while closed`)
-      return
-    }
-
-    this.input.enqueue(msgEvent.data.data)
+    try { this.input.enqueue(msgEvent.data.data) } catch (e: unknown) { }
   }
 
   private async onRelayEndCell(event: Event) {
