@@ -16,6 +16,8 @@ export class TcpStream extends AsyncEventTarget {
   private _input?: ReadableStreamController<Uint8Array>
   private _output?: WritableStreamDefaultController
 
+  private _closed = false
+
   constructor(
     readonly circuit: Circuit,
     readonly id: number,
@@ -56,6 +58,10 @@ export class TcpStream extends AsyncEventTarget {
     return this._output!
   }
 
+  get closed() {
+    return this._closed
+  }
+
   private async onReadStart(controller: ReadableStreamController<Uint8Array>) {
     this._input = controller
   }
@@ -65,44 +71,68 @@ export class TcpStream extends AsyncEventTarget {
   }
 
   private async onClose(e: Event) {
-    const event = Events.clone(e) as CloseEvent
-    if (!await this.dispatchEvent(event)) return
+    const closeEvent = e as CloseEvent
+
+    const closeEventClone = Events.clone(closeEvent)
+    if (!await this.dispatchEvent(closeEventClone)) return
 
     try { this.input.close() } catch (e: unknown) { }
     try { this.output.error() } catch (e: unknown) { }
+
+    this._closed = true
   }
 
   private async onError(e: Event) {
-    const event = Events.clone(e) as ErrorEvent
-    if (!await this.dispatchEvent(event)) return
+    const errorEvent = e as ErrorEvent
 
-    try { this.input.error(event.error) } catch (e: unknown) { }
-    try { this.output.error(event.error) } catch (e: unknown) { }
+    const errorEventClone = Events.clone(e)
+    if (!await this.dispatchEvent(errorEventClone)) return
+
+    try { this.input.error(errorEvent.error) } catch (e: unknown) { }
+    try { this.output.error(errorEvent.error) } catch (e: unknown) { }
+
+    this._closed = true
   }
 
-  private async onAbort(e: Event) {
-    const event = Events.clone(e) as AbortEvent
-    if (!await this.dispatchEvent(event)) return
+  private async onAbort(event: Event) {
+    const abortEvent = event as AbortEvent
 
-    try { this.input.error(event.target.reason) } catch (e: unknown) { }
-    try { this.output.error(event.target.reason) } catch (e: unknown) { }
+    const error = new Error(`Stream aborted`, { cause: abortEvent.target.reason })
+
+    const errorEvent = new ErrorEvent("error", { error })
+    if (!await this.dispatchEvent(errorEvent)) return
+
+    try { this.input.error(error) } catch (e: unknown) { }
+    try { this.output.error(error) } catch (e: unknown) { }
+
+    this._closed = true
   }
 
-  private async onRelayDataCell(e: Event) {
-    const event = Events.clone(e) as MessageEvent<RelayDataCell>
-    if (event.data.stream !== this) return
-    if (!await this.dispatchEvent(event)) return
+  private async onRelayDataCell(event: Event) {
+    const msgEvent = event as MessageEvent<RelayDataCell>
 
-    this.input.enqueue(event.data.data)
+    const msgEventClone = Events.clone(msgEvent)
+    if (!await this.dispatchEvent(msgEventClone)) return
+
+    if (this.closed) {
+      console.warn(`Received RELAY_DATA while closed`)
+      return
+    }
+
+    this.input.enqueue(msgEvent.data.data)
   }
 
-  private async onRelayEndCell(e: Event) {
-    const event = Events.clone(e) as MessageEvent<RelayEndCell>
-    if (event.data.stream !== this) return
-    if (!await this.dispatchEvent(event)) return
+  private async onRelayEndCell(event: Event) {
+    const msgEvent = event as MessageEvent<RelayEndCell>
+    if (msgEvent.data.stream !== this) return
+
+    const msgEventClone = Events.clone(msgEvent)
+    if (!await this.dispatchEvent(msgEventClone)) return
 
     try { this.input.close() } catch (e: unknown) { }
     try { this.output.error() } catch (e: unknown) { }
+
+    this._closed = true
   }
 
   private async onWrite(chunk: Uint8Array) {

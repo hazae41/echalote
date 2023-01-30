@@ -26,7 +26,6 @@ import { Target } from "mods/tor/target.js";
 import { Fallback, Tor } from "mods/tor/tor.js";
 
 export class Circuit extends AsyncEventTarget {
-  readonly #class = Circuit
 
   readonly read = new AsyncEventTarget()
 
@@ -71,68 +70,86 @@ export class Circuit extends AsyncEventTarget {
     return this._closed
   }
 
-  private async onReadClose(e: Event) {
-    const event = Events.clone(e) as CloseEvent
-    if (!await this.read.dispatchEvent(event)) return
+  private async onReadClose(event: Event) {
+    const closeEvent = event as CloseEvent
+
+    const closeEventClone = Events.clone(closeEvent)
+    if (!await this.read.dispatchEvent(closeEventClone)) return
 
     this._closed = true
   }
 
-  private async onError(e: Event) {
-    const event = Events.clone(e) as ErrorEvent
-    if (!await this.dispatchEvent(event)) return
+  private async onError(event: Event) {
+    const errorEvent = event as ErrorEvent
+
+    const errorEventClone = Events.clone(errorEvent)
+    if (!await this.dispatchEvent(errorEventClone)) return
 
     this._closed = true
   }
 
-  private async onDestroyCell(e: Event) {
-    const event = Events.clone(e) as MessageEvent<DestroyCell>
-    if (event.data.circuit !== this) return
-    if (!await this.dispatchEvent(event)) return
+  private async onDestroyCell(event: Event) {
+    const msgEvent = event as MessageEvent<DestroyCell>
+    if (msgEvent.data.circuit !== this) return
 
-    const error = new Error(`Circuit destroyed`, { cause: event.data })
-    const event2 = new ErrorEvent("error", { error })
-    if (!await this.dispatchEvent(event2)) return
+    const msgEventClone = Events.clone(msgEvent)
+    if (!await this.dispatchEvent(msgEventClone)) return
 
-    this._closed = true
-  }
+    const error = new Error(`Circuit destroyed`, { cause: msgEvent.data })
 
-  private async onRelayExtended2Cell(e: Event) {
-    const event = Events.clone(e) as MessageEvent<RelayExtended2Cell>
-    if (event.data.circuit !== this) return
-    if (!await this.dispatchEvent(event)) return
-  }
-
-  private async onRelayTruncatedCell(e: Event) {
-    const event = Events.clone(e) as MessageEvent<RelayTruncatedCell>
-    if (event.data.circuit !== this) return
-    if (!await this.dispatchEvent(event)) return
-
-    const error = new Error(`Relay truncated`, { cause: event.data })
-    const event2 = new ErrorEvent("error", { error })
-    if (!await this.dispatchEvent(event2)) return
+    const errorEvent = new ErrorEvent("error", { error })
+    if (!await this.dispatchEvent(errorEvent)) return
 
     this._closed = true
   }
 
-  private async onRelayConnectedCell(e: Event) {
-    const event = Events.clone(e) as MessageEvent<RelayConnectedCell>
-    if (event.data.circuit !== this) return
-    if (!await this.dispatchEvent(event)) return
+  private async onRelayExtended2Cell(event: Event) {
+    const msgEvent = event as MessageEvent<RelayExtended2Cell>
+    if (msgEvent.data.circuit !== this) return
+
+    const msgEventClone = Events.clone(msgEvent)
+    if (!await this.dispatchEvent(msgEventClone)) return
   }
 
-  private async onRelayDataCell(e: Event) {
-    const event = Events.clone(e) as MessageEvent<RelayDataCell>
-    if (event.data.circuit !== this) return
-    if (!await this.dispatchEvent(event)) return
+  private async onRelayTruncatedCell(event: Event) {
+    const msgEvent = event as MessageEvent<RelayTruncatedCell>
+    if (msgEvent.data.circuit !== this) return
+
+    const msgEventClone = Events.clone(event)
+    if (!await this.dispatchEvent(msgEventClone)) return
+
+    const error = new Error(`Relay truncated`, { cause: msgEvent.data })
+
+    const errorEvent = new ErrorEvent("error", { error })
+    if (!await this.dispatchEvent(errorEvent)) return
+
+    this._closed = true
   }
 
-  private async onRelayEndCell(e: Event) {
-    const event = Events.clone(e) as MessageEvent<RelayEndCell>
-    if (event.data.circuit !== this) return
-    if (!await this.dispatchEvent(event)) return
+  private async onRelayConnectedCell(event: Event) {
+    const msgEvent = event as MessageEvent<RelayConnectedCell>
+    if (msgEvent.data.circuit !== this) return
 
-    this.streams.delete(event.data.stream.id)
+    const msgEventClone = Events.clone(msgEvent)
+    if (!await this.dispatchEvent(msgEventClone)) return
+  }
+
+  private async onRelayDataCell(event: Event) {
+    const msgEvent = event as MessageEvent<RelayDataCell>
+    if (msgEvent.data.circuit !== this) return
+
+    const msgEventClone = Events.clone(msgEvent)
+    if (!await this.dispatchEvent(msgEventClone)) return
+  }
+
+  private async onRelayEndCell(event: Event) {
+    const msgEvent = event as MessageEvent<RelayEndCell>
+    if (msgEvent.data.circuit !== this) return
+
+    const msgEventClone = Events.clone(msgEvent)
+    if (!await this.dispatchEvent(msgEventClone)) return
+
+    this.streams.delete(msgEvent.data.stream.id)
   }
 
   private async waitExtended(signal?: AbortSignal) {

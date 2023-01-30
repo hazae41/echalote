@@ -3,6 +3,10 @@ import { ErrorEvent } from "./error.js"
 
 export namespace Events {
 
+  export function clone<T>(event: MessageEvent<T>): MessageEvent<T>
+  export function clone(event: CloseEvent): CloseEvent
+  export function clone(event: ErrorEvent): ErrorEvent
+  export function clone(event: Event): Event
   export function clone(event: Event) {
     if (event instanceof MessageEvent) {
       const { data, cancelable } = event
