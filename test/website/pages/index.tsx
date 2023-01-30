@@ -49,24 +49,29 @@ async function fetchCircuit(circuit: Circuit) {
 
   const body = JSON.stringify({ "jsonrpc": "2.0", "method": "web3_clientVersion", "params": [], "id": 67 })
   const headers = { "content-type": "application/json" }
-  const res = await circuit.fetch("https://eth.llamarpc.com", { method: "POST", headers, body })
+  const res = await circuit.fetch("https://virginia.rpc.blxrbdn.com", { method: "POST", headers, body, signal })
 
   // const res = await circuit.fetch("https://twitter.com", {})
 
   console.log(res)
   console.log(await res.text())
-
-  return res
 }
 
 async function routine(tor: Tor) {
   while (true)
     try {
       const circuit = await createCircuit(tor)
-      const response = await fetchCircuit(circuit)
-      const response2 = await fetchCircuit(circuit)
+      await fetchCircuit(circuit)
+      await fetchCircuit(circuit)
+      await fetchCircuit(circuit)
+      await fetchCircuit(circuit)
+      await fetchCircuit(circuit)
+      await fetchCircuit(circuit)
+      await fetchCircuit(circuit)
+      await fetchCircuit(circuit)
+      await fetchCircuit(circuit)
 
-      return response
+      return
     } catch (e: unknown) {
       console.warn("Fetch failed", e)
     }
