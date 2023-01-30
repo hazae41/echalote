@@ -1,6 +1,7 @@
 import { Binary } from "@hazae41/binary";
 import { AbortEvent } from "libs/events/abort.js";
 import { Events } from "libs/events/events.js";
+import { AsyncEventTarget } from "libs/events/target.js";
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { Circuit } from "mods/tor/circuit.js";
@@ -8,7 +9,7 @@ import { PAYLOAD_LEN } from "mods/tor/constants.js";
 
 const DATA_LEN = PAYLOAD_LEN - (1 + 2 + 2 + 4 + 2)
 
-export class TcpStream extends EventTarget {
+export class TcpStream extends AsyncEventTarget {
   readonly readable: ReadableStream<Uint8Array>
   readonly writable: WritableStream<Uint8Array>
 
@@ -65,7 +66,7 @@ export class TcpStream extends EventTarget {
 
   private async onClose(e: Event) {
     const event = Events.clone(e) as CloseEvent
-    if (!this.dispatchEvent(event)) return
+    if (!await this.dispatchEvent(event)) return
 
     try { this.input.close() } catch (e: unknown) { }
     try { this.output.error() } catch (e: unknown) { }
@@ -73,7 +74,7 @@ export class TcpStream extends EventTarget {
 
   private async onError(e: Event) {
     const event = Events.clone(e) as ErrorEvent
-    if (!this.dispatchEvent(event)) return
+    if (!await this.dispatchEvent(event)) return
 
     try { this.input.error(event.error) } catch (e: unknown) { }
     try { this.output.error(event.error) } catch (e: unknown) { }
@@ -81,7 +82,7 @@ export class TcpStream extends EventTarget {
 
   private async onAbort(e: Event) {
     const event = Events.clone(e) as AbortEvent
-    if (!this.dispatchEvent(event)) return
+    if (!await this.dispatchEvent(event)) return
 
     try { this.input.error(event.target.reason) } catch (e: unknown) { }
     try { this.output.error(event.target.reason) } catch (e: unknown) { }
@@ -90,7 +91,7 @@ export class TcpStream extends EventTarget {
   private async onRelayDataCell(e: Event) {
     const event = Events.clone(e) as MessageEvent<RelayDataCell>
     if (event.data.stream !== this) return
-    if (!this.dispatchEvent(event)) return
+    if (!await this.dispatchEvent(event)) return
 
     this.input.enqueue(event.data.data)
   }
@@ -98,7 +99,7 @@ export class TcpStream extends EventTarget {
   private async onRelayEndCell(e: Event) {
     const event = Events.clone(e) as MessageEvent<RelayEndCell>
     if (event.data.stream !== this) return
-    if (!this.dispatchEvent(event)) return
+    if (!await this.dispatchEvent(event)) return
 
     try { this.input.close() } catch (e: unknown) { }
     try { this.output.error() } catch (e: unknown) { }

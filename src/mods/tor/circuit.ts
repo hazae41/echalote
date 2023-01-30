@@ -8,6 +8,7 @@ import { Bitmask } from "libs/bits.js";
 import { Bytes } from "libs/bytes/bytes.js";
 import { ErrorEvent } from "libs/events/error.js";
 import { Events } from "libs/events/events.js";
+import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { Ntor } from "mods/tor/algos/ntor/index.js";
 import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
@@ -24,10 +25,10 @@ import { TcpStream } from "mods/tor/streams/tcp.js";
 import { Target } from "mods/tor/target.js";
 import { Fallback, Tor } from "mods/tor/tor.js";
 
-export class Circuit extends EventTarget {
+export class Circuit extends AsyncEventTarget {
   readonly #class = Circuit
 
-  readonly read = new EventTarget()
+  readonly read = new AsyncEventTarget()
 
   readonly targets = new Array<Target>()
   readonly streams = new Map<number, TcpStream>()
@@ -72,14 +73,14 @@ export class Circuit extends EventTarget {
 
   private async onReadClose(e: Event) {
     const event = Events.clone(e) as CloseEvent
-    if (!this.read.dispatchEvent(event)) return
+    if (!await this.read.dispatchEvent(event)) return
 
     this._closed = true
   }
 
   private async onError(e: Event) {
     const event = Events.clone(e) as ErrorEvent
-    if (!this.dispatchEvent(event)) return
+    if (!await this.dispatchEvent(event)) return
 
     this._closed = true
   }
@@ -87,11 +88,11 @@ export class Circuit extends EventTarget {
   private async onDestroyCell(e: Event) {
     const event = Events.clone(e) as MessageEvent<DestroyCell>
     if (event.data.circuit !== this) return
-    if (!this.dispatchEvent(event)) return
+    if (!await this.dispatchEvent(event)) return
 
     const error = new Error(`Circuit destroyed`, { cause: event.data })
     const event2 = new ErrorEvent("error", { error })
-    if (!this.dispatchEvent(event2)) return
+    if (!await this.dispatchEvent(event2)) return
 
     this._closed = true
   }
@@ -99,17 +100,17 @@ export class Circuit extends EventTarget {
   private async onRelayExtended2Cell(e: Event) {
     const event = Events.clone(e) as MessageEvent<RelayExtended2Cell>
     if (event.data.circuit !== this) return
-    if (!this.dispatchEvent(event)) return
+    if (!await this.dispatchEvent(event)) return
   }
 
   private async onRelayTruncatedCell(e: Event) {
     const event = Events.clone(e) as MessageEvent<RelayTruncatedCell>
     if (event.data.circuit !== this) return
-    if (!this.dispatchEvent(event)) return
+    if (!await this.dispatchEvent(event)) return
 
     const error = new Error(`Relay truncated`, { cause: event.data })
     const event2 = new ErrorEvent("error", { error })
-    if (!this.dispatchEvent(event2)) return
+    if (!await this.dispatchEvent(event2)) return
 
     this._closed = true
   }
@@ -117,19 +118,19 @@ export class Circuit extends EventTarget {
   private async onRelayConnectedCell(e: Event) {
     const event = Events.clone(e) as MessageEvent<RelayConnectedCell>
     if (event.data.circuit !== this) return
-    if (!this.dispatchEvent(event)) return
+    if (!await this.dispatchEvent(event)) return
   }
 
   private async onRelayDataCell(e: Event) {
     const event = Events.clone(e) as MessageEvent<RelayDataCell>
     if (event.data.circuit !== this) return
-    if (!this.dispatchEvent(event)) return
+    if (!await this.dispatchEvent(event)) return
   }
 
   private async onRelayEndCell(e: Event) {
     const event = Events.clone(e) as MessageEvent<RelayEndCell>
     if (event.data.circuit !== this) return
-    if (!this.dispatchEvent(event)) return
+    if (!await this.dispatchEvent(event)) return
 
     this.streams.delete(event.data.stream.id)
   }

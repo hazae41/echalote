@@ -10,6 +10,7 @@ import { Bytes } from "libs/bytes/bytes.js";
 import { CloseEvent } from "libs/events/close.js";
 import { ErrorEvent } from "libs/events/error.js";
 import { Events } from "libs/events/events.js";
+import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { Mutex } from "libs/mutex/mutex.js";
 import { kdftor } from "mods/tor/algos/kdftor.js";
@@ -82,9 +83,9 @@ export interface TorParams {
   fallbacks: Fallback[]
 }
 
-export class Tor extends EventTarget {
-  readonly read = new EventTarget()
-  readonly write = new EventTarget()
+export class Tor extends AsyncEventTarget {
+  readonly read = new AsyncEventTarget()
+  readonly write = new AsyncEventTarget()
 
   private _state: TorState = { type: "none" }
 
@@ -177,27 +178,27 @@ export class Tor extends EventTarget {
 
   private async onReadClose() {
     const event = new CloseEvent("close", {})
-    if (!this.read.dispatchEvent(event)) return
+    if (!await this.read.dispatchEvent(event)) return
   }
 
   private async onWriteClose() {
     const event = new CloseEvent("close", {})
-    if (!this.write.dispatchEvent(event)) return
+    if (!await this.write.dispatchEvent(event)) return
   }
 
   private async onReadError(error?: unknown) {
     const event = new ErrorEvent("error", { error })
-    if (!this.read.dispatchEvent(event)) return
+    if (!await this.read.dispatchEvent(event)) return
   }
 
   private async onWriteError(error?: unknown) {
     const event = new ErrorEvent("error", { error })
-    if (!this.write.dispatchEvent(event)) return
+    if (!await this.write.dispatchEvent(event)) return
   }
 
   private async onError(e: Event) {
     const event = Events.clone(e) as ErrorEvent
-    if (!this.dispatchEvent(event)) return
+    if (!await this.dispatchEvent(event)) return
 
     console.error(event.error)
 
@@ -214,25 +215,23 @@ export class Tor extends EventTarget {
   }
 
   private async onRead(chunk: Uint8Array) {
+    // console.debug("<-", chunk)
+
     this.wbinary.write(chunk)
     this.rbinary.view = this.buffer.subarray(0, this.wbinary.offset)
 
     while (this.rbinary.remaining) {
-      try {
-        const rawCell = this._state.type === "none"
-          ? OldCell.tryRead(this.rbinary)
-          : NewCell.tryRead(this.rbinary)
+      const rawCell = this._state.type === "none"
+        ? OldCell.tryRead(this.rbinary)
+        : NewCell.tryRead(this.rbinary)
 
-        if (!rawCell) break
+      if (!rawCell) break
 
-        const cell = rawCell.type === "old"
-          ? OldCell.unpack(this, rawCell)
-          : NewCell.unpack(this, rawCell)
+      const cell = rawCell.type === "old"
+        ? OldCell.unpack(this, rawCell)
+        : NewCell.unpack(this, rawCell)
 
-        await this.onCell(cell)
-      } catch (e: unknown) {
-        console.error(e)
-      }
+      await this.onCell(cell)
     }
 
     if (!this.rbinary.offset)
@@ -334,7 +333,7 @@ export class Tor extends EventTarget {
     const data = VersionsCell.uncell(cell)
 
     const event = new MessageEvent("VERSIONS", { data })
-    if (!this.dispatchEvent(event)) return
+    if (!await this.dispatchEvent(event)) return
 
     if (!data.versions.includes(5))
       throw new Error(`Incompatible versions`)
@@ -342,7 +341,7 @@ export class Tor extends EventTarget {
     this._state = { type: "versioned", version: 5 }
 
     const event2 = new MessageEvent("versioned", { data: 5 })
-    if (!this.dispatchEvent(event2)) return
+    if (!await this.dispatchEvent(event2)) return
 
     console.debug(`VERSIONS`, data)
   }
@@ -354,7 +353,7 @@ export class Tor extends EventTarget {
     const data = CertsCell.uncell(cell)
 
     const event = new MessageEvent("CERTS", { data })
-    if (!this.dispatchEvent(event)) return
+    if (!await this.dispatchEvent(event)) return
 
     const idh = await data.getIdHash()
 
@@ -371,7 +370,7 @@ export class Tor extends EventTarget {
     this._state = { type: "handshaking", version, guard }
 
     const event2 = new MessageEvent("handshaking", {})
-    if (!this.dispatchEvent(event2)) return
+    if (!await this.dispatchEvent(event2)) return
 
     console.debug(`CERTS`, data)
   }
@@ -383,7 +382,7 @@ export class Tor extends EventTarget {
     const data = AuthChallengeCell.uncell(cell)
 
     const event = new MessageEvent("AUTH_CHALLENGE", { data })
-    if (!this.dispatchEvent(event)) return
+    if (!await this.dispatchEvent(event)) return
 
     console.debug(`AUTH_CHALLENGE`, data)
   }
@@ -395,7 +394,7 @@ export class Tor extends EventTarget {
     const data = NetinfoCell.uncell(cell)
 
     const event = new MessageEvent("NETINFO", { data })
-    if (!this.dispatchEvent(event)) return
+    if (!await this.dispatchEvent(event)) return
 
     const address = new TypedAddress(4, new Uint8Array([127, 0, 0, 1]))
     const netinfo = new NetinfoCell(undefined, 0, address, [])
@@ -410,7 +409,7 @@ export class Tor extends EventTarget {
     this._state = { type: "handshaked", version, guard }
 
     const event2 = new MessageEvent("handshake", {})
-    if (!this.dispatchEvent(event2)) return
+    if (!await this.dispatchEvent(event2)) return
 
     console.debug(`NETINFO`, data)
   }
@@ -419,7 +418,7 @@ export class Tor extends EventTarget {
     const data = CreatedFastCell.uncell(cell)
 
     const event = new MessageEvent("CREATED_FAST", { data })
-    if (!this.dispatchEvent(event)) return
+    if (!await this.dispatchEvent(event)) return
 
     console.debug(`CREATED_FAST`, data)
   }
@@ -428,7 +427,7 @@ export class Tor extends EventTarget {
     const data = DestroyCell.uncell(cell)
 
     const event = new MessageEvent("DESTROY", { data })
-    if (!this.dispatchEvent(event)) return
+    if (!await this.dispatchEvent(event)) return
 
     this.circuits.delete(data.circuit.id)
 
@@ -458,7 +457,7 @@ export class Tor extends EventTarget {
     const data = RelayExtended2Cell.uncell(cell)
 
     const event = new MessageEvent("RELAY_EXTENDED2", { data })
-    if (!this.dispatchEvent(event)) return
+    if (!await this.dispatchEvent(event)) return
 
     console.debug(`RELAY_EXTENDED2`, data)
   }
@@ -467,7 +466,7 @@ export class Tor extends EventTarget {
     const data = RelayConnectedCell.uncell(cell)
 
     const event = new MessageEvent("RELAY_CONNECTED", { data })
-    if (!this.dispatchEvent(event)) return
+    if (!await this.dispatchEvent(event)) return
 
     console.debug(`RELAY_CONNECTED`, data)
   }
@@ -476,7 +475,7 @@ export class Tor extends EventTarget {
     const data = RelayDataCell.uncell(cell)
 
     const event = new MessageEvent("RELAY_DATA", { data })
-    if (!this.dispatchEvent(event)) return
+    if (!await this.dispatchEvent(event)) return
 
     console.debug(`RELAY_DATA`, data)
   }
@@ -485,7 +484,7 @@ export class Tor extends EventTarget {
     const data = RelayEndCell.uncell(cell)
 
     const event = new MessageEvent("RELAY_END", { data })
-    if (!this.dispatchEvent(event)) return
+    if (!await this.dispatchEvent(event)) return
 
     console.debug(`RELAY_END`, data)
   }
@@ -494,7 +493,7 @@ export class Tor extends EventTarget {
     const data = RelayDropCell.uncell(cell)
 
     const event = new MessageEvent("RELAY_DROP", { data })
-    if (!this.dispatchEvent(event)) return
+    if (!await this.dispatchEvent(event)) return
 
     console.debug(`RELAY_DROP`, data)
   }
@@ -503,7 +502,7 @@ export class Tor extends EventTarget {
     const data = RelayTruncatedCell.uncell(cell)
 
     const event = new MessageEvent("RELAY_TRUNCATED", { data })
-    if (!this.dispatchEvent(event)) return
+    if (!await this.dispatchEvent(event)) return
 
     data.circuit.targets.pop()
 
