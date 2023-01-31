@@ -10,11 +10,9 @@ import { Bytes } from "libs/bytes/bytes.js";
 import { AbortEvent } from "libs/events/abort.js";
 import { CloseEvent } from "libs/events/close.js";
 import { ErrorEvent } from "libs/events/error.js";
-import { Events } from "libs/events/events.js";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { Mutex } from "libs/mutex/mutex.js";
-import { Streams } from "libs/streams/streams.js";
 import { kdftor } from "mods/tor/algos/kdftor.js";
 import { TypedAddress } from "mods/tor/binary/address.js";
 import { Cell, NewCell, OldCell } from "mods/tor/binary/cells/cell.js";
@@ -151,11 +149,6 @@ export class Tor extends AsyncEventTarget {
       .pipeTo(new WritableStream())
       .then(() => { })
       .catch(() => { })
-
-    const onError = this.onError.bind(this)
-
-    this.read.addEventListener("error", onError, { passive: true })
-    this.write.addEventListener("error", onError, { passive: true })
   }
 
   private async init() {
@@ -189,9 +182,6 @@ export class Tor extends AsyncEventTarget {
   }
 
   private async onReadError(error?: unknown) {
-    if (Streams.isCloseError(error))
-      return await this.onReadClose()
-
     // console.debug(`${this.#class.name}.onReadError`, error)
 
     const errorEvent = new ErrorEvent("error", { error })
@@ -199,25 +189,10 @@ export class Tor extends AsyncEventTarget {
   }
 
   private async onWriteError(error?: unknown) {
-    if (Streams.isCloseError(error))
-      return await this.onReadClose()
-
     // console.debug(`${this.#class.name}.onWriteError`, error)
 
     const errorEvent = new ErrorEvent("error", { error })
     if (!await this.write.dispatchEvent(errorEvent)) return
-  }
-
-  private async onError(e: Event) {
-    const errorEvent = e as ErrorEvent
-
-    // console.debug(`${this.#class.name}.onError`, errorEvent)
-
-    const errorEventClone = Events.clone(errorEvent)
-    if (!await this.dispatchEvent(errorEventClone)) return
-
-    try { this._input!.error(errorEvent.error) } catch (e: unknown) { }
-    try { this._output!.error(errorEvent.error) } catch (e: unknown) { }
   }
 
   private async onReadStart(controller: TransformStreamDefaultController<Uint8Array>) {
@@ -547,14 +522,14 @@ export class Tor extends AsyncEventTarget {
     try {
       signal?.addEventListener("abort", onAbort, { passive: true })
       this.read.addEventListener("close", onClose, { passive: true })
-      this.addEventListener("error", onError, { passive: true })
+      this.read.addEventListener("error", onError, { passive: true })
       this.addEventListener("handshake", future.ok, { passive: true })
 
       await future.promise
     } finally {
       signal?.removeEventListener("abort", onAbort)
       this.read.removeEventListener("close", onClose)
-      this.removeEventListener("error", onError)
+      this.read.removeEventListener("error", onError)
       this.removeEventListener("handshake", future.ok)
     }
   }
@@ -578,7 +553,6 @@ export class Tor extends AsyncEventTarget {
     const onCreatedFastCell = (event: Event) => {
       const msgEvent = event as MessageEvent<CreatedFastCell>
       if (msgEvent.data.circuit !== circuit) return
-
       future.ok(msgEvent.data)
     }
 
@@ -603,14 +577,14 @@ export class Tor extends AsyncEventTarget {
     try {
       signal?.addEventListener("abort", onAbort, { passive: true })
       this.read.addEventListener("close", onClose, { passive: true })
-      this.addEventListener("error", onError, { passive: true })
+      this.read.addEventListener("error", onError, { passive: true })
       this.addEventListener("CREATED_FAST", onCreatedFastCell, { passive: true })
 
       return await future.promise
     } finally {
       signal?.removeEventListener("abort", onAbort)
       this.read.removeEventListener("close", onClose)
-      this.removeEventListener("error", onError)
+      this.read.removeEventListener("error", onError)
       this.removeEventListener("CREATED_FAST", onCreatedFastCell)
     }
   }
