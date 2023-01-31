@@ -158,24 +158,20 @@ export class Circuit extends AsyncEventTarget {
 
     const onAbort = (event: Event) => {
       const abortEvent = event as AbortEvent
-
-      const error = new Error(`Circuit aborted`, { cause: abortEvent.target.reason })
-
+      const error = new Error(`Aborted`, { cause: abortEvent.target.reason })
       future.err(error)
     }
 
     const onClose = (event: Event) => {
       const closeEvent = event as CloseEvent
-
-      const error = new Error(`Circuit closed`, { cause: closeEvent })
-
+      const error = new Error(`Closed`, { cause: closeEvent })
       future.err(error)
     }
 
     const onError = (event: Event) => {
       const errorEvent = event as ErrorEvent
-
-      future.err(errorEvent.error)
+      const error = new Error(`Errored`, { cause: errorEvent })
+      future.err(error)
     }
 
     try {
@@ -291,24 +287,20 @@ export class Circuit extends AsyncEventTarget {
 
     const onAbort = (event: Event) => {
       const abortEvent = event as AbortEvent
-
-      const error = new Error(`Truncate aborted`, { cause: abortEvent.target.reason })
-
+      const error = new Error(`Aborted`, { cause: abortEvent.target.reason })
       future.err(error)
     }
 
     const onClose = (event: Event) => {
       const closeEvent = event as CloseEvent
-
-      const error = new Error(`Circuit closed`, { cause: closeEvent })
-
+      const error = new Error(`Closed`, { cause: closeEvent })
       future.err(error)
     }
 
     const onError = (event: Event) => {
       const errorEvent = event as ErrorEvent
-
-      future.err(errorEvent.error)
+      const error = new Error(`Errored`, { cause: errorEvent })
+      future.err(error)
     }
 
     try {

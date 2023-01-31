@@ -10,11 +10,13 @@ import { PAYLOAD_LEN } from "mods/tor/constants.js";
 const DATA_LEN = PAYLOAD_LEN - (1 + 2 + 2 + 4 + 2)
 
 export class TcpStream extends AsyncEventTarget {
+  readonly #class = TcpStream
+
   readonly readable: ReadableStream<Uint8Array>
   readonly writable: WritableStream<Uint8Array>
 
-  private _input?: ReadableStreamController<Uint8Array>
-  private _output?: WritableStreamDefaultController
+  private input?: ReadableStreamController<Uint8Array>
+  private output?: WritableStreamDefaultController
 
   private _closed = false
 
@@ -50,24 +52,16 @@ export class TcpStream extends AsyncEventTarget {
     })
   }
 
-  get input() {
-    return this._input!
-  }
-
-  get output() {
-    return this._output!
-  }
-
   get closed() {
     return this._closed
   }
 
   private async onReadStart(controller: ReadableStreamController<Uint8Array>) {
-    this._input = controller
+    this.input = controller
   }
 
   private async onWriteStart(controller: WritableStreamDefaultController) {
-    this._output = controller
+    this.output = controller
   }
 
   private async onClose(e: Event) {
@@ -80,8 +74,8 @@ export class TcpStream extends AsyncEventTarget {
 
     const error = new Error(`Stream closed`, { cause: closeEvent })
 
-    try { this.input.close() } catch (e: unknown) { }
-    try { this.output.error(error) } catch (e: unknown) { }
+    try { this.input!.close() } catch (e: unknown) { }
+    try { this.output!.error(error) } catch (e: unknown) { }
   }
 
   private async onError(e: Event) {
@@ -92,8 +86,8 @@ export class TcpStream extends AsyncEventTarget {
     const errorEventClone = Events.clone(e)
     if (!await this.dispatchEvent(errorEventClone)) return
 
-    try { this.input.error(errorEvent.error) } catch (e: unknown) { }
-    try { this.output.error(errorEvent.error) } catch (e: unknown) { }
+    try { this.input!.error(errorEvent.error) } catch (e: unknown) { }
+    try { this.output!.error(errorEvent.error) } catch (e: unknown) { }
   }
 
   private async onAbort(event: Event) {
@@ -106,8 +100,8 @@ export class TcpStream extends AsyncEventTarget {
     const errorEvent = new ErrorEvent("error", { error })
     if (!await this.dispatchEvent(errorEvent)) return
 
-    try { this.input.error(error) } catch (e: unknown) { }
-    try { this.output.error(error) } catch (e: unknown) { }
+    try { this.input!.error(error) } catch (e: unknown) { }
+    try { this.output!.error(error) } catch (e: unknown) { }
   }
 
   private async onRelayDataCell(event: Event) {
@@ -117,7 +111,7 @@ export class TcpStream extends AsyncEventTarget {
     const msgEventClone = Events.clone(msgEvent)
     if (!await this.dispatchEvent(msgEventClone)) return
 
-    try { this.input.enqueue(msgEvent.data.data) } catch (e: unknown) { }
+    try { this.input!.enqueue(msgEvent.data.data) } catch (e: unknown) { }
   }
 
   private async onRelayEndCell(event: Event) {
@@ -131,8 +125,8 @@ export class TcpStream extends AsyncEventTarget {
 
     const error = new Error(`Stream closed`, { cause: msgEvent })
 
-    try { this.input.close() } catch (e: unknown) { }
-    try { this.output.error(error) } catch (e: unknown) { }
+    try { this.input!.close() } catch (e: unknown) { }
+    try { this.output!.error(error) } catch (e: unknown) { }
   }
 
   private async onWrite(chunk: Uint8Array) {

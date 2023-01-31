@@ -62,14 +62,6 @@ async function fetchTor(tor: Tor) {
     try {
       const circuit = await createCircuit(tor)
       await fetchCircuit(circuit)
-      await fetchCircuit(circuit)
-      await fetchCircuit(circuit)
-      await fetchCircuit(circuit)
-      await fetchCircuit(circuit)
-      await fetchCircuit(circuit)
-      await fetchCircuit(circuit)
-      await fetchCircuit(circuit)
-      await fetchCircuit(circuit)
 
       return
     } catch (e: unknown) {
@@ -90,8 +82,8 @@ function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
 
 export default function Page() {
   const tcp = useAsyncMemo(async () => {
-    // return await createWebSocketStream("ws://localhost:8080")
-    return await createMeekStream("https://meek.bamsoftware.com/")
+    return await createWebSocketStream("ws://localhost:8080")
+    // return await createMeekStream("https://meek.bamsoftware.com/")
   }, [])
 
   const tor = useAsyncMemo(async () => {
