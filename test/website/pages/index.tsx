@@ -27,7 +27,7 @@ async function createMeekStream(url: string) {
 }
 
 async function createCircuit(tor: Tor) {
-  while (true) {
+  do {
     try {
       const circuit = await tor.create()
 
@@ -38,7 +38,7 @@ async function createCircuit(tor: Tor) {
     } catch (e: unknown) {
       console.warn("Create failed", e)
     }
-  }
+  } while (await new Promise(ok => setTimeout(ok, 1000, true)))
 }
 
 async function fetchCircuit(circuit: Circuit) {
@@ -49,16 +49,19 @@ async function fetchCircuit(circuit: Circuit) {
 
   const body = JSON.stringify({ "jsonrpc": "2.0", "method": "web3_clientVersion", "params": [], "id": 67 })
   const headers = { "content-type": "application/json" }
-  const res = await circuit.fetch("https://virginia.rpc.blxrbdn.com", { method: "POST", headers, body, signal })
+  const res = await circuit.fetch("https://virginia.rpc.blxrbdn.com", { method: "POST", headers, body })
 
   // const res = await circuit.fetch("https://twitter.com", {})
 
   console.log(res)
+  // await res.body?.pipeTo(new WritableStream({
+  //   write(chunk) { console.log(chunk) }
+  // }))
   console.log(await res.text())
 }
 
 async function fetchTor(tor: Tor) {
-  while (true)
+  do {
     try {
       const circuit = await createCircuit(tor)
       await fetchCircuit(circuit)
@@ -67,6 +70,7 @@ async function fetchTor(tor: Tor) {
     } catch (e: unknown) {
       console.warn("Fetch failed", e)
     }
+  } while (await new Promise(ok => setTimeout(ok, 1000, true)))
 }
 
 function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
@@ -87,11 +91,15 @@ export default function Page() {
   }, [])
 
   const tor = useAsyncMemo(async () => {
-    if (!tcp) return
+    try {
+      if (!tcp) return
 
-    const tor = new Tor(tcp, { fallbacks })
-    await tor.handshake()
-    return tor
+      const tor = new Tor(tcp, { fallbacks })
+      await tor.handshake()
+      return tor
+    } catch (e: unknown) {
+      console.error("Tor", e)
+    }
   }, [tcp])
 
   const onClick = useCallback(async () => {

@@ -27,10 +27,10 @@ export class TcpStream extends AsyncEventTarget {
   ) {
     super()
 
-    const onClose = this.onClose.bind(this)
+    const onClose = this.onCircuitClose.bind(this)
     this.circuit.addEventListener("close", onClose, { passive: true })
 
-    const onError = this.onError.bind(this)
+    const onError = this.onCircuitError.bind(this)
     this.circuit.addEventListener("error", onError, { passive: true })
 
     const onRelayDataCell = this.onRelayDataCell.bind(this)
@@ -61,8 +61,10 @@ export class TcpStream extends AsyncEventTarget {
     this.output = controller
   }
 
-  private async onClose(e: Event) {
-    const closeEvent = e as CloseEvent
+  private async onCircuitClose(event: Event) {
+    const closeEvent = event as CloseEvent
+
+    console.debug(`${this.#class.name}.onCircuitClose`, event)
 
     this._closed = true
 
@@ -75,21 +77,25 @@ export class TcpStream extends AsyncEventTarget {
     if (!await this.dispatchEvent(closeEventClone)) return
   }
 
-  private async onError(e: Event) {
-    const errorEvent = e as ErrorEvent
+  private async onCircuitError(event: Event) {
+    const errorEvent = event as ErrorEvent
+
+    console.debug(`${this.#class.name}.onCircuitError`, event)
 
     this._closed = true
 
     try { this.input!.error(errorEvent.error) } catch (e: unknown) { }
     try { this.output!.error(errorEvent.error) } catch (e: unknown) { }
 
-    const errorEventClone = Events.clone(e)
+    const errorEventClone = Events.clone(event)
     if (!await this.dispatchEvent(errorEventClone)) return
   }
 
   private async onRelayDataCell(event: Event) {
     const msgEvent = event as MessageEvent<RelayDataCell>
     if (msgEvent.data.stream !== this) return
+
+    console.debug(`${this.#class.name}.onRelayDataCell`, event)
 
     try { this.input!.enqueue(msgEvent.data.data) } catch (e: unknown) { }
 
@@ -100,6 +106,8 @@ export class TcpStream extends AsyncEventTarget {
   private async onRelayEndCell(event: Event) {
     const msgEvent = event as MessageEvent<RelayEndCell>
     if (msgEvent.data.stream !== this) return
+
+    console.debug(`${this.#class.name}.onRelayEndCell`, event)
 
     this._closed = true
 

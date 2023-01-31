@@ -27,6 +27,7 @@ import { Target } from "mods/tor/target.js";
 import { Fallback, Tor } from "mods/tor/tor.js";
 
 export class Circuit extends AsyncEventTarget {
+  readonly #class = Circuit
 
   readonly targets = new Array<Target>()
   readonly streams = new Map<number, TcpStream>()
@@ -72,6 +73,8 @@ export class Circuit extends AsyncEventTarget {
   private async onReadClose(event: Event) {
     const closeEvent = event as CloseEvent
 
+    console.debug(`${this.#class.name}.onReadClose`, event)
+
     this._closed = true
 
     const closeEventClone = Events.clone(closeEvent)
@@ -80,6 +83,8 @@ export class Circuit extends AsyncEventTarget {
 
   private async onReadError(event: Event) {
     const errorEvent = event as ErrorEvent
+
+    console.debug(`${this.#class.name}.onReadError`, event)
 
     this._closed = true
 
@@ -90,6 +95,8 @@ export class Circuit extends AsyncEventTarget {
   private async onDestroyCell(event: Event) {
     const msgEvent = event as MessageEvent<DestroyCell>
     if (msgEvent.data.circuit !== this) return
+
+    console.debug(`${this.#class.name}.onDestroyCell`, event)
 
     this._closed = true
 
@@ -106,6 +113,8 @@ export class Circuit extends AsyncEventTarget {
     const msgEvent = event as MessageEvent<RelayExtended2Cell>
     if (msgEvent.data.circuit !== this) return
 
+    console.debug(`${this.#class.name}.onRelayExtended2Cell`, event)
+
     const msgEventClone = Events.clone(msgEvent)
     if (!await this.dispatchEvent(msgEventClone)) return
   }
@@ -113,6 +122,8 @@ export class Circuit extends AsyncEventTarget {
   private async onRelayTruncatedCell(event: Event) {
     const msgEvent = event as MessageEvent<RelayTruncatedCell>
     if (msgEvent.data.circuit !== this) return
+
+    console.debug(`${this.#class.name}.onRelayTruncatedCell`, event)
 
     this._closed = true
 
@@ -129,6 +140,8 @@ export class Circuit extends AsyncEventTarget {
     const msgEvent = event as MessageEvent<RelayConnectedCell>
     if (msgEvent.data.circuit !== this) return
 
+    console.debug(`${this.#class.name}.onRelayConnectedCell`, event)
+
     const msgEventClone = Events.clone(msgEvent)
     if (!await this.dispatchEvent(msgEventClone)) return
   }
@@ -137,6 +150,8 @@ export class Circuit extends AsyncEventTarget {
     const msgEvent = event as MessageEvent<RelayDataCell>
     if (msgEvent.data.circuit !== this) return
 
+    console.debug(`${this.#class.name}.onRelayDataCell`, event)
+
     const msgEventClone = Events.clone(msgEvent)
     if (!await this.dispatchEvent(msgEventClone)) return
   }
@@ -144,6 +159,8 @@ export class Circuit extends AsyncEventTarget {
   private async onRelayEndCell(event: Event) {
     const msgEvent = event as MessageEvent<RelayEndCell>
     if (msgEvent.data.circuit !== this) return
+
+    console.debug(`${this.#class.name}.onRelayEndCell`, event)
 
     const msgEventClone = Events.clone(msgEvent)
     if (!await this.dispatchEvent(msgEventClone)) return
