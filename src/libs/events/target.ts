@@ -45,7 +45,7 @@ export class AsyncEventTarget {
 
     listeners.set(listener, options2)
 
-    options.signal?.addEventListener("abort", onabort)
+    options.signal?.addEventListener("abort", onabort, { passive: true })
   }
 
   /**
