@@ -91,12 +91,16 @@ export class AsyncEventTarget {
     for (const [listener, options] of listeners) {
       if (options.passive) continue
 
+      const onsettle = () => {
+        if (!options.once) return
+
+        this.removeEventListener(type, listener)
+      }
+
       try {
         await listener(event)
       } finally {
-        if (!options.once) continue
-
-        this.removeEventListener(type, listener)
+        onsettle()
       }
     }
 
