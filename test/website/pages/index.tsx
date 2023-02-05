@@ -1,5 +1,5 @@
-import { BatchedFetchStream, Ciphers, TlsStream, WebSocketStream } from "@hazae41/cadenas";
-import { Circuit, Tor } from "@hazae41/echalote";
+import { Ciphers, TlsStream, WebSocketStream } from "@hazae41/cadenas";
+import { Circuit, createSnowfakeStream, Tor } from "@hazae41/echalote";
 import { Fleche } from "@hazae41/fleche";
 import fallbacks from "assets/fallbacks.json";
 import lorem from "assets/lorem.json";
@@ -18,13 +18,6 @@ async function createWebSocketStream(url: string) {
   })
 
   return new WebSocketStream(websocket)
-}
-
-async function createMeekStream(url: string) {
-  const headers = { "x-session-id": crypto.randomUUID() }
-  const request = new Request(url, { headers })
-
-  return new BatchedFetchStream(request, { highDelay: 100 })
 }
 
 async function createCircuit(tor: Tor) {
@@ -104,7 +97,7 @@ function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
 
 export default function Page() {
   const tcp = useAsyncMemo(async () => {
-    return await createWebSocketStream("ws://localhost:8080")
+    return await createSnowfakeStream("wss://snowflake.bamsoftware.com/")
     // return await createMeekStream("https://meek.bamsoftware.com/")
   }, [])
 
