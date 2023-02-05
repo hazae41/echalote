@@ -1,5 +1,4 @@
 import { Binary } from "@hazae41/binary";
-import { pack_left, unpack } from "@hazae41/naberius";
 import { Bitset } from "libs/bitset/bitset.js";
 
 export class TurboFrame {
@@ -30,102 +29,37 @@ export class TurboFrame {
   }
 
   write13(binary: Binary) {
-    const length = Binary.allocUnsafe(2)
-    length.writeUint16(this.data.length)
+    let bits = ""
+    bits += this.padding ? "1" : "0"
+    bits += "1"
 
-    /**
-     * lbits *000x xxxx xxxx xxxx
-     */
-    const lbits = unpack(length.bytes)
-    const lbitsb = new Binary(lbits)
+    const length = this.data.length.toString(2).padStart(13, "0")
 
-    /**
-     * lbits 000*x xxxx xxxx xxxx
-     */
-    lbitsb.offset += 3
+    bits += length.slice(0, 6)
+    bits += "1"
+    bits += length.slice(6, 13)
 
-    /**
-     * cbits ?0*00 0000 0000 0000
-     */
-    const cbitsb = Binary.allocUnsafe(2 * 8)
-    cbitsb.writeUint8(this.padding ? 1 : 0)
-    cbitsb.writeUint8(1)
-
-    /**
-     * cbits ?0xx xxxx* 0000 0000
-     * lbits 000x xxxx x*xxx xxxx
-     */
-    cbitsb.write(lbitsb.read(6))
-
-    /**
-     * cbits ?0xx xxxx 0*000 0000
-     * lbits 000x xxxx x*xxx xxxx
-     */
-    cbitsb.writeUint8(0)
-
-    /**
-     * cbits ?0xx xxxx xxxx xxxx*
-     * lbits 000x xxxx xxxx xxxx*
-     */
-    cbitsb.write(lbitsb.read(7))
-
-    binary.write(pack_left(cbitsb.bytes))
+    binary.writeUint16(parseInt(bits, 2))
+    binary.write(this.data)
   }
 
   write20(binary: Binary) {
-    const length = Binary.allocUnsafe(3)
-    length.writeUint24(this.data.length)
+    let bits = ""
+    bits += this.padding ? "1" : "0"
+    bits += "1"
 
-    /**
-     * lbits *0000 xxxx xxxx xxxx xxxx xxxx
-     */
-    const lbits = unpack(length.bytes)
-    const lbitsb = new Binary(lbits)
+    const length = this.data.length.toString(2).padStart(20, "0")
 
-    /**
-     * lbits 0000* xxxx xxxx xxxx xxxx xxxx
-     */
-    lbitsb.offset += 4
+    bits += length.slice(0, 6)
+    bits += "1"
+    bits += length.slice(6, 13)
+    bits += "1"
+    bits += length.slice(13, 20)
 
-    /**
-     * cbits ?0*00 0000 0000 0000 0000 0000
-     */
-    const cbitsb = Binary.allocUnsafe(3 * 8)
-    cbitsb.writeUint8(this.padding ? 1 : 0)
-    cbitsb.writeUint8(1)
-
-    /**
-     * cbits ?0xx xxxx* 0000 0000 0000 0000
-     * lbits 0000 xxxx xx*xx xxxx xxxx xxxx
-     */
-    cbitsb.write(lbitsb.read(6))
-
-    /**
-     * cbits ?0xx xxxx 0*000 0000 0000 0000
-     * lbits 0000 xxxx xx*xx xxxx xxxx xxxx
-     */
-    cbitsb.writeUint8(0)
-
-    /**
-     * cbits ?0xx xxxx xxxx xxxx* 0000 0000
-     * lbits 0000 xxxx xxxx xxxx x*xxx xxxx
-     */
-    cbitsb.write(lbitsb.read(7))
-
-    /**
-     * cbits ?0xx xxxx xxxx xxxx 0*000 0000
-     * lbits 0000 xxxx xxxx xxxx x*xxx xxxx
-     */
-    cbitsb.writeUint8(0)
-
-    /**
-     * cbits ?0xx xxxx xxxx xxxx xxxx xxxx*
-     * lbits 0000 xxxx xxxx xxxx xxxx xxxx*
-     */
-    cbitsb.write(lbitsb.read(7))
-
-    binary.write(pack_left(cbitsb.bytes))
+    binary.writeUint24(parseInt(bits, 2))
+    binary.write(this.data)
   }
+
   write(binary: Binary) {
     if (this.data.length < 64)
       return this.write6(binary)
@@ -136,29 +70,40 @@ export class TurboFrame {
     throw new Error(`${this.#class.name}: write() max data length`)
   }
 
+  export() {
+    const binary = Binary.allocUnsafe(this.size())
+    this.write(binary)
+    return binary.bytes
+  }
+
   /**
    * Read from bytes
    * @param binary bytes
    */
   static read(binary: Binary) {
+    let length = ""
+
     const first = binary.readUint8()
     const bits = new Bitset(first, 8)
 
-    const padding = Boolean(bits.get(0))
-    const continuation = Boolean(bits.get(1))
-    let length = bits.last(6)
+    const padding = bits.get(0)
+    const continuation = bits.get(1)
+
+    length += bits.last(6).toString(2)
 
     if (continuation) {
       const second = binary.readUint8()
       const bits2 = new Bitset(second, 8)
-      const continuation2 = Boolean(bits2.get(0))
-      length += bits2.last(7)
+      const continuation2 = bits2.get(0)
+
+      length += bits2.last(7).toString(2)
 
       if (continuation2) {
         const third = binary.readUint8()
         const bits3 = new Bitset(third, 8)
-        const continuation3 = Boolean(bits3.get(0))
-        length += bits3.last(7)
+        const continuation3 = bits3.get(0)
+
+        length += bits3.last(7).toString(2)
 
         if (continuation3) {
           throw new Error(`${this.name}: read continuation on 3rd byte`)
@@ -166,7 +111,7 @@ export class TurboFrame {
       }
     }
 
-    const data = binary.read(length)
+    const data = binary.read(parseInt(length, 2))
     return new this(padding, data)
   }
 }

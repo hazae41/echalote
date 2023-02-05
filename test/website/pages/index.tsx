@@ -1,5 +1,5 @@
 import { Ciphers, TlsStream, WebSocketStream } from "@hazae41/cadenas";
-import { Circuit, createSnowfakeStream, Tor } from "@hazae41/echalote";
+import { Circuit, createWebSocketTurboStream, Tor } from "@hazae41/echalote";
 import { Fleche } from "@hazae41/fleche";
 import fallbacks from "assets/fallbacks.json";
 import lorem from "assets/lorem.json";
@@ -97,7 +97,7 @@ function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
 
 export default function Page() {
   const tcp = useAsyncMemo(async () => {
-    return await createSnowfakeStream("wss://snowflake.bamsoftware.com/")
+    return await createWebSocketTurboStream("wss://snowflake.bamsoftware.com/")
     // return await createMeekStream("https://meek.bamsoftware.com/")
   }, [])
 

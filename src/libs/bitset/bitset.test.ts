@@ -15,7 +15,7 @@ function format(bitmask: Bitset, digits: number) {
 test("Identity", async () => {
   const bitmask = new Bitset(0b00000000, 8)
 
-  assert(bitmask.get(1) === 0)
+  assert(bitmask.get(1) === false)
   assert(format(bitmask, 8) === "00000000")
 })
 
@@ -23,11 +23,11 @@ test("Enable then disable", async () => {
   const bitmask = new Bitset(0b00000000, 8)
 
   bitmask.enable(1)
-  assert(bitmask.get(1) === 1)
+  assert(bitmask.get(1) === true)
   assert(format(bitmask, 8) === "00000010")
 
   bitmask.disable(1)
-  assert(bitmask.get(1) === 0)
+  assert(bitmask.get(1) === false)
   assert(format(bitmask, 8) === "00000000")
 })
 
@@ -35,11 +35,11 @@ test("Toggle then toggle", async () => {
   const bitmask = new Bitset(0b00000000, 8)
 
   bitmask.toggle(1)
-  assert(bitmask.get(1) === 1)
+  assert(bitmask.get(1) === true)
   assert(format(bitmask, 8) === "00000010")
 
   bitmask.toggle(1)
-  assert(bitmask.get(1) === 0)
+  assert(bitmask.get(1) === false)
   assert(format(bitmask, 8) === "00000000")
 })
 

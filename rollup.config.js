@@ -46,6 +46,18 @@ export const config = [
     }],
     plugins: [externals({ devDeps: true }), ts()],
   },
+  {
+    input: "./src/index.bench.ts",
+    output: [{
+      dir: "./dist/bench",
+      format: "esm",
+      exports: "named",
+      preserveModules: true,
+      sourcemap: true,
+      entryFileNames: "[name].mjs",
+    }],
+    plugins: [externals({ devDeps: true }), ts()],
+  },
 ]
 
 export default config

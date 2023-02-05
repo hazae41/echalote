@@ -19,6 +19,7 @@
   "scripts": {
     "build": "rimraf dist && rollup -c",
     "test": "node ./dist/test/index.test.mjs",
+    "bench": "node ./dist/bench/index.bench.mjs",
     "fallbacks": "cd ./tools/fallbacks && deno run -A ./parser.ts && deno fmt ./fallbacks.json",
     "prepare": "npm run build"
   },
@@ -35,6 +36,7 @@
     "@hazae41/zepar": "^1.0.12"
   },
   "devDependencies": {
+    "@hazae41/deimos": "^1.0.5",
     "@hazae41/phobos": "^1.0.10",
     "@rollup/plugin-typescript": "^11.0.0",
     "@types/node": "^18.11.18",
