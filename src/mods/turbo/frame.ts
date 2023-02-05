@@ -86,7 +86,7 @@ export class TurboFrame {
     const first = binary.readUint8()
     const bits = new Bitset(first, 8)
 
-    const padding = bits.get(0)
+    const padding = !bits.get(0)
     const continuation = bits.get(1)
 
     length += bits.last(6).toString(2)

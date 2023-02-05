@@ -40,8 +40,8 @@ export class WebSocketStream {
     if (websocket.binaryType !== "arraybuffer")
       throw new Error(`WebSocket binaryType is not arraybuffer`)
 
-    this.readable = new ReadableStream(new WebSocketSource(websocket))
-    this.writable = new WritableStream(new WebSocketSink(websocket))
+    this.readable = new ReadableStream(new WebSocketSource(websocket, params))
+    this.writable = new WritableStream(new WebSocketSink(websocket, params))
   }
 }
 
@@ -78,7 +78,6 @@ export class WebSocketSource implements UnderlyingSource<Uint8Array> {
     }
 
     const onClose = (closeEvent: CloseEvent) => {
-      console.log("close")
       try { controller.close() } catch (e: unknown) { }
 
       this.websocket.removeEventListener("message", onMessage)

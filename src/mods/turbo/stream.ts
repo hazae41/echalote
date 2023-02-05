@@ -13,7 +13,11 @@ export async function createWebSocketTurboStream(url: string) {
     websocket.addEventListener("error", err)
   })
 
-  const stream = new WebSocketStream(websocket)
+  const stream = new WebSocketStream(websocket, {
+    shouldCloseOnAbort: true,
+    shouldCloseOnCancel: true,
+    shouldCloseOnClose: false
+  })
 
   return new TurboStream(stream)
 }
