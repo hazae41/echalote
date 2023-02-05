@@ -1,3 +1,4 @@
+import inject from "@rollup/plugin-inject";
 import ts from "@rollup/plugin-typescript";
 import dts from "rollup-plugin-dts";
 import externals from "rollup-plugin-node-externals";
@@ -44,7 +45,7 @@ export const config = [
       sourcemap: true,
       entryFileNames: "[name].mjs",
     }],
-    plugins: [externals({ devDeps: true }), ts()],
+    plugins: [externals({ devDeps: true }), ts(), inject({ crypto: "node:crypto" })],
   },
   {
     input: "./src/index.bench.ts",

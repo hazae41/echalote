@@ -21,7 +21,7 @@ export class TurboFrame {
 
   write6(binary: Binary) {
     const first = new Bitset(this.data.length, 8)
-    first.set(0, this.padding)
+    first.set(0, !this.padding)
     first.set(1, false)
 
     binary.writeUint8(first.unsigned())
@@ -30,13 +30,13 @@ export class TurboFrame {
 
   write13(binary: Binary) {
     let bits = ""
-    bits += this.padding ? "1" : "0"
+    bits += this.padding ? "0" : "1"
     bits += "1"
 
     const length = this.data.length.toString(2).padStart(13, "0")
 
     bits += length.slice(0, 6)
-    bits += "1"
+    bits += "0"
     bits += length.slice(6, 13)
 
     binary.writeUint16(parseInt(bits, 2))
@@ -45,7 +45,7 @@ export class TurboFrame {
 
   write20(binary: Binary) {
     let bits = ""
-    bits += this.padding ? "1" : "0"
+    bits += this.padding ? "0" : "1"
     bits += "1"
 
     const length = this.data.length.toString(2).padStart(20, "0")
@@ -53,7 +53,7 @@ export class TurboFrame {
     bits += length.slice(0, 6)
     bits += "1"
     bits += length.slice(6, 13)
-    bits += "1"
+    bits += "0"
     bits += length.slice(13, 20)
 
     binary.writeUint24(parseInt(bits, 2))
