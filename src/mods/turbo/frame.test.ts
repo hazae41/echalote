@@ -1,6 +1,6 @@
+import { Bytes } from "@hazae41/bytes";
 import { Naberius, unpack } from "@hazae41/naberius";
 import { test } from "@hazae41/phobos";
-import { Bytes } from "libs/bytes/bytes.js";
 import { TurboFrame } from "./frame.js";
 
 test("turbo frame", async ({ test }) => {

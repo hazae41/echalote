@@ -1,23 +1,22 @@
-import { Binary } from "@hazae41/binary"
-import { TurboFrame } from "./frame.js"
-import { TurboStream } from "./stream.js"
+import { KcpSegment } from "./segment.js";
+import { KcpStream } from "./stream.js";
 
-export class TurboReader {
+export class KcpWriter {
 
-  readonly sink: TurboReaderSink
-  readonly source: TurboReaderSource
+  readonly sink: KcpWriterSink
+  readonly source: KcpWriterSource
 
   readonly readable: ReadableStream<Uint8Array>
   readonly writable: WritableStream<Uint8Array>
 
   constructor(
-    readonly stream: TurboStream
+    readonly stream: KcpStream
   ) {
-    this.sink = new TurboReaderSink(this)
-    this.source = new TurboReaderSource(this)
+    this.sink = new KcpWriterSink(this)
+    this.source = new KcpWriterSource(this)
 
-    this.writable = new WritableStream<Uint8Array>(this.sink)
-    this.readable = new ReadableStream<Uint8Array>(this.source)
+    this.writable = new WritableStream(this.sink)
+    this.readable = new ReadableStream(this.source)
   }
 
   async error(reason?: any) {
@@ -29,14 +28,15 @@ export class TurboReader {
     this.sink.controller.error(new Error(`Closed`))
     this.source.controller.close()
   }
+
 }
 
-export class TurboReaderSink implements UnderlyingSink<Uint8Array> {
+export class KcpWriterSink implements UnderlyingSink<Uint8Array>{
 
   #controller?: WritableStreamDefaultController
 
   constructor(
-    readonly reader: TurboReader
+    readonly writer: KcpWriter
   ) { }
 
   get controller() {
@@ -44,7 +44,7 @@ export class TurboReaderSink implements UnderlyingSink<Uint8Array> {
   }
 
   get source() {
-    return this.reader.source.controller
+    return this.writer.source
   }
 
   async start(controller: WritableStreamDefaultController) {
@@ -52,28 +52,28 @@ export class TurboReaderSink implements UnderlyingSink<Uint8Array> {
   }
 
   async write(chunk: Uint8Array) {
-    const frame = TurboFrame.read(new Binary(chunk))
-
-    if (frame.padding) return
-
-    this.source.enqueue(frame.data)
+    const conversation = this.writer.stream.conversation
+    const command = KcpSegment.commands.push
+    const segment = new KcpSegment(conversation, command, 0,)
+    this.source.controller.enqueue(chunk)
   }
 
   async abort(reason?: any) {
-    this.source.error(reason)
+    this.source.controller.error(reason)
   }
 
   async close() {
-    this.source.close()
+    this.source.controller.close()
   }
+
 }
 
-export class TurboReaderSource implements UnderlyingSource<Uint8Array> {
+export class KcpWriterSource implements UnderlyingSource<Uint8Array> {
 
   #controller?: ReadableStreamController<Uint8Array>
 
   constructor(
-    readonly reader: TurboReader
+    readonly writer: KcpWriter
   ) { }
 
   get controller() {
@@ -81,7 +81,7 @@ export class TurboReaderSource implements UnderlyingSource<Uint8Array> {
   }
 
   get sink() {
-    return this.reader.sink.controller
+    return this.writer.sink
   }
 
   async start(controller: ReadableStreamController<Uint8Array>) {
@@ -89,6 +89,7 @@ export class TurboReaderSource implements UnderlyingSource<Uint8Array> {
   }
 
   async cancel(reason?: any) {
-    this.sink.error(reason)
+    this.sink.controller.error(reason)
   }
+
 }

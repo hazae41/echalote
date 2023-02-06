@@ -1,11 +1,11 @@
 import { X25519PublicKey, X25519StaticSecret } from "@hazae41/berith";
+import { Bytes } from "@hazae41/bytes";
 import { Ciphers, TlsStream } from "@hazae41/cadenas";
 import { fetch } from "@hazae41/fleche";
 import { Sha1Hasher } from "@hazae41/morax";
 import { Aes128Ctr128BEKey } from "@hazae41/zepar";
 import { Arrays } from "libs/arrays/arrays.js";
 import { Bitmask } from "libs/bits.js";
-import { Bytes } from "libs/bytes/bytes.js";
 import { AbortEvent } from "libs/events/abort.js";
 import { ErrorEvent } from "libs/events/error.js";
 import { Events } from "libs/events/events.js";

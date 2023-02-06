@@ -1,4 +1,4 @@
-import { Bytes } from "libs/bytes/bytes.js"
+import { Bytes } from "@hazae41/bytes"
 import { WebSocketStream } from "libs/transports/websocket.js"
 import { TurboReader } from "./reader.js"
 import { TurboWriter } from "./writer.js"
@@ -14,8 +14,8 @@ export async function createWebSocketTurboStream(url: string) {
   })
 
   const stream = new WebSocketStream(websocket, {
-    shouldCloseOnAbort: true,
-    shouldCloseOnCancel: true,
+    shouldCloseOnAbort: false,
+    shouldCloseOnCancel: false,
     shouldCloseOnClose: false
   })
 
@@ -29,7 +29,7 @@ export interface TurboStreamParams {
 export class TurboStream {
   readonly #class = TurboStream
 
-  static readonly TOKEN = new Uint8Array([0x12, 0x93, 0x60, 0x5d, 0x27, 0x81, 0x75, 0xf5])
+  static readonly token = new Uint8Array([0x12, 0x93, 0x60, 0x5d, 0x27, 0x81, 0x75, 0xf5])
 
   readonly reader: TurboReader
   readonly writer: TurboWriter

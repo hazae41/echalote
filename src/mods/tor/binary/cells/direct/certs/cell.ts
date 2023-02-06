@@ -1,7 +1,7 @@
 import { Ed25519PublicKey, Ed25519Signature } from "@hazae41/berith"
 import { Binary } from "@hazae41/binary"
+import { Bytes } from "@hazae41/bytes"
 import { RsaPublicKey } from "@hazae41/paimon"
-import { Bytes } from "libs/bytes/bytes.js"
 import { NewCell } from "mods/tor/binary/cells/cell.js"
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
 import { Duplicated } from "mods/tor/binary/certs/errors.js"

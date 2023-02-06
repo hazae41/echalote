@@ -42,8 +42,8 @@ export class TurboWriterSink implements UnderlyingSink<Uint8Array> {
     return this.#controller!
   }
 
-  get other() {
-    return this.writer.source.controller
+  get source() {
+    return this.writer.source
   }
 
   async start(controller: WritableStreamDefaultController) {
@@ -52,15 +52,15 @@ export class TurboWriterSink implements UnderlyingSink<Uint8Array> {
 
   async write(chunk: Uint8Array) {
     const frame = new TurboFrame(false, chunk)
-    this.other.enqueue(frame.export())
+    this.source.controller.enqueue(frame.export())
   }
 
   async abort(reason?: any) {
-    this.other.error(reason)
+    this.source.controller.error(reason)
   }
 
   async close() {
-    this.other.close()
+    this.source.controller.close()
   }
 }
 
@@ -76,14 +76,14 @@ export class TurboWriterSource implements UnderlyingSource<Uint8Array> {
     return this.#controller!
   }
 
-  get other() {
-    return this.writer.source.controller
+  get sink() {
+    return this.writer.sink
   }
 
   async start(controller: ReadableStreamController<Uint8Array>) {
     this.#controller = controller
 
-    const token = this.writer.stream.class.TOKEN
+    const token = this.writer.stream.class.token
     this.controller.enqueue(token)
 
     const clientID = this.writer.stream.clientID
@@ -91,6 +91,6 @@ export class TurboWriterSource implements UnderlyingSource<Uint8Array> {
   }
 
   async cancel(reason?: any) {
-    this.other.error(reason)
+    this.sink.controller.error(reason)
   }
 }

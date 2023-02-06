@@ -1,12 +1,12 @@
 import { Berith } from "@hazae41/berith";
 import { Binary } from "@hazae41/binary";
+import { Bytes } from "@hazae41/bytes";
 import { TlsStream } from "@hazae41/cadenas";
 import { Foras } from "@hazae41/foras";
 import { Morax } from "@hazae41/morax";
 import { Paimon } from "@hazae41/paimon";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
 import { Bitmask } from "libs/bits.js";
-import { Bytes } from "libs/bytes/bytes.js";
 import { AbortEvent } from "libs/events/abort.js";
 import { CloseEvent } from "libs/events/close.js";
 import { ErrorEvent } from "libs/events/error.js";
