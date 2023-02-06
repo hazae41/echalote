@@ -53,8 +53,9 @@ export class TurboReaderSink implements UnderlyingSink<Uint8Array> {
 
   async write(chunk: Uint8Array) {
     const frame = TurboFrame.read(new Binary(chunk))
-    console.log("frame", frame)
+
     if (frame.padding) return
+
     this.reader.source.controller.enqueue(frame.data)
   }
 

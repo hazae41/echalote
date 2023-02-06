@@ -60,18 +60,18 @@ export class TurboStream {
   }
 
   async onReadClose() {
-    this.writer.terminate().catch(() => { })
+    // this.writer.terminate().catch(() => { })
   }
 
   async onReadError(error?: unknown) {
-    this.writer.error(error).catch(() => { })
+    // this.writer.error(error).catch(() => { })
   }
 
   async onWriteClose() {
-    this.reader.terminate().catch(() => { })
+    // this.reader.terminate().catch(() => { })
   }
 
   async onWriteError(error?: unknown) {
-    this.reader.error(error).catch(() => { })
+    // this.reader.error(error).catch(() => { })
   }
 }
