@@ -22,6 +22,10 @@ export async function createWebSocketTurboStream(url: string) {
   return new TurboStream(stream)
 }
 
+export interface TurboStreamParams {
+  clientID?: Uint8Array
+}
+
 export class TurboStream {
   readonly #class = TurboStream
 
@@ -33,11 +37,16 @@ export class TurboStream {
   readonly readable: ReadableStream<Uint8Array>
   readonly writable: WritableStream<Uint8Array>
 
-  readonly clientID = Bytes.random(8)
+  readonly clientID: Uint8Array
 
   constructor(
-    readonly stream: ReadableWritablePair<Uint8Array>
+    readonly stream: ReadableWritablePair<Uint8Array>,
+    readonly params: TurboStreamParams = {}
   ) {
+    this.clientID = params.clientID
+      ? params.clientID
+      : Bytes.random(8)
+
     this.reader = new TurboReader(this)
     this.writer = new TurboWriter(this)
 
@@ -60,18 +69,26 @@ export class TurboStream {
   }
 
   async onReadClose() {
-    // this.writer.terminate().catch(() => { })
+    /**
+     * NOOP
+     */
   }
 
   async onReadError(error?: unknown) {
-    // this.writer.error(error).catch(() => { })
+    /**
+     * NOOP
+     */
   }
 
   async onWriteClose() {
-    // this.reader.terminate().catch(() => { })
+    /**
+     * NOOP
+     */
   }
 
   async onWriteError(error?: unknown) {
-    // this.reader.error(error).catch(() => { })
+    /**
+     * NOOP
+     */
   }
 }
