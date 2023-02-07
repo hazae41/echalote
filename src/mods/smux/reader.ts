@@ -1,19 +1,20 @@
-import { KcpSegment } from "./segment.js";
-import { KcpStream } from "./stream.js";
+import { Binary } from "@hazae41/binary";
+import { SmuxSegment } from "mods/smux/segment.js";
+import { SmuxStream } from "./stream.js";
 
-export class KcpWriter {
+export class SmuxReader {
 
-  readonly sink: KcpWriterSink
-  readonly source: KcpWriterSource
+  readonly sink: SmuxReaderSink
+  readonly source: SmuxReaderSource
 
   readonly readable: ReadableStream<Uint8Array>
   readonly writable: WritableStream<Uint8Array>
 
   constructor(
-    readonly stream: KcpStream
+    readonly stream: SmuxStream
   ) {
-    this.sink = new KcpWriterSink(this)
-    this.source = new KcpWriterSource(this)
+    this.sink = new SmuxReaderSink(this)
+    this.source = new SmuxReaderSource(this)
 
     this.writable = new WritableStream(this.sink)
     this.readable = new ReadableStream(this.source)
@@ -31,12 +32,12 @@ export class KcpWriter {
 
 }
 
-export class KcpWriterSink implements UnderlyingSink<Uint8Array>{
+export class SmuxReaderSink implements UnderlyingSink<Uint8Array>{
 
   #controller?: WritableStreamDefaultController
 
   constructor(
-    readonly writer: KcpWriter
+    readonly reader: SmuxReader
   ) { }
 
   get controller() {
@@ -44,11 +45,11 @@ export class KcpWriterSink implements UnderlyingSink<Uint8Array>{
   }
 
   get source() {
-    return this.writer.source
+    return this.reader.source
   }
 
   get stream() {
-    return this.writer.stream
+    return this.reader.stream
   }
 
   async start(controller: WritableStreamDefaultController) {
@@ -56,13 +57,13 @@ export class KcpWriterSink implements UnderlyingSink<Uint8Array>{
   }
 
   async write(chunk: Uint8Array) {
-    const conversation = this.stream.conversation
-    const command = KcpSegment.commands.push
-    const send_counter = this.stream.send_counter++
-    const recv_counter = this.stream.recv_counter
-    const segment = new KcpSegment(conversation, command, 0, 65536, Date.now() / 1000, send_counter, recv_counter, chunk)
-    console.log("->", segment)
-    this.source.controller.enqueue(segment.export())
+    console.log("smux", chunk)
+    const segment = SmuxSegment.read(new Binary(chunk))
+    console.log("<-", segment)
+
+    if (segment.command !== SmuxSegment.commands.psh)
+      return
+    this.source.controller.enqueue(segment.data)
   }
 
   async abort(reason?: any) {
@@ -75,12 +76,12 @@ export class KcpWriterSink implements UnderlyingSink<Uint8Array>{
 
 }
 
-export class KcpWriterSource implements UnderlyingSource<Uint8Array> {
+export class SmuxReaderSource implements UnderlyingSource<Uint8Array> {
 
   #controller?: ReadableStreamController<Uint8Array>
 
   constructor(
-    readonly writer: KcpWriter
+    readonly reader: SmuxReader
   ) { }
 
   get controller() {
@@ -88,11 +89,11 @@ export class KcpWriterSource implements UnderlyingSource<Uint8Array> {
   }
 
   get sink() {
-    return this.writer.sink
+    return this.reader.sink
   }
 
   get stream() {
-    return this.writer.stream
+    return this.reader.stream
   }
 
   async start(controller: ReadableStreamController<Uint8Array>) {

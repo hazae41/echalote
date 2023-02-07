@@ -1,5 +1,4 @@
 import { Binary } from "@hazae41/binary";
-import { SmuxSegment } from "mods/smux/segment.js";
 import { KcpSegment } from "./segment.js";
 import { KcpStream } from "./stream.js";
 
@@ -58,14 +57,13 @@ export class KcpReaderSink implements UnderlyingSink<Uint8Array>{
   }
 
   async write(chunk: Uint8Array) {
-    const kcp = KcpSegment.read(new Binary(chunk))
+    const segment = KcpSegment.read(new Binary(chunk))
     this.stream.recv_counter++
-    console.log("kcp<-", kcp)
+    console.log("<-", segment)
 
-    const smux = SmuxSegment.read(new Binary(kcp.data))
-    console.log("smux<-", smux)
-
-    this.source.controller.enqueue(smux.data)
+    if (segment.command !== KcpSegment.commands.push)
+      return
+    this.source.controller.enqueue(segment.data)
   }
 
   async abort(reason?: any) {

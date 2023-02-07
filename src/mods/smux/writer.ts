@@ -1,19 +1,19 @@
-import { KcpSegment } from "./segment.js";
-import { KcpStream } from "./stream.js";
+import { SmuxSegment } from "mods/smux/segment.js";
+import { SmuxStream } from "./stream.js";
 
-export class KcpWriter {
+export class SmuxWriter {
 
-  readonly sink: KcpWriterSink
-  readonly source: KcpWriterSource
+  readonly sink: SmuxWriterSink
+  readonly source: SmuxWriterSource
 
   readonly readable: ReadableStream<Uint8Array>
   readonly writable: WritableStream<Uint8Array>
 
   constructor(
-    readonly stream: KcpStream
+    readonly stream: SmuxStream
   ) {
-    this.sink = new KcpWriterSink(this)
-    this.source = new KcpWriterSource(this)
+    this.sink = new SmuxWriterSink(this)
+    this.source = new SmuxWriterSource(this)
 
     this.writable = new WritableStream(this.sink)
     this.readable = new ReadableStream(this.source)
@@ -31,12 +31,12 @@ export class KcpWriter {
 
 }
 
-export class KcpWriterSink implements UnderlyingSink<Uint8Array>{
+export class SmuxWriterSink implements UnderlyingSink<Uint8Array>{
 
   #controller?: WritableStreamDefaultController
 
   constructor(
-    readonly writer: KcpWriter
+    readonly writer: SmuxWriter
   ) { }
 
   get controller() {
@@ -56,11 +56,7 @@ export class KcpWriterSink implements UnderlyingSink<Uint8Array>{
   }
 
   async write(chunk: Uint8Array) {
-    const conversation = this.stream.conversation
-    const command = KcpSegment.commands.push
-    const send_counter = this.stream.send_counter++
-    const recv_counter = this.stream.recv_counter
-    const segment = new KcpSegment(conversation, command, 0, 65536, Date.now() / 1000, send_counter, recv_counter, chunk)
+    const segment = new SmuxSegment(2, SmuxSegment.commands.psh, 1, chunk)
     console.log("->", segment)
     this.source.controller.enqueue(segment.export())
   }
@@ -75,12 +71,12 @@ export class KcpWriterSink implements UnderlyingSink<Uint8Array>{
 
 }
 
-export class KcpWriterSource implements UnderlyingSource<Uint8Array> {
+export class SmuxWriterSource implements UnderlyingSource<Uint8Array> {
 
   #controller?: ReadableStreamController<Uint8Array>
 
   constructor(
-    readonly writer: KcpWriter
+    readonly writer: SmuxWriter
   ) { }
 
   get controller() {
@@ -97,6 +93,11 @@ export class KcpWriterSource implements UnderlyingSource<Uint8Array> {
 
   async start(controller: ReadableStreamController<Uint8Array>) {
     this.#controller = controller
+
+    const segment = new SmuxSegment(2, SmuxSegment.commands.syn, 1, new Uint8Array())
+    console.log("->", segment)
+
+    this.controller.enqueue(segment.export())
   }
 
   async cancel(reason?: any) {

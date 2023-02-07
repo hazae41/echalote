@@ -1,6 +1,7 @@
 import { Bytes } from "@hazae41/bytes"
 import { WebSocketStream } from "libs/transports/websocket.js"
 import { KcpStream } from "mods/kcp/stream.js"
+import { SmuxStream } from "mods/smux/stream.js"
 import { TurboReader } from "./reader.js"
 import { TurboWriter } from "./writer.js"
 
@@ -20,7 +21,7 @@ export async function createWebSocketTurboStream(url: string) {
     shouldCloseOnClose: false
   })
 
-  return new KcpStream(new TurboStream(stream))
+  return new SmuxStream(new KcpStream(new TurboStream(stream)))
 }
 
 export interface TurboStreamParams {
