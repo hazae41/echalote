@@ -47,15 +47,21 @@ export class KcpWriterSink implements UnderlyingSink<Uint8Array>{
     return this.writer.source
   }
 
+  get stream() {
+    return this.writer.stream
+  }
+
   async start(controller: WritableStreamDefaultController) {
     this.#controller = controller
   }
 
   async write(chunk: Uint8Array) {
-    const conversation = this.writer.stream.conversation
+    const conversation = this.stream.conversation
     const command = KcpSegment.commands.push
-    const segment = new KcpSegment(conversation, command, 0,)
-    this.source.controller.enqueue(chunk)
+    const send_counter = this.stream.send_counter++
+    const recv_counter = this.stream.recv_counter
+    const segment = new KcpSegment(conversation, command, 0, 65536, Date.now() / 1000, send_counter, recv_counter, chunk)
+    this.source.controller.enqueue(segment.export())
   }
 
   async abort(reason?: any) {
@@ -82,6 +88,10 @@ export class KcpWriterSource implements UnderlyingSource<Uint8Array> {
 
   get sink() {
     return this.writer.sink
+  }
+
+  get stream() {
+    return this.writer.stream
   }
 
   async start(controller: ReadableStreamController<Uint8Array>) {

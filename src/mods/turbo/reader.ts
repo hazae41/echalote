@@ -47,6 +47,10 @@ export class TurboReaderSink implements UnderlyingSink<Uint8Array> {
     return this.reader.source.controller
   }
 
+  get stream() {
+    return this.reader.stream
+  }
+
   async start(controller: WritableStreamDefaultController) {
     this.#controller = controller
   }
@@ -82,6 +86,10 @@ export class TurboReaderSource implements UnderlyingSource<Uint8Array> {
 
   get sink() {
     return this.reader.sink.controller
+  }
+
+  get stream() {
+    return this.reader.stream
   }
 
   async start(controller: ReadableStreamController<Uint8Array>) {

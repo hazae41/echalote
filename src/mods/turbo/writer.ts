@@ -46,6 +46,10 @@ export class TurboWriterSink implements UnderlyingSink<Uint8Array> {
     return this.writer.source
   }
 
+  get stream() {
+    return this.writer.stream
+  }
+
   async start(controller: WritableStreamDefaultController) {
     this.#controller = controller
   }
@@ -80,13 +84,17 @@ export class TurboWriterSource implements UnderlyingSource<Uint8Array> {
     return this.writer.sink
   }
 
+  get stream() {
+    return this.writer.stream
+  }
+
   async start(controller: ReadableStreamController<Uint8Array>) {
     this.#controller = controller
 
-    const token = this.writer.stream.class.token
+    const token = this.stream.class.token
     this.controller.enqueue(token)
 
-    const clientID = this.writer.stream.clientID
+    const clientID = this.stream.clientID
     this.controller.enqueue(clientID)
   }
 

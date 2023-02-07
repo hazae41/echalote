@@ -9,6 +9,9 @@ export class KcpStream {
 
   readonly conversation = Binary.random(4).getUint32(true)
 
+  send_counter = 0
+  recv_counter = 0
+
   constructor(
     readonly stream: ReadableWritablePair<Uint8Array>
   ) {
