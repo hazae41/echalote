@@ -1,5 +1,6 @@
 import { Binary } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
+import { Future } from "libs/futures/future.js";
 import { SmuxSegment } from "mods/smux/segment.js";
 import { SmuxStream } from "./stream.js";
 
@@ -31,6 +32,34 @@ export class SmuxReader extends AsyncEventTarget {
   async terminate() {
     this.sink.controller.error(new Error(`Closed`))
     this.source.controller.close()
+  }
+
+  async wait<T extends Event>(event: string) {
+    const future = new Future<Event, Error>()
+
+    const onClose = (event: Event) => {
+      const closeEvent = event as CloseEvent
+      const error = new Error(`Closed`, { cause: closeEvent })
+      future.err(error)
+    }
+
+    const onError = (event: Event) => {
+      const errorEvent = event as ErrorEvent
+      const error = new Error(`Errored`, { cause: errorEvent })
+      future.err(error)
+    }
+
+    try {
+      this.addEventListener("close", onClose, { passive: true })
+      this.addEventListener("error", onError, { passive: true })
+      this.addEventListener(event, future.ok, { passive: true })
+
+      return await future.promise as T
+    } finally {
+      this.removeEventListener("close", onClose)
+      this.removeEventListener("error", onError)
+      this.removeEventListener(event, future.ok)
+    }
   }
 
 }

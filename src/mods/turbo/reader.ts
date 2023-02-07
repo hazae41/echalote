@@ -44,7 +44,7 @@ export class TurboReaderSink implements UnderlyingSink<Uint8Array> {
   }
 
   get source() {
-    return this.reader.source.controller
+    return this.reader.source
   }
 
   get stream() {
@@ -57,18 +57,19 @@ export class TurboReaderSink implements UnderlyingSink<Uint8Array> {
 
   async write(chunk: Uint8Array) {
     const frame = TurboFrame.read(new Binary(chunk))
+    console.log("<-", frame)
 
     if (frame.padding) return
 
-    this.source.enqueue(frame.data)
+    this.source.controller.enqueue(frame.data)
   }
 
   async abort(reason?: any) {
-    this.source.error(reason)
+    this.source.controller.error(reason)
   }
 
   async close() {
-    this.source.close()
+    this.source.controller.close()
   }
 }
 
@@ -85,7 +86,7 @@ export class TurboReaderSource implements UnderlyingSource<Uint8Array> {
   }
 
   get sink() {
-    return this.reader.sink.controller
+    return this.reader.sink
   }
 
   get stream() {
@@ -97,6 +98,6 @@ export class TurboReaderSource implements UnderlyingSource<Uint8Array> {
   }
 
   async cancel(reason?: any) {
-    this.sink.error(reason)
+    this.sink.controller.error(reason)
   }
 }

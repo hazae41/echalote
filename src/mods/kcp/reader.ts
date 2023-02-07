@@ -89,6 +89,7 @@ export class KcpReaderSink implements UnderlyingSink<Uint8Array>{
   }
 
   async write(chunk: Uint8Array) {
+    console.log("<-", chunk)
     const segment = KcpSegment.read(new Binary(chunk))
     this.stream.recv_counter++
     console.log("<-", segment)

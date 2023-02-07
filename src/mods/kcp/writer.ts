@@ -67,10 +67,11 @@ export class KcpWriterSink implements UnderlyingSink<Uint8Array>{
     const command = KcpSegment.commands.push
     const send_counter = this.stream.send_counter++
     const recv_counter = this.stream.recv_counter
-    const segment = new KcpSegment(conversation, command, 0, 65536, Date.now() / 1000, send_counter, recv_counter, chunk)
+    const segment = new KcpSegment(conversation, command, 0, 65535, Date.now() / 1000, send_counter, recv_counter, chunk)
     console.log("->", segment)
+    console.log("->", segment.export())
     this.source.controller.enqueue(segment.export())
-    await this.reader.wait("ack")
+    // await this.reader.wait("ack")
   }
 
   async abort(reason?: any) {

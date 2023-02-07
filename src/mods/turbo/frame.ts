@@ -81,7 +81,7 @@ export class TurboFrame {
    * @param binary bytes
    */
   static read(binary: Binary) {
-    let length = ""
+    let lengthBits = ""
 
     const first = binary.readUint8()
     const bits = new Bitset(first, 8)
@@ -89,21 +89,21 @@ export class TurboFrame {
     const padding = !bits.get(0)
     const continuation = bits.get(1)
 
-    length += bits.last(6).toString(2)
+    lengthBits += bits.last(6).toString(2).padStart(6, "0")
 
     if (continuation) {
       const second = binary.readUint8()
       const bits2 = new Bitset(second, 8)
       const continuation2 = bits2.get(0)
 
-      length += bits2.last(7).toString(2)
+      lengthBits += bits2.last(7).toString(2).padStart(7, "0")
 
       if (continuation2) {
         const third = binary.readUint8()
         const bits3 = new Bitset(third, 8)
         const continuation3 = bits3.get(0)
 
-        length += bits3.last(7).toString(2)
+        lengthBits += bits3.last(7).toString(2).padStart(7, "0")
 
         if (continuation3) {
           throw new Error(`${this.name}: read continuation on 3rd byte`)
@@ -111,7 +111,9 @@ export class TurboFrame {
       }
     }
 
-    const data = binary.read(parseInt(length, 2))
+    const length = parseInt(lengthBits, 2)
+    console.log(length)
+    const data = binary.read(length)
     return new this(padding, data)
   }
 }

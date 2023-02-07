@@ -54,6 +54,10 @@ export class SmuxWriterSink implements UnderlyingSink<Uint8Array>{
     return this.writer.stream
   }
 
+  get reader() {
+    return this.stream.reader
+  }
+
   async start(controller: WritableStreamDefaultController) {
     this.#controller = controller
   }
@@ -99,7 +103,7 @@ export class SmuxWriterSource implements UnderlyingSource<Uint8Array> {
 
     const segment = new SmuxSegment(2, SmuxSegment.commands.syn, 1, new Uint8Array())
     console.log("->", segment)
-
+    console.log(segment.export())
     this.controller.enqueue(segment.export())
   }
 
