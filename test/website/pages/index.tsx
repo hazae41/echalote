@@ -97,7 +97,7 @@ function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
 
 export default function Page() {
   const tcp = useAsyncMemo(async () => {
-    return await createWebSocketTurboStream("ws://localhost:12345/")
+    return await createWebSocketTurboStream("wss://snowflake.bamsoftware.com/")
     // return await createMeekStream("https://meek.bamsoftware.com/")
   }, [])
 
