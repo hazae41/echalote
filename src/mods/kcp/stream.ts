@@ -43,7 +43,7 @@ export class KcpStream {
   }
 
   async onReadError(error?: unknown) {
-    console.log(error)
+    console.error(error)
 
     const errorEvent = new ErrorEvent("error", { error })
     await this.reader.dispatchEvent(errorEvent)

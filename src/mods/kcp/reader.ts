@@ -1,16 +1,22 @@
 import { Binary } from "@hazae41/binary";
+import { Bytes } from "@hazae41/bytes";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { KcpSegment } from "./segment.js";
 import { KcpStream } from "./stream.js";
 
 export class KcpReader extends AsyncEventTarget {
+  readonly #class = KcpReader
 
   readonly sink: KcpReaderSink
   readonly source: KcpReaderSource
 
   readonly readable: ReadableStream<Uint8Array>
   readonly writable: WritableStream<Uint8Array>
+
+  private buffer = Bytes.allocUnsafe(65535)
+  private wbinary = new Binary(this.buffer)
+  private rbinary = new Binary(this.buffer)
 
   constructor(
     readonly stream: KcpStream
@@ -22,6 +28,10 @@ export class KcpReader extends AsyncEventTarget {
 
     this.writable = new WritableStream(this.sink)
     this.readable = new ReadableStream(this.source)
+  }
+
+  get writer() {
+    return this.stream.writer
   }
 
   async error(reason?: any) {
@@ -62,6 +72,81 @@ export class KcpReader extends AsyncEventTarget {
     }
   }
 
+  async onWrite(chunk: Uint8Array) {
+    this.wbinary.write(chunk)
+    this.rbinary.view = this.buffer.subarray(0, this.wbinary.offset)
+
+    while (this.rbinary.remaining) {
+      const segment = KcpSegment.tryRead(this.rbinary)
+
+      if (!segment) break
+
+      await this.onSegment(segment)
+    }
+
+    if (!this.rbinary.offset)
+      return
+
+    if (this.rbinary.offset === this.wbinary.offset) {
+      this.rbinary.offset = 0
+      this.wbinary.offset = 0
+      return
+    }
+
+    if (this.rbinary.remaining && this.wbinary.remaining < 4096) {
+      console.debug(`${this.#class.name}`, `Reallocating buffer`)
+
+      const remaining = this.buffer.subarray(this.rbinary.offset, this.wbinary.offset)
+
+      this.rbinary.offset = 0
+      this.wbinary.offset = 0
+
+      this.buffer = Bytes.allocUnsafe(4 * 4096)
+      this.rbinary.view = this.buffer
+      this.wbinary.view = this.buffer
+
+      this.wbinary.write(remaining)
+      return
+    }
+  }
+
+  private async onSegment(segment: KcpSegment) {
+    this.stream.recv_counter++
+    console.log("<-", segment)
+
+    if (segment.command === KcpSegment.commands.push)
+      return await this.onPush(segment)
+    if (segment.command === KcpSegment.commands.ack)
+      return await this.onAck(segment)
+    if (segment.command === KcpSegment.commands.wask)
+      return await this.onWask(segment)
+  }
+
+  private async onPush(segment: KcpSegment) {
+    this.source.controller.enqueue(segment.data)
+
+    const conversation = this.stream.conversation
+    const command = KcpSegment.commands.ack
+    const timestamp = segment.timestamp
+    const serial = segment.serial
+    const una = this.stream.recv_counter
+    const ack = new KcpSegment(conversation, command, 0, 65535, timestamp, serial, una, new Uint8Array())
+    this.writer.source.controller.enqueue(ack.export())
+  }
+
+  private async onAck(segment: KcpSegment) {
+    this.dispatchEvent(new MessageEvent("ack", { data: segment }))
+  }
+
+  private async onWask(_: KcpSegment) {
+    const conversation = this.stream.conversation
+    const command = KcpSegment.commands.wins
+    const send_counter = this.stream.send_counter++
+    const recv_counter = this.stream.recv_counter
+    const wins = new KcpSegment(conversation, command, 0, 65535, Date.now() / 1000, send_counter, recv_counter, new Uint8Array())
+    this.writer.source.controller.enqueue(wins.export())
+  }
+
 }
 
 export class KcpReaderSink implements UnderlyingSink<Uint8Array>{
@@ -89,17 +174,7 @@ export class KcpReaderSink implements UnderlyingSink<Uint8Array>{
   }
 
   async write(chunk: Uint8Array) {
-    console.log("<-", chunk)
-    const segment = KcpSegment.read(new Binary(chunk))
-    this.stream.recv_counter++
-    console.log("<-", segment)
-
-    if (segment.command === KcpSegment.commands.push)
-      return await this.onPush(segment)
-    if (segment.command === KcpSegment.commands.ack)
-      return await this.onAck(segment)
-    if (segment.command === KcpSegment.commands.wask)
-      return await this.onWask(segment)
+    return await this.reader.onWrite(chunk)
   }
 
   async abort(reason?: any) {
@@ -108,23 +183,6 @@ export class KcpReaderSink implements UnderlyingSink<Uint8Array>{
 
   async close() {
     this.source.controller.close()
-  }
-
-  private async onPush(segment: KcpSegment) {
-    this.source.controller.enqueue(segment.data)
-  }
-
-  private async onAck(segment: KcpSegment) {
-    this.reader.dispatchEvent(new MessageEvent("ack", { data: segment }))
-  }
-
-  private async onWask(_: KcpSegment) {
-    const conversation = this.stream.conversation
-    const command = KcpSegment.commands.wins
-    const send_counter = this.stream.send_counter++
-    const recv_counter = this.stream.recv_counter
-    const segment = new KcpSegment(conversation, command, 0, 65536, Date.now() / 1000, send_counter, recv_counter, new Uint8Array())
-    this.stream.writer.source.controller.enqueue(segment.export())
   }
 
 }

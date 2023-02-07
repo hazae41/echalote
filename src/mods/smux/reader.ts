@@ -1,16 +1,22 @@
 import { Binary } from "@hazae41/binary";
+import { Bytes } from "@hazae41/bytes";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { SmuxSegment } from "mods/smux/segment.js";
 import { SmuxStream } from "./stream.js";
 
 export class SmuxReader extends AsyncEventTarget {
+  readonly #class = SmuxReader
 
   readonly sink: SmuxReaderSink
   readonly source: SmuxReaderSource
 
   readonly readable: ReadableStream<Uint8Array>
   readonly writable: WritableStream<Uint8Array>
+
+  private buffer = Bytes.allocUnsafe(65535)
+  private wbinary = new Binary(this.buffer)
+  private rbinary = new Binary(this.buffer)
 
   constructor(
     readonly stream: SmuxStream
@@ -62,6 +68,51 @@ export class SmuxReader extends AsyncEventTarget {
     }
   }
 
+  async onWrite(chunk: Uint8Array) {
+    this.wbinary.write(chunk)
+    this.rbinary.view = this.buffer.subarray(0, this.wbinary.offset)
+
+    while (this.rbinary.remaining) {
+      const segment = SmuxSegment.tryRead(this.rbinary)
+
+      if (!segment) break
+
+      await this.onSegment(segment)
+    }
+
+    if (!this.rbinary.offset)
+      return
+
+    if (this.rbinary.offset === this.wbinary.offset) {
+      this.rbinary.offset = 0
+      this.wbinary.offset = 0
+      return
+    }
+
+    if (this.rbinary.remaining && this.wbinary.remaining < 4096) {
+      console.debug(`${this.#class.name}`, `Reallocating buffer`)
+
+      const remaining = this.buffer.subarray(this.rbinary.offset, this.wbinary.offset)
+
+      this.rbinary.offset = 0
+      this.wbinary.offset = 0
+
+      this.buffer = Bytes.allocUnsafe(4 * 4096)
+      this.rbinary.view = this.buffer
+      this.wbinary.view = this.buffer
+
+      this.wbinary.write(remaining)
+      return
+    }
+  }
+
+  async onSegment(segment: SmuxSegment) {
+    console.log("<-", segment)
+
+    if (segment.command === SmuxSegment.commands.psh)
+      return this.source.controller.enqueue(segment.data)
+  }
+
 }
 
 export class SmuxReaderSink implements UnderlyingSink<Uint8Array>{
@@ -89,12 +140,7 @@ export class SmuxReaderSink implements UnderlyingSink<Uint8Array>{
   }
 
   async write(chunk: Uint8Array) {
-    console.log("smux", chunk)
-    const segment = SmuxSegment.read(new Binary(chunk))
-    console.log("<-", segment)
-
-    if (segment.command === SmuxSegment.commands.psh)
-      return this.source.controller.enqueue(segment.data)
+    return await this.reader.onWrite(chunk)
   }
 
   async abort(reason?: any) {

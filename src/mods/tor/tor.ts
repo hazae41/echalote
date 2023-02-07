@@ -100,7 +100,7 @@ export class Tor extends AsyncEventTarget {
 
   private tls: TlsStream
 
-  private buffer = Bytes.allocUnsafe(4 * 4096)
+  private buffer = Bytes.allocUnsafe(65535)
   private wbinary = new Binary(this.buffer)
   private rbinary = new Binary(this.buffer)
 

@@ -50,9 +50,18 @@ export class SmuxSegment {
     const command = binary.readUint8()
     const length = binary.readUint16(true)
     const stream = binary.readUint32(true)
-    console.log("smux", length)
     const data = binary.read(length)
 
     return new this(version, command, stream, data)
+  }
+
+  static tryRead(binary: Binary) {
+    const offset = binary.offset
+
+    try {
+      return this.read(binary)
+    } catch (e: unknown) {
+      binary.offset = offset
+    }
   }
 }
