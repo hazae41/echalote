@@ -1,8 +1,9 @@
 import { Binary } from "@hazae41/binary";
+import { AsyncEventTarget } from "libs/events/target.js";
 import { SmuxSegment } from "mods/smux/segment.js";
 import { SmuxStream } from "./stream.js";
 
-export class SmuxReader {
+export class SmuxReader extends AsyncEventTarget {
 
   readonly sink: SmuxReaderSink
   readonly source: SmuxReaderSource
@@ -13,6 +14,8 @@ export class SmuxReader {
   constructor(
     readonly stream: SmuxStream
   ) {
+    super()
+
     this.sink = new SmuxReaderSink(this)
     this.source = new SmuxReaderSource(this)
 
@@ -61,9 +64,8 @@ export class SmuxReaderSink implements UnderlyingSink<Uint8Array>{
     const segment = SmuxSegment.read(new Binary(chunk))
     console.log("<-", segment)
 
-    if (segment.command !== SmuxSegment.commands.psh)
-      return
-    this.source.controller.enqueue(segment.data)
+    if (segment.command === SmuxSegment.commands.psh)
+      return this.source.controller.enqueue(segment.data)
   }
 
   async abort(reason?: any) {

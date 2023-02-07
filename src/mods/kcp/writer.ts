@@ -1,7 +1,8 @@
+import { AsyncEventTarget } from "libs/events/target.js";
 import { KcpSegment } from "./segment.js";
 import { KcpStream } from "./stream.js";
 
-export class KcpWriter {
+export class KcpWriter extends AsyncEventTarget {
 
   readonly sink: KcpWriterSink
   readonly source: KcpWriterSource
@@ -12,6 +13,8 @@ export class KcpWriter {
   constructor(
     readonly stream: KcpStream
   ) {
+    super()
+
     this.sink = new KcpWriterSink(this)
     this.source = new KcpWriterSource(this)
 
@@ -51,6 +54,10 @@ export class KcpWriterSink implements UnderlyingSink<Uint8Array>{
     return this.writer.stream
   }
 
+  get reader() {
+    return this.stream.reader
+  }
+
   async start(controller: WritableStreamDefaultController) {
     this.#controller = controller
   }
@@ -63,6 +70,7 @@ export class KcpWriterSink implements UnderlyingSink<Uint8Array>{
     const segment = new KcpSegment(conversation, command, 0, 65536, Date.now() / 1000, send_counter, recv_counter, chunk)
     console.log("->", segment)
     this.source.controller.enqueue(segment.export())
+    await this.reader.wait("ack")
   }
 
   async abort(reason?: any) {

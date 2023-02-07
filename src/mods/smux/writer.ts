@@ -1,7 +1,8 @@
+import { AsyncEventTarget } from "libs/events/target.js";
 import { SmuxSegment } from "mods/smux/segment.js";
 import { SmuxStream } from "./stream.js";
 
-export class SmuxWriter {
+export class SmuxWriter extends AsyncEventTarget {
 
   readonly sink: SmuxWriterSink
   readonly source: SmuxWriterSource
@@ -12,6 +13,8 @@ export class SmuxWriter {
   constructor(
     readonly stream: SmuxStream
   ) {
+    super()
+
     this.sink = new SmuxWriterSink(this)
     this.source = new SmuxWriterSource(this)
 

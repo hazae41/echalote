@@ -1,4 +1,6 @@
 import { Binary } from "@hazae41/binary";
+import { CloseEvent } from "libs/events/close.js";
+import { ErrorEvent } from "libs/events/error.js";
 import { KcpReader } from "./reader.js";
 import { KcpWriter } from "./writer.js";
 
@@ -36,27 +38,23 @@ export class KcpStream {
   }
 
   async onReadClose() {
-    /**
-     * NOOP
-     */
+    const closeEvent = new CloseEvent("close", {})
+    await this.reader.dispatchEvent(closeEvent)
   }
 
   async onReadError(error?: unknown) {
-    /**
-     * NOOP
-     */
+    const errorEvent = new ErrorEvent("error", { error })
+    await this.reader.dispatchEvent(errorEvent)
   }
 
   async onWriteClose() {
-    /**
-     * NOOP
-     */
+    const closeEvent = new CloseEvent("close", {})
+    await this.writer.dispatchEvent(closeEvent)
   }
 
   async onWriteError(error?: unknown) {
-    /**
-     * NOOP
-     */
+    const errorEvent = new ErrorEvent("error", { error })
+    await this.writer.dispatchEvent(errorEvent)
   }
 
 }

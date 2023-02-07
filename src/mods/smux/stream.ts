@@ -31,28 +31,23 @@ export class SmuxStream {
   }
 
   async onReadClose() {
-    /**
-     * NOOP
-     */
+    const closeEvent = new CloseEvent("close", {})
+    await this.reader.dispatchEvent(closeEvent)
   }
 
   async onReadError(error?: unknown) {
-    console.error(error)
-    /**
-     * NOOP
-     */
+    const errorEvent = new ErrorEvent("error", { error })
+    await this.reader.dispatchEvent(errorEvent)
   }
 
   async onWriteClose() {
-    /**
-     * NOOP
-     */
+    const closeEvent = new CloseEvent("close", {})
+    await this.writer.dispatchEvent(closeEvent)
   }
 
   async onWriteError(error?: unknown) {
-    /**
-     * NOOP
-     */
+    const errorEvent = new ErrorEvent("error", { error })
+    await this.writer.dispatchEvent(errorEvent)
   }
 
 }
