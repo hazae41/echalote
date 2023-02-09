@@ -1,5 +1,5 @@
+import { Bitset } from "@hazae41/bitset"
 import { benchSync } from "@hazae41/deimos"
-import { Bitset } from "libs/bitset/bitset.js"
 
 const samples = 100_000
 
@@ -11,7 +11,7 @@ const resArith = benchSync("arithmetic", () => {
   const bitset = new Bitset(packed, 8)
   const a = Boolean(bitset.getBE(0))
   const b = Boolean(bitset.getBE(1))
-  const c = bitset.last(6)
+  const c = bitset.last(6).value
 
   console.assert(a === true)
   console.assert(b === true)

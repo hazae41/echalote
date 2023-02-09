@@ -1,5 +1,5 @@
+import { Bitset } from "@hazae41/bitset"
 import { benchSync } from "@hazae41/deimos"
-import { Bitset } from "libs/bitset/bitset.js"
 
 const samples = 100_000
 
@@ -13,10 +13,9 @@ const resArith = benchSync("arithmetic", () => {
   const bitset = new Bitset(c, 8)
   bitset.setBE(0, a)
   bitset.setBE(1, b)
+  bitset.unsign()
 
-  const x = bitset.unsigned()
-
-  console.assert(x === 255)
+  console.assert(bitset.value === 255)
 }, { samples })
 
 const resString = benchSync("string", () => {
