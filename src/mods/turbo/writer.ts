@@ -1,7 +1,8 @@
+import { AsyncEventTarget } from "libs/events/target.js";
 import { TurboFrame } from "./frame.js";
 import { TurboStream } from "./stream.js";
 
-export class TurboWriter {
+export class TurboWriter extends AsyncEventTarget {
 
   readonly sink: TurboWriterSink
   readonly source: TurboWriterSource
@@ -12,6 +13,8 @@ export class TurboWriter {
   constructor(
     readonly stream: TurboStream
   ) {
+    super()
+
     this.sink = new TurboWriterSink(this)
     this.source = new TurboWriterSource(this)
 

@@ -1,11 +1,14 @@
 import { Bitset } from "@hazae41/bitset"
 import { benchSync } from "@hazae41/deimos"
+import { relative, resolve } from "path"
 
 const samples = 100_000
 
 const packed = 255
 
-console.log("read")
+const directory = resolve("./dist/bench/")
+const { pathname } = new URL(import.meta.url)
+console.log(relative(directory, pathname.replace(".mjs", ".ts")))
 
 const resArith = benchSync("arithmetic", () => {
   const bitset = new Bitset(packed, 8)

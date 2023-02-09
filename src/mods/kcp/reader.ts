@@ -73,40 +73,14 @@ export class KcpReader extends AsyncEventTarget {
   }
 
   async onWrite(chunk: Uint8Array) {
-    this.wbinary.write(chunk)
-    this.rbinary.view = this.buffer.subarray(0, this.wbinary.offset)
+    if (Bytes.equals(chunk.subarray(0, 2), new Uint8Array([2, 2])))
+      return console.warn("weird packet", chunk)
 
-    while (this.rbinary.remaining) {
-      const segment = KcpSegment.tryRead(this.rbinary)
+    const binary = new Binary(chunk)
 
-      if (!segment) break
-
+    while (binary.remaining) {
+      const segment = KcpSegment.read(binary)
       await this.onSegment(segment)
-    }
-
-    if (!this.rbinary.offset)
-      return
-
-    if (this.rbinary.offset === this.wbinary.offset) {
-      this.rbinary.offset = 0
-      this.wbinary.offset = 0
-      return
-    }
-
-    if (this.rbinary.remaining && this.wbinary.remaining < 4096) {
-      console.debug(`${this.#class.name}`, `Reallocating buffer`)
-
-      const remaining = this.buffer.subarray(this.rbinary.offset, this.wbinary.offset)
-
-      this.rbinary.offset = 0
-      this.wbinary.offset = 0
-
-      this.buffer = Bytes.allocUnsafe(4 * 4096)
-      this.rbinary.view = this.buffer
-      this.wbinary.view = this.buffer
-
-      this.wbinary.write(remaining)
-      return
     }
   }
 

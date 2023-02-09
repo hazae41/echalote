@@ -1,8 +1,9 @@
 import { Binary } from "@hazae41/binary"
+import { AsyncEventTarget } from "libs/events/target.js"
 import { TurboFrame } from "./frame.js"
 import { TurboStream } from "./stream.js"
 
-export class TurboReader {
+export class TurboReader extends AsyncEventTarget {
 
   readonly sink: TurboReaderSink
   readonly source: TurboReaderSource
@@ -13,6 +14,8 @@ export class TurboReader {
   constructor(
     readonly stream: TurboStream
   ) {
+    super()
+
     this.sink = new TurboReaderSink(this)
     this.source = new TurboReaderSource(this)
 

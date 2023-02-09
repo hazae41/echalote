@@ -113,8 +113,8 @@ export class TurboFrame {
     }
 
     const length = parseInt(lengthBits, 2)
-    console.log(length)
-    const data = binary.read(length)
+    const data = new Uint8Array(binary.read(length))
+
     return new this(padding, data)
   }
 }

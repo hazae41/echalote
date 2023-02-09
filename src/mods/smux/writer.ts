@@ -64,7 +64,6 @@ export class SmuxWriterSink implements UnderlyingSink<Uint8Array>{
 
   async write(chunk: Uint8Array) {
     const segment = new SmuxSegment(2, SmuxSegment.commands.psh, 1, chunk)
-    console.log("->", segment)
     this.source.controller.enqueue(segment.export())
   }
 
@@ -102,8 +101,6 @@ export class SmuxWriterSource implements UnderlyingSource<Uint8Array> {
     this.#controller = controller
 
     const segment = new SmuxSegment(2, SmuxSegment.commands.syn, 1, new Uint8Array())
-    console.log("->", segment)
-    console.log(segment.export())
     this.controller.enqueue(segment.export())
   }
 

@@ -5,6 +5,7 @@ import { KcpReader } from "./reader.js";
 import { KcpWriter } from "./writer.js";
 
 export class KcpStream {
+  readonly #class = KcpStream
 
   readonly reader: KcpReader
   readonly writer: KcpWriter
@@ -43,7 +44,7 @@ export class KcpStream {
   }
 
   async onReadError(error?: unknown) {
-    console.error(error)
+    console.debug(`${this.#class.name}.onReadError`, error)
 
     const errorEvent = new ErrorEvent("error", { error })
     await this.reader.dispatchEvent(errorEvent)

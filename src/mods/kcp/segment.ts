@@ -84,7 +84,10 @@ export class KcpSegment {
     const serial = binary.readUint32(true)
     const unackSerial = binary.readUint32(true)
     const length = binary.readUint32(true)
-    const data = binary.read(length)
+
+    console.log(length)
+
+    const data = new Uint8Array(binary.read(length))
 
     return new this(conversation, command, count, window, timestamp, serial, unackSerial, data)
   }

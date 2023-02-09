@@ -2,6 +2,7 @@ import { SmuxReader } from "./reader.js"
 import { SmuxWriter } from "./writer.js"
 
 export class SmuxStream {
+  readonly #class = SmuxStream
 
   readonly reader: SmuxReader
   readonly writer: SmuxWriter
@@ -36,7 +37,7 @@ export class SmuxStream {
   }
 
   async onReadError(error?: unknown) {
-    console.log(error)
+    console.debug(`${this.#class.name}.onReadError`, error)
 
     const errorEvent = new ErrorEvent("error", { error })
     await this.reader.dispatchEvent(errorEvent)
