@@ -88,22 +88,6 @@ export class SmuxReader extends AsyncEventTarget {
       this.wbinary.offset = 0
       return
     }
-
-    if (this.rbinary.remaining && this.wbinary.remaining < 4096) {
-      console.debug(`${this.#class.name}`, `Reallocating buffer`)
-
-      const remaining = this.buffer.subarray(this.rbinary.offset, this.wbinary.offset)
-
-      this.rbinary.offset = 0
-      this.wbinary.offset = 0
-
-      this.buffer = Bytes.allocUnsafe(4 * 4096)
-      this.rbinary.view = this.buffer
-      this.wbinary.view = this.buffer
-
-      this.wbinary.write(remaining)
-      return
-    }
   }
 
   async onSegment(segment: SmuxSegment) {

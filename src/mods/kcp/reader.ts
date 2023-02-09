@@ -1,5 +1,4 @@
 import { Binary } from "@hazae41/binary";
-import { Bytes } from "@hazae41/bytes";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { KcpSegment } from "./segment.js";
@@ -13,10 +12,6 @@ export class KcpReader extends AsyncEventTarget {
 
   readonly readable: ReadableStream<Uint8Array>
   readonly writable: WritableStream<Uint8Array>
-
-  private buffer = Bytes.allocUnsafe(65535)
-  private wbinary = new Binary(this.buffer)
-  private rbinary = new Binary(this.buffer)
 
   constructor(
     readonly stream: KcpStream
@@ -73,13 +68,16 @@ export class KcpReader extends AsyncEventTarget {
   }
 
   async onWrite(chunk: Uint8Array) {
-    if (Bytes.equals(chunk.subarray(0, 2), new Uint8Array([2, 2])))
-      return console.warn("weird packet", chunk)
-
     const binary = new Binary(chunk)
 
     while (binary.remaining) {
-      const segment = KcpSegment.read(binary)
+      const segment = KcpSegment.tryRead(binary)
+
+      if (!segment) {
+        console.warn("kcp", chunk)
+        break
+      }
+
       await this.onSegment(segment)
     }
   }
