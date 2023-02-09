@@ -21,8 +21,8 @@ export class TurboFrame {
 
   write6(binary: Binary) {
     const first = new Bitset(this.data.length, 8)
-    first.set(0, !this.padding)
-    first.set(1, false)
+    first.setBE(0, !this.padding)
+    first.setBE(1, false)
 
     binary.writeUint8(first.unsigned())
     binary.write(this.data)
@@ -86,22 +86,22 @@ export class TurboFrame {
     const first = binary.readUint8()
     const bits = new Bitset(first, 8)
 
-    const padding = !bits.get(0)
-    const continuation = bits.get(1)
+    const padding = !bits.getBE(0)
+    const continuation = bits.getBE(1)
 
     lengthBits += bits.last(6).toString(2).padStart(6, "0")
 
     if (continuation) {
       const second = binary.readUint8()
       const bits2 = new Bitset(second, 8)
-      const continuation2 = bits2.get(0)
+      const continuation2 = bits2.getBE(0)
 
       lengthBits += bits2.last(7).toString(2).padStart(7, "0")
 
       if (continuation2) {
         const third = binary.readUint8()
         const bits3 = new Bitset(third, 8)
-        const continuation3 = bits3.get(0)
+        const continuation3 = bits3.getBE(0)
 
         lengthBits += bits3.last(7).toString(2).padStart(7, "0")
 

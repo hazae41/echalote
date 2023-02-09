@@ -9,8 +9,8 @@ console.log("read")
 
 const resArith = benchSync("arithmetic", () => {
   const bitset = new Bitset(packed, 8)
-  const a = Boolean(bitset.get(0))
-  const b = Boolean(bitset.get(1))
+  const a = Boolean(bitset.getBE(0))
+  const b = Boolean(bitset.getBE(1))
   const c = bitset.last(6)
 
   console.assert(a === true)

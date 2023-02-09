@@ -1,5 +1,4 @@
 export class Bitset {
-  readonly #class = Bitset
 
   constructor(
     public value: number,
@@ -16,16 +15,6 @@ export class Bitset {
   }
 
   /**
-   * Get the bit at big-endian index
-   * 
-   * @param index 
-   * @returns 
-   */
-  get(index: number) {
-    return Boolean(this.value & (1 << (this.length - index - 1)))
-  }
-
-  /**
    * Bitwise NOT
    * 
    * @returns 
@@ -37,13 +26,46 @@ export class Bitset {
   }
 
   /**
+   * Get the bit at big-endian index
+   * 
+   * @param index 
+   * @returns 
+   */
+  getBE(index: number) {
+    return Boolean(this.value & (1 << (this.length - index - 1)))
+  }
+
+
+  /**
+   * Get the bit at little-endian index
+   * 
+   * @param index 
+   * @returns 
+   */
+  getLE(index: number) {
+    return Boolean(this.value & (1 << index))
+  }
+
+  /**
    * Toggle the bit at big-endian index
    * 
    * @param index 
    * @returns 
    */
-  toggle(index: number) {
+  toggleBE(index: number) {
     this.value ^= (1 << (this.length - index - 1))
+
+    return this
+  }
+
+  /**
+   * Toggle the bit at little-endian index
+   * 
+   * @param index 
+   * @returns 
+   */
+  toggleLE(index: number) {
+    this.value ^= (1 << index)
 
     return this
   }
@@ -54,8 +76,20 @@ export class Bitset {
    * @param index 
    * @returns 
    */
-  enable(index: number) {
+  enableBE(index: number) {
     this.value |= (1 << (this.length - index - 1))
+
+    return this
+  }
+
+  /**
+   * Enable the bit at little-endian index
+   * 
+   * @param index 
+   * @returns 
+   */
+  enableLE(index: number) {
+    this.value |= (1 << index)
 
     return this
   }
@@ -66,8 +100,20 @@ export class Bitset {
    * @param index 
    * @returns 
    */
-  disable(index: number) {
+  disableBE(index: number) {
     this.value &= ~(1 << (this.length - index - 1))
+
+    return this
+  }
+
+  /**
+   * Disable the bit at little-endian index
+   * 
+   * @param index 
+   * @returns 
+   */
+  disableLE(index: number) {
+    this.value &= ~(1 << index)
 
     return this
   }
@@ -79,11 +125,25 @@ export class Bitset {
    * @param value 
    * @returns 
    */
-  set(index: number, value: boolean) {
+  setBE(index: number, value: boolean) {
     if (value)
-      return this.enable(index)
+      return this.enableBE(index)
     else
-      return this.disable(index)
+      return this.disableBE(index)
+  }
+
+  /**
+   * Set the bit at little-endian index
+   * 
+   * @param index 
+   * @param value 
+   * @returns 
+   */
+  setLE(index: number, value: boolean) {
+    if (value)
+      return this.enableLE(index)
+    else
+      return this.disableLE(index)
   }
 
   /**

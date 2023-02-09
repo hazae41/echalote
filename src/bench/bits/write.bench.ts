@@ -11,8 +11,8 @@ console.log("write")
 
 const resArith = benchSync("arithmetic", () => {
   const bitset = new Bitset(c, 8)
-  bitset.set(0, a)
-  bitset.set(1, b)
+  bitset.setBE(0, a)
+  bitset.setBE(1, b)
 
   const x = bitset.unsigned()
 
