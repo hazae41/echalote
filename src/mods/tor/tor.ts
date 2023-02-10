@@ -253,7 +253,6 @@ export class Tor extends AsyncEventTarget {
     }
   }
 
-
   private async onCell(cell: Cell) {
     if (cell.command === PaddingCell.command)
       return console.debug(`PADDING`, cell)

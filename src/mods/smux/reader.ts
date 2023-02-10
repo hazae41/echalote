@@ -1,5 +1,4 @@
 import { Binary } from "@hazae41/binary";
-import { Bytes } from "@hazae41/bytes";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { SmuxSegment } from "mods/smux/segment.js";
@@ -14,9 +13,7 @@ export class SmuxReader extends AsyncEventTarget {
   readonly readable: ReadableStream<Uint8Array>
   readonly writable: WritableStream<Uint8Array>
 
-  private buffer = Bytes.allocUnsafe(65535)
-  private wbinary = new Binary(this.buffer)
-  private rbinary = new Binary(this.buffer)
+  private buffer = Binary.allocUnsafe(65535)
 
   constructor(
     readonly stream: SmuxStream
@@ -68,27 +65,38 @@ export class SmuxReader extends AsyncEventTarget {
     }
   }
 
-  async onWrite(chunk: Uint8Array) {
-    this.wbinary.write(chunk)
-    this.rbinary.view = this.buffer.subarray(0, this.wbinary.offset)
+  async onRead(chunk: Uint8Array) {
+    // console.debug("<-", chunk)
 
-    while (this.rbinary.remaining) {
-      const segment = SmuxSegment.tryRead(this.rbinary)
+    if (this.buffer.offset)
+      await this.onReadBuffered(chunk)
+    else
+      await this.onReadDirect(chunk)
+  }
 
-      if (!segment) break
+  async onReadBuffered(chunk: Uint8Array) {
+    this.buffer.write(chunk)
+    const full = this.buffer.before
+
+    this.buffer.offset = 0
+    await this.onReadDirect(full)
+  }
+
+  async onReadDirect(chunk: Uint8Array) {
+    const cursor = new Binary(chunk)
+
+    while (cursor.remaining) {
+      const segment = SmuxSegment.tryRead(cursor)
+
+      if (!segment) {
+        this.buffer.write(cursor.after)
+        break
+      }
 
       await this.onSegment(segment)
     }
-
-    if (!this.rbinary.offset)
-      return
-
-    if (this.rbinary.offset === this.wbinary.offset) {
-      this.rbinary.offset = 0
-      this.wbinary.offset = 0
-      return
-    }
   }
+
 
   async onSegment(segment: SmuxSegment) {
     console.log("<-", segment)
@@ -124,7 +132,7 @@ export class SmuxReaderSink implements UnderlyingSink<Uint8Array>{
   }
 
   async write(chunk: Uint8Array) {
-    return await this.reader.onWrite(chunk)
+    return await this.reader.onRead(chunk)
   }
 
   async abort(reason?: any) {
