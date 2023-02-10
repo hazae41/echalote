@@ -40,11 +40,11 @@ async function fetchCircuit(circuit: Circuit) {
 
   setTimeout(() => aborter.abort(), 15 * 1000)
 
-  // const body = JSON.stringify({ "jsonrpc": "2.0", "method": "web3_clientVersion", "params": [], "id": 67 })
-  // const headers = { "content-type": "application/json" }
-  // const res = await circuit.fetch("https://virginia.rpc.blxrbdn.com", { method: "POST", headers, body, signal })
+  const body = JSON.stringify({ "jsonrpc": "2.0", "method": "web3_clientVersion", "params": [], "id": 67 })
+  const headers = { "content-type": "application/json" }
+  const res = await circuit.fetch("https://virginia.rpc.blxrbdn.com", { method: "POST", headers, body, signal })
 
-  const res = await circuit.fetch("https://twitter.com", {})
+  // const res = await circuit.fetch("https://twitter.com", {})
 
   console.log(res)
   console.log(await res.text())
