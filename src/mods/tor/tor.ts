@@ -221,14 +221,10 @@ export class Tor extends AsyncEventTarget {
    */
   private async onReadBuffered(chunk: Uint8Array) {
     this.buffer.write(chunk)
+    const full = this.buffer.before
 
-    const cursor = await this.onReadDirect(this.buffer.before)
-
-    if (!cursor.remaining) {
-      this.buffer.offset = 0
-    }
-
-    return cursor
+    this.buffer.offset = 0
+    await this.onReadDirect(full)
   }
 
   /**
@@ -255,8 +251,6 @@ export class Tor extends AsyncEventTarget {
 
       await this.onCell(cell)
     }
-
-    return cursor
   }
 
 
