@@ -100,9 +100,7 @@ export class Tor extends AsyncEventTarget {
 
   private tls: TlsStream
 
-  private buffer = Bytes.allocUnsafe(65535)
-  private wbinary = new Binary(this.buffer)
-  private rbinary = new Binary(this.buffer)
+  private buffer = Binary.allocUnsafe(65535)
 
   private state: TorState = { type: "none" }
 
@@ -210,15 +208,46 @@ export class Tor extends AsyncEventTarget {
   private async onRead(chunk: Uint8Array) {
     // console.debug("<-", chunk)
 
-    this.wbinary.write(chunk)
-    this.rbinary.view = this.buffer.subarray(0, this.wbinary.offset)
+    if (this.buffer.offset)
+      await this.onReadBuffered(chunk)
+    else
+      await this.onReadDirect(chunk)
+  }
 
-    while (this.rbinary.remaining) {
+  /**
+   * Read from buffer
+   * @param chunk 
+   * @returns 
+   */
+  private async onReadBuffered(chunk: Uint8Array) {
+    this.buffer.write(chunk)
+
+    const cursor = await this.onReadDirect(this.buffer.before)
+
+    if (!cursor.remaining) {
+      this.buffer.offset = 0
+    }
+
+    return cursor
+  }
+
+  /**
+   * Zero-copy reading
+   * @param chunk 
+   * @returns 
+   */
+  private async onReadDirect(chunk: Uint8Array) {
+    const cursor = new Binary(chunk)
+
+    while (cursor.remaining) {
       const rawCell = this.state.type === "none"
-        ? OldCell.tryRead(this.rbinary)
-        : NewCell.tryRead(this.rbinary)
+        ? OldCell.tryRead(cursor)
+        : NewCell.tryRead(cursor)
 
-      if (!rawCell) break
+      if (!rawCell) {
+        this.buffer.write(cursor.after)
+        break
+      }
 
       const cell = rawCell.type === "old"
         ? OldCell.unpack(this, rawCell)
@@ -227,15 +256,9 @@ export class Tor extends AsyncEventTarget {
       await this.onCell(cell)
     }
 
-    if (!this.rbinary.offset)
-      return
-
-    if (this.rbinary.offset === this.wbinary.offset) {
-      this.rbinary.offset = 0
-      this.wbinary.offset = 0
-      return
-    }
+    return cursor
   }
+
 
   private async onCell(cell: Cell) {
     if (cell.command === PaddingCell.command)
