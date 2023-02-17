@@ -32,8 +32,8 @@ export class Circuit extends AsyncEventTarget {
   readonly targets = new Array<Target>()
   readonly streams = new Map<number, TcpStream>()
 
-  private _nonce = 1
-  private _closed = false
+  #nonce = 1
+  #closed = false
 
   constructor(
     readonly tor: Tor,
@@ -41,64 +41,64 @@ export class Circuit extends AsyncEventTarget {
   ) {
     super()
 
-    const onClose = this.onReadClose.bind(this)
+    const onClose = this.#onReadClose.bind(this)
     this.tor.read.addEventListener("close", onClose, { passive: true })
 
-    const onError = this.onReadError.bind(this)
+    const onError = this.#onReadError.bind(this)
     this.tor.read.addEventListener("error", onError, { passive: true })
 
-    const onDestroyCell = this.onDestroyCell.bind(this)
+    const onDestroyCell = this.#onDestroyCell.bind(this)
     this.tor.addEventListener("DESTROY", onDestroyCell, { passive: true })
 
-    const onRelayExtended2Cell = this.onRelayExtended2Cell.bind(this)
+    const onRelayExtended2Cell = this.#onRelayExtended2Cell.bind(this)
     this.tor.addEventListener("RELAY_EXTENDED2", onRelayExtended2Cell, { passive: true })
 
-    const onRelayTruncatedCell = this.onRelayTruncatedCell.bind(this)
+    const onRelayTruncatedCell = this.#onRelayTruncatedCell.bind(this)
     this.tor.addEventListener("RELAY_TRUNCATED", onRelayTruncatedCell, { passive: true })
 
-    const onRelayConnectedCell = this.onRelayConnectedCell.bind(this)
+    const onRelayConnectedCell = this.#onRelayConnectedCell.bind(this)
     this.tor.addEventListener("RELAY_CONNECTED", onRelayConnectedCell, { passive: true })
 
-    const onRelayDataCell = this.onRelayDataCell.bind(this)
+    const onRelayDataCell = this.#onRelayDataCell.bind(this)
     this.tor.addEventListener("RELAY_DATA", onRelayDataCell, { passive: true })
 
-    const onRelayEndCell = this.onRelayEndCell.bind(this)
+    const onRelayEndCell = this.#onRelayEndCell.bind(this)
     this.tor.addEventListener("RELAY_END", onRelayEndCell, { passive: true })
   }
 
   get closed() {
-    return this._closed
+    return this.#closed
   }
 
-  private async onReadClose(event: Event) {
+  async #onReadClose(event: Event) {
     const closeEvent = event as CloseEvent
 
     console.debug(`${this.#class.name}.onReadClose`, event)
 
-    this._closed = true
+    this.#closed = true
 
     const closeEventClone = Events.clone(closeEvent)
     if (!await this.dispatchEvent(closeEventClone)) return
   }
 
-  private async onReadError(event: Event) {
+  async #onReadError(event: Event) {
     const errorEvent = event as ErrorEvent
 
     console.debug(`${this.#class.name}.onReadError`, event)
 
-    this._closed = true
+    this.#closed = true
 
     const errorEventClone = Events.clone(errorEvent)
     if (!await this.dispatchEvent(errorEventClone)) return
   }
 
-  private async onDestroyCell(event: Event) {
+  async #onDestroyCell(event: Event) {
     const msgEvent = event as MessageEvent<DestroyCell>
     if (msgEvent.data.circuit !== this) return
 
     console.debug(`${this.#class.name}.onDestroyCell`, event)
 
-    this._closed = true
+    this.#closed = true
 
     const msgEventClone = Events.clone(msgEvent)
     if (!await this.dispatchEvent(msgEventClone)) return
@@ -109,7 +109,7 @@ export class Circuit extends AsyncEventTarget {
     if (!await this.dispatchEvent(errorEvent)) return
   }
 
-  private async onRelayExtended2Cell(event: Event) {
+  async #onRelayExtended2Cell(event: Event) {
     const msgEvent = event as MessageEvent<RelayExtended2Cell>
     if (msgEvent.data.circuit !== this) return
 
@@ -119,13 +119,13 @@ export class Circuit extends AsyncEventTarget {
     if (!await this.dispatchEvent(msgEventClone)) return
   }
 
-  private async onRelayTruncatedCell(event: Event) {
+  async #onRelayTruncatedCell(event: Event) {
     const msgEvent = event as MessageEvent<RelayTruncatedCell>
     if (msgEvent.data.circuit !== this) return
 
     console.debug(`${this.#class.name}.onRelayTruncatedCell`, event)
 
-    this._closed = true
+    this.#closed = true
 
     const msgEventClone = Events.clone(event)
     if (!await this.dispatchEvent(msgEventClone)) return
@@ -136,7 +136,7 @@ export class Circuit extends AsyncEventTarget {
     if (!await this.dispatchEvent(errorEvent)) return
   }
 
-  private async onRelayConnectedCell(event: Event) {
+  async #onRelayConnectedCell(event: Event) {
     const msgEvent = event as MessageEvent<RelayConnectedCell>
     if (msgEvent.data.circuit !== this) return
 
@@ -146,7 +146,7 @@ export class Circuit extends AsyncEventTarget {
     if (!await this.dispatchEvent(msgEventClone)) return
   }
 
-  private async onRelayDataCell(event: Event) {
+  async #onRelayDataCell(event: Event) {
     const msgEvent = event as MessageEvent<RelayDataCell>
     if (msgEvent.data.circuit !== this) return
 
@@ -156,7 +156,7 @@ export class Circuit extends AsyncEventTarget {
     if (!await this.dispatchEvent(msgEventClone)) return
   }
 
-  private async onRelayEndCell(event: Event) {
+  async #onRelayEndCell(event: Event) {
     const msgEvent = event as MessageEvent<RelayEndCell>
     if (msgEvent.data.circuit !== this) return
 
@@ -168,7 +168,7 @@ export class Circuit extends AsyncEventTarget {
     this.streams.delete(msgEvent.data.stream.id)
   }
 
-  private async waitExtended(signal?: AbortSignal) {
+  async #waitExtended(signal?: AbortSignal) {
     const future = new Future<Event, Error>()
 
     const onAbort = (event: Event) => {
@@ -267,7 +267,7 @@ export class Circuit extends AsyncEventTarget {
 
     const request = Ntor.request(publicx, idh, publicb)
 
-    const pextended2 = this.waitExtended(signal)
+    const pextended2 = this.#waitExtended(signal)
     const relay_extend2 = new RelayExtend2Cell(this, undefined, RelayExtend2Cell.types.NTOR, links, request)
     this.tor.output.enqueue(await relay_extend2.pack())
     const extended2 = await pextended2
@@ -297,7 +297,7 @@ export class Circuit extends AsyncEventTarget {
     this.targets.push(target)
   }
 
-  private async waitTruncated(signal?: AbortSignal) {
+  async #waitTruncated(signal?: AbortSignal) {
     const future = new Future<Event, Error>()
 
     const onAbort = (event: Event) => {
@@ -334,7 +334,7 @@ export class Circuit extends AsyncEventTarget {
   }
 
   async truncate(reason = RelayTruncateCell.reasons.NONE) {
-    const ptruncated = this.waitTruncated()
+    const ptruncated = this.#waitTruncated()
     const relay_truncate = new RelayTruncateCell(this, undefined, reason)
     this.tor.output.enqueue(await relay_truncate.pack())
     await ptruncated
@@ -344,7 +344,7 @@ export class Circuit extends AsyncEventTarget {
     if (this.closed)
       throw new Error(`Circuit is closed`)
 
-    const streamId = this._nonce++
+    const streamId = this.#nonce++
 
     const stream = new TcpStream(this, streamId, signal)
     this.streams.set(streamId, stream)

@@ -78,23 +78,23 @@ export class KcpReader extends AsyncEventTarget {
         break
       }
 
-      await this.onSegment(segment)
+      await this.#onSegment(segment)
     }
   }
 
-  private async onSegment(segment: KcpSegment) {
+  async #onSegment(segment: KcpSegment) {
     this.stream.recv_counter++
     console.log("<-", segment)
 
     if (segment.command === KcpSegment.commands.push)
-      return await this.onPush(segment)
+      return await this.#onPush(segment)
     if (segment.command === KcpSegment.commands.ack)
-      return await this.onAck(segment)
+      return await this.#onAck(segment)
     if (segment.command === KcpSegment.commands.wask)
-      return await this.onWask(segment)
+      return await this.#onWask(segment)
   }
 
-  private async onPush(segment: KcpSegment) {
+  async #onPush(segment: KcpSegment) {
     this.source.controller.enqueue(segment.data)
 
     const conversation = this.stream.conversation
@@ -106,11 +106,11 @@ export class KcpReader extends AsyncEventTarget {
     this.writer.source.controller.enqueue(ack.export())
   }
 
-  private async onAck(segment: KcpSegment) {
+  async #onAck(segment: KcpSegment) {
     this.dispatchEvent(new MessageEvent("ack", { data: segment }))
   }
 
-  private async onWask(_: KcpSegment) {
+  async #onWask(_: KcpSegment) {
     const conversation = this.stream.conversation
     const command = KcpSegment.commands.wins
     const send_counter = this.stream.send_counter++

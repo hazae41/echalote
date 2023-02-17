@@ -89,20 +89,20 @@ export class Tor extends AsyncEventTarget {
   readonly read = new AsyncEventTarget()
   readonly write = new AsyncEventTarget()
 
-  private reader: TransformStream<Uint8Array>
-  private writer: TransformStream<Uint8Array>
+  readonly #reader: TransformStream<Uint8Array>
+  readonly #writer: TransformStream<Uint8Array>
 
-  private _input?: TransformStreamDefaultController<Uint8Array>
-  private _output?: TransformStreamDefaultController<Uint8Array>
+  #input?: TransformStreamDefaultController<Uint8Array>
+  #output?: TransformStreamDefaultController<Uint8Array>
 
   readonly authorities = new Array<Authority>()
   readonly circuits = new Map<number, Circuit>()
 
-  private tls: TlsStream
+  readonly #tls: TlsStream
 
-  private buffer = Cursor.allocUnsafe(65535)
+  readonly #buffer = Cursor.allocUnsafe(65535)
 
-  private state: TorState = { type: "none" }
+  #state: TorState = { type: "none" }
 
   /**
    * Create a new Tor client
@@ -122,34 +122,34 @@ export class Tor extends AsyncEventTarget {
     const ciphers = Object.values(TorCiphers)
     const tls = new TlsStream(tcp, { signal, ciphers })
 
-    this.tls = tls
+    this.#tls = tls
 
-    this.reader = new TransformStream<Uint8Array>({
-      start: this.onReadStart.bind(this),
-      transform: this.onRead.bind(this),
+    this.#reader = new TransformStream<Uint8Array>({
+      start: this.#onReadStart.bind(this),
+      transform: this.#onRead.bind(this),
     })
 
-    this.writer = new TransformStream<Uint8Array>({
-      start: this.onWriteStart.bind(this),
+    this.#writer = new TransformStream<Uint8Array>({
+      start: this.#onWriteStart.bind(this),
     })
 
     tls.readable
-      .pipeTo(this.reader.writable, { signal })
-      .then(this.onReadClose.bind(this))
-      .catch(this.onReadError.bind(this))
+      .pipeTo(this.#reader.writable, { signal })
+      .then(this.#onReadClose.bind(this))
+      .catch(this.#onReadError.bind(this))
 
-    this.writer.readable
+    this.#writer.readable
       .pipeTo(tls.writable, { signal })
-      .then(this.onWriteClose.bind(this))
-      .catch(this.onWriteError.bind(this))
+      .then(this.#onWriteClose.bind(this))
+      .catch(this.#onWriteError.bind(this))
 
-    this.reader.readable
+    this.#reader.readable
       .pipeTo(new WritableStream())
       .then(() => { })
       .catch(() => { })
   }
 
-  private async init() {
+  async #init() {
     await Paimon.initBundledOnce()
     await Berith.initBundledOnce()
     await Zepar.initBundledOnce()
@@ -158,28 +158,28 @@ export class Tor extends AsyncEventTarget {
   }
 
   get input() {
-    return this._input!
+    return this.#input!
   }
 
   get output() {
-    return this._output!
+    return this.#output!
   }
 
-  private async onReadClose() {
+  async #onReadClose() {
     console.debug(`${this.#class.name}.onReadClose`)
 
     const closeEvent = new CloseEvent("close", {})
     if (!await this.read.dispatchEvent(closeEvent)) return
   }
 
-  private async onWriteClose() {
+  async #onWriteClose() {
     console.debug(`${this.#class.name}.onWriteClose`)
 
     const closeEvent = new CloseEvent("close", {})
     if (!await this.write.dispatchEvent(closeEvent)) return
   }
 
-  private async onReadError(error?: unknown) {
+  async #onReadError(error?: unknown) {
     console.debug(`${this.#class.name}.onReadError`, error)
 
     try { this.output!.error(error) } catch (e: unknown) { }
@@ -188,7 +188,7 @@ export class Tor extends AsyncEventTarget {
     if (!await this.read.dispatchEvent(errorEvent)) return
   }
 
-  private async onWriteError(error?: unknown) {
+  async #onWriteError(error?: unknown) {
     console.debug(`${this.#class.name}.onWriteError`, error)
 
     try { this.input!.error(error) } catch (e: unknown) { }
@@ -197,21 +197,21 @@ export class Tor extends AsyncEventTarget {
     if (!await this.write.dispatchEvent(errorEvent)) return
   }
 
-  private async onReadStart(controller: TransformStreamDefaultController<Uint8Array>) {
-    this._input = controller
+  async #onReadStart(controller: TransformStreamDefaultController<Uint8Array>) {
+    this.#input = controller
   }
 
-  private async onWriteStart(controller: TransformStreamDefaultController<Uint8Array>) {
-    this._output = controller
+  async #onWriteStart(controller: TransformStreamDefaultController<Uint8Array>) {
+    this.#output = controller
   }
 
-  private async onRead(chunk: Uint8Array) {
+  async #onRead(chunk: Uint8Array) {
     // console.debug("<-", chunk)
 
-    if (this.buffer.offset)
-      await this.onReadBuffered(chunk)
+    if (this.#buffer.offset)
+      await this.#onReadBuffered(chunk)
     else
-      await this.onReadDirect(chunk)
+      await this.#onReadDirect(chunk)
   }
 
   /**
@@ -219,12 +219,12 @@ export class Tor extends AsyncEventTarget {
    * @param chunk 
    * @returns 
    */
-  private async onReadBuffered(chunk: Uint8Array) {
-    this.buffer.write(chunk)
-    const full = this.buffer.before
+  async #onReadBuffered(chunk: Uint8Array) {
+    this.#buffer.write(chunk)
+    const full = this.#buffer.before
 
-    this.buffer.offset = 0
-    await this.onReadDirect(full)
+    this.#buffer.offset = 0
+    await this.#onReadDirect(full)
   }
 
   /**
@@ -232,16 +232,16 @@ export class Tor extends AsyncEventTarget {
    * @param chunk 
    * @returns 
    */
-  private async onReadDirect(chunk: Uint8Array) {
+  async #onReadDirect(chunk: Uint8Array) {
     const cursor = new Cursor(chunk)
 
     while (cursor.remaining) {
-      const rawCell = this.state.type === "none"
+      const rawCell = this.#state.type === "none"
         ? OldCell.tryRead(cursor)
         : NewCell.tryRead(cursor)
 
       if (!rawCell) {
-        this.buffer.write(cursor.after)
+        this.#buffer.write(cursor.after)
         break
       }
 
@@ -249,78 +249,78 @@ export class Tor extends AsyncEventTarget {
         ? OldCell.unpack(this, rawCell)
         : NewCell.unpack(this, rawCell)
 
-      await this.onCell(cell)
+      await this.#onCell(cell)
     }
   }
 
-  private async onCell(cell: Cell) {
+  async #onCell(cell: Cell) {
     if (cell.command === PaddingCell.command)
       return console.debug(`PADDING`, cell)
     if (cell.command === VariablePaddingCell.command)
       return console.debug(`VPADDING`, cell)
 
-    if (this.state.type === "none")
-      return await this.onNoneStateCell(cell)
+    if (this.#state.type === "none")
+      return await this.#onNoneStateCell(cell)
     if (cell instanceof OldCell)
       throw new Error(`Can't uncell post-version cell from old cell`)
 
-    if (this.state.type === "versioned")
-      return await this.onVersionedStateCell(cell)
-    if (this.state.type === "handshaking")
-      return await this.onHandshakingStateCell(cell)
-    if (this.state.type === "handshaked")
-      return await this.onHandshakedStateCell(cell)
+    if (this.#state.type === "versioned")
+      return await this.#onVersionedStateCell(cell)
+    if (this.#state.type === "handshaking")
+      return await this.#onHandshakingStateCell(cell)
+    if (this.#state.type === "handshaked")
+      return await this.#onHandshakedStateCell(cell)
 
     throw new Error(`Unknown state`)
   }
 
-  private async onNoneStateCell(cell: Cell) {
-    if (this.state.type !== "none")
+  async #onNoneStateCell(cell: Cell) {
+    if (this.#state.type !== "none")
       throw new Error(`State is not none`)
     if (cell instanceof NewCell)
       throw new Error(`Can't uncell pre-version cell from new cell`)
 
     if (cell.command === VersionsCell.command)
-      return await this.onVersionsCell(cell)
+      return await this.#onVersionsCell(cell)
 
     console.debug(`Unknown pre-version cell ${cell.command}`)
   }
 
-  private async onVersionedStateCell(cell: NewCell) {
-    if (this.state.type !== "versioned")
+  async #onVersionedStateCell(cell: NewCell) {
+    if (this.#state.type !== "versioned")
       throw new Error(`State is not versioned`)
 
     if (cell.command === CertsCell.command)
-      return await this.onCertsCell(cell)
+      return await this.#onCertsCell(cell)
 
     console.debug(`Unknown versioned-state cell ${cell.command}`)
   }
 
-  private async onHandshakingStateCell(cell: NewCell) {
-    if (this.state.type !== "handshaking")
+  async #onHandshakingStateCell(cell: NewCell) {
+    if (this.#state.type !== "handshaking")
       throw new Error(`State is not handshaking`)
 
     if (cell.command === AuthChallengeCell.command)
-      return await this.onAuthChallengeCell(cell)
+      return await this.#onAuthChallengeCell(cell)
     if (cell.command === NetinfoCell.command)
-      return await this.onNetinfoCell(cell)
+      return await this.#onNetinfoCell(cell)
 
     console.debug(`Unknown handshaking-state cell ${cell.command}`)
   }
 
-  private async onHandshakedStateCell(cell: NewCell) {
+  async #onHandshakedStateCell(cell: NewCell) {
     if (cell.command === CreatedFastCell.command)
-      return await this.onCreatedFastCell(cell)
+      return await this.#onCreatedFastCell(cell)
     if (cell.command === DestroyCell.command)
-      return await this.onDestroyCell(cell)
+      return await this.#onDestroyCell(cell)
     if (cell.command === RelayCell.command)
-      return await this.onRelayCell(cell)
+      return await this.#onRelayCell(cell)
 
     console.debug(`Unknown handshaked-state cell ${cell.command}`)
   }
 
-  private async onVersionsCell(cell: OldCell) {
-    if (this.state.type !== "none")
+  async #onVersionsCell(cell: OldCell) {
+    if (this.#state.type !== "none")
       throw new Error(`State is not none`)
 
     const data = VersionsCell.uncell(cell)
@@ -333,14 +333,14 @@ export class Tor extends AsyncEventTarget {
     if (!data.versions.includes(5))
       throw new Error(`Incompatible versions`)
 
-    this.state = { type: "versioned", version: 5 }
+    this.#state = { type: "versioned", version: 5 }
 
     const stateEvent = new MessageEvent("versioned", { data: 5 })
     if (!await this.dispatchEvent(stateEvent)) return
   }
 
-  private async onCertsCell(cell: NewCell) {
-    if (this.state.type !== "versioned")
+  async #onCertsCell(cell: NewCell) {
+    if (this.#state.type !== "versioned")
       throw new Error(`State is not versioned`)
 
     const data = CertsCell.uncell(cell)
@@ -361,15 +361,15 @@ export class Tor extends AsyncEventTarget {
     const { certs } = data
     const guard = { certs, idh }
 
-    const { version } = this.state
-    this.state = { type: "handshaking", version, guard }
+    const { version } = this.#state
+    this.#state = { type: "handshaking", version, guard }
 
     const stateEvent = new MessageEvent("handshaking", {})
     if (!await this.dispatchEvent(stateEvent)) return
   }
 
-  private async onAuthChallengeCell(cell: NewCell) {
-    if (this.state.type !== "handshaking")
+  async #onAuthChallengeCell(cell: NewCell) {
+    if (this.#state.type !== "handshaking")
       throw new Error(`State is not handshaking`)
 
     const data = AuthChallengeCell.uncell(cell)
@@ -380,8 +380,8 @@ export class Tor extends AsyncEventTarget {
     if (!await this.dispatchEvent(cellEvent)) return
   }
 
-  private async onNetinfoCell(cell: NewCell) {
-    if (this.state.type !== "handshaking")
+  async #onNetinfoCell(cell: NewCell) {
+    if (this.#state.type !== "handshaking")
       throw new Error(`State is not handshaking`)
 
     const data = NetinfoCell.uncell(cell)
@@ -393,21 +393,21 @@ export class Tor extends AsyncEventTarget {
 
     const address = new TypedAddress(4, new Uint8Array([127, 0, 0, 1]))
     const netinfo = new NetinfoCell(undefined, 0, address, [])
-    this._output!.enqueue(netinfo.pack())
+    this.#output!.enqueue(netinfo.pack())
 
     const pversion = PaddingNegociateCell.versions.ZERO
     const pcommand = PaddingNegociateCell.commands.STOP
     const padding = new PaddingNegociateCell(undefined, pversion, pcommand, 0, 0)
-    this._output!.enqueue(padding.pack())
+    this.#output!.enqueue(padding.pack())
 
-    const { version, guard } = this.state
-    this.state = { type: "handshaked", version, guard }
+    const { version, guard } = this.#state
+    this.#state = { type: "handshaked", version, guard }
 
     const stateEvent = new MessageEvent("handshake", {})
     if (!await this.dispatchEvent(stateEvent)) return
   }
 
-  private async onCreatedFastCell(cell: NewCell) {
+  async #onCreatedFastCell(cell: NewCell) {
     const data = CreatedFastCell.uncell(cell)
 
     console.debug(`CREATED_FAST`, data)
@@ -416,7 +416,7 @@ export class Tor extends AsyncEventTarget {
     if (!await this.dispatchEvent(cellEvent)) return
   }
 
-  private async onDestroyCell(cell: NewCell) {
+  async #onDestroyCell(cell: NewCell) {
     const data = DestroyCell.uncell(cell)
 
     console.debug(`DESTROY`, data)
@@ -427,26 +427,26 @@ export class Tor extends AsyncEventTarget {
     this.circuits.delete(data.circuit.id)
   }
 
-  private async onRelayCell(parent: NewCell) {
+  async #onRelayCell(parent: NewCell) {
     const cell = await RelayCell.uncell(parent)
 
     if (cell.rcommand === RelayExtended2Cell.rcommand)
-      return await this.onRelayExtended2Cell(cell)
+      return await this.#onRelayExtended2Cell(cell)
     if (cell.rcommand === RelayConnectedCell.rcommand)
-      return await this.onRelayConnectedCell(cell)
+      return await this.#onRelayConnectedCell(cell)
     if (cell.rcommand === RelayDataCell.rcommand)
-      return await this.onRelayDataCell(cell)
+      return await this.#onRelayDataCell(cell)
     if (cell.rcommand === RelayEndCell.rcommand)
-      return await this.onRelayEndCell(cell)
+      return await this.#onRelayEndCell(cell)
     if (cell.rcommand === RelayDropCell.rcommand)
-      return await this.onRelayDropCell(cell)
+      return await this.#onRelayDropCell(cell)
     if (cell.rcommand === RelayTruncatedCell.rcommand)
-      return await this.onRelayTruncatedCell(cell)
+      return await this.#onRelayTruncatedCell(cell)
 
     console.debug(`Unknown relay cell ${cell.rcommand}`)
   }
 
-  private async onRelayExtended2Cell(cell: RelayCell) {
+  async #onRelayExtended2Cell(cell: RelayCell) {
     const data = RelayExtended2Cell.uncell(cell)
 
     console.debug(`RELAY_EXTENDED2`, data)
@@ -455,7 +455,7 @@ export class Tor extends AsyncEventTarget {
     if (!await this.dispatchEvent(cellEvent)) return
   }
 
-  private async onRelayConnectedCell(cell: RelayCell) {
+  async #onRelayConnectedCell(cell: RelayCell) {
     const data = RelayConnectedCell.uncell(cell)
 
     console.debug(`RELAY_CONNECTED`, data)
@@ -464,7 +464,7 @@ export class Tor extends AsyncEventTarget {
     if (!await this.dispatchEvent(cellEvent)) return
   }
 
-  private async onRelayDataCell(cell: RelayCell) {
+  async #onRelayDataCell(cell: RelayCell) {
     const data = RelayDataCell.uncell(cell)
 
     console.debug(`RELAY_DATA`, data)
@@ -473,7 +473,7 @@ export class Tor extends AsyncEventTarget {
     if (!await this.dispatchEvent(cellEvent)) return
   }
 
-  private async onRelayEndCell(cell: RelayCell) {
+  async #onRelayEndCell(cell: RelayCell) {
     const data = RelayEndCell.uncell(cell)
 
     console.debug(`RELAY_END`, data)
@@ -482,7 +482,7 @@ export class Tor extends AsyncEventTarget {
     if (!await this.dispatchEvent(cellEvent)) return
   }
 
-  private async onRelayDropCell(cell: RelayCell) {
+  async #onRelayDropCell(cell: RelayCell) {
     const data = RelayDropCell.uncell(cell)
 
     console.debug(`RELAY_DROP`, data)
@@ -491,7 +491,7 @@ export class Tor extends AsyncEventTarget {
     if (!await this.dispatchEvent(cellEvent)) return
   }
 
-  private async onRelayTruncatedCell(cell: RelayCell) {
+  async #onRelayTruncatedCell(cell: RelayCell) {
     const data = RelayTruncatedCell.uncell(cell)
 
     console.debug(`RELAY_TRUNCATED`, data)
@@ -502,7 +502,7 @@ export class Tor extends AsyncEventTarget {
     data.circuit.targets.pop()
   }
 
-  private async waitHandshake(signal?: AbortSignal) {
+  async #waitHandshake(signal?: AbortSignal) {
     const future = new Future<Event, Error>()
 
     const onAbort = (event: Event) => {
@@ -539,19 +539,19 @@ export class Tor extends AsyncEventTarget {
   }
 
   async handshake(signal?: AbortSignal) {
-    await this.init()
+    await this.#init()
 
-    await this.tls.handshake(signal)
+    await this.#tls.handshake(signal)
 
-    const handshake = this.waitHandshake(signal)
+    const handshake = this.#waitHandshake(signal)
 
     const version = new VersionsCell(undefined, [5])
-    this._output!.enqueue(version.pack())
+    this.#output!.enqueue(version.pack())
 
     await handshake
   }
 
-  private async waitCreatedFast(circuit: Circuit, signal?: AbortSignal) {
+  async #waitCreatedFast(circuit: Circuit, signal?: AbortSignal) {
     const future = new Future<CreatedFastCell, Error>()
 
     const onCreatedFastCell = (event: Event) => {
@@ -593,10 +593,10 @@ export class Tor extends AsyncEventTarget {
     }
   }
 
-  private circuitsMutex = new Mutex()
+  readonly #circuitsMutex = new Mutex()
 
-  private async createCircuitAtomic() {
-    return await this.circuitsMutex.lock(async () => {
+  async #createCircuitAtomic() {
+    return await this.#circuitsMutex.lock(async () => {
       while (true) {
         const rawCircuitId = new Cursor(Bytes.random(4)).getUint32()
         if (rawCircuitId === 0) continue
@@ -616,15 +616,15 @@ export class Tor extends AsyncEventTarget {
   }
 
   async create(signal?: AbortSignal) {
-    if (this.state.type !== "handshaked")
+    if (this.#state.type !== "handshaked")
       throw new Error(`Can't create a circuit yet`)
 
-    const circuit = await this.createCircuitAtomic()
+    const circuit = await this.#createCircuitAtomic()
     const material = Bytes.random(20)
 
-    const pcreated = this.waitCreatedFast(circuit, signal)
+    const pcreated = this.#waitCreatedFast(circuit, signal)
     const create_fast = new CreateFastCell(circuit, material)
-    this._output!.enqueue(create_fast.pack())
+    this.#output!.enqueue(create_fast.pack())
 
     const created = await pcreated
 
@@ -643,7 +643,7 @@ export class Tor extends AsyncEventTarget {
     const forwardKey = new Aes128Ctr128BEKey(result.forwardKey, Bytes.alloc(16))
     const backwardKey = new Aes128Ctr128BEKey(result.backwardKey, Bytes.alloc(16))
 
-    const target = new Target(this.state.guard.idh, circuit, forwardDigest, backwardDigest, forwardKey, backwardKey)
+    const target = new Target(this.#state.guard.idh, circuit, forwardDigest, backwardDigest, forwardKey, backwardKey)
 
     circuit.targets.push(target)
 

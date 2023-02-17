@@ -13,7 +13,7 @@ export class SmuxReader extends AsyncEventTarget {
   readonly readable: ReadableStream<Uint8Array>
   readonly writable: WritableStream<Uint8Array>
 
-  private buffer = Cursor.allocUnsafe(65535)
+  readonly #buffer = Cursor.allocUnsafe(65535)
 
   constructor(
     readonly stream: SmuxStream
@@ -68,17 +68,17 @@ export class SmuxReader extends AsyncEventTarget {
   async onRead(chunk: Uint8Array) {
     // console.debug("<-", chunk)
 
-    if (this.buffer.offset)
+    if (this.#buffer.offset)
       await this.onReadBuffered(chunk)
     else
       await this.onReadDirect(chunk)
   }
 
   async onReadBuffered(chunk: Uint8Array) {
-    this.buffer.write(chunk)
-    const full = this.buffer.before
+    this.#buffer.write(chunk)
+    const full = this.#buffer.before
 
-    this.buffer.offset = 0
+    this.#buffer.offset = 0
     await this.onReadDirect(full)
   }
 
@@ -89,7 +89,7 @@ export class SmuxReader extends AsyncEventTarget {
       const segment = SmuxSegment.tryRead(cursor)
 
       if (!segment) {
-        this.buffer.write(cursor.after)
+        this.#buffer.write(cursor.after)
         break
       }
 
