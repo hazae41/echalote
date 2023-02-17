@@ -1,5 +1,5 @@
 import { WebSocketStream } from "@hazae41/cadenas";
-import { Circuit, Tor } from "@hazae41/echalote";
+import { Circuit, createWebSocketTurboStream, Tor } from "@hazae41/echalote";
 import fallbacks from "assets/fallbacks.json";
 import lorem from "assets/lorem.json";
 import { DependencyList, useCallback, useEffect, useState } from "react";
@@ -97,9 +97,9 @@ function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
 export default function Page() {
   const tcp = useAsyncMemo(async () => {
     // return await createWebSocketTurboStream("ws://localhost:12345/")
-    // return await createWebSocketTurboStream("wss://snowflake.freehaven.net/")
+    return await createWebSocketTurboStream("wss://snowflake.bamsoftware.com/")
     // return await createMeekStream("https://meek.bamsoftware.com/")
-    return await createWebSocketStream("ws://localhost:8080")
+    // return await createWebSocketStream("ws://localhost:8080")
   }, [])
 
   const tor = useAsyncMemo(async () => {

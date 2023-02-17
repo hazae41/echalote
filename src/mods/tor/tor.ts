@@ -236,20 +236,24 @@ export class Tor extends AsyncEventTarget {
     const cursor = new Cursor(chunk)
 
     while (cursor.remaining) {
-      const rawCell = this.#state.type === "none"
-        ? OldCell.tryRead(cursor)
-        : NewCell.tryRead(cursor)
+      try {
+        const rawCell = this.#state.type === "none"
+          ? OldCell.tryRead(cursor)
+          : NewCell.tryRead(cursor)
 
-      if (!rawCell) {
-        this.#buffer.write(cursor.after)
-        break
+        if (!rawCell) {
+          this.#buffer.write(cursor.after)
+          break
+        }
+
+        const cell = rawCell.type === "old"
+          ? OldCell.unpack(this, rawCell)
+          : NewCell.unpack(this, rawCell)
+
+        await this.#onCell(cell)
+      } catch (e: unknown) {
+        console.error(e)
       }
-
-      const cell = rawCell.type === "old"
-        ? OldCell.unpack(this, rawCell)
-        : NewCell.unpack(this, rawCell)
-
-      await this.#onCell(cell)
     }
   }
 

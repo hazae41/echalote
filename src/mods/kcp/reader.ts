@@ -1,42 +1,14 @@
 import { Cursor, Writable } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
+import { StreamPair } from "libs/streams/pair.js";
 import { KcpSegment } from "./segment.js";
-import { KcpStream } from "./stream.js";
+import { KcpStream, PrivateKcpStream } from "./stream.js";
 
 export class KcpReader extends AsyncEventTarget {
-  readonly #class = KcpReader
 
-  readonly sink: KcpReaderSink
-  readonly source: KcpReaderSource
-
-  readonly readable: ReadableStream<Uint8Array>
-  readonly writable: WritableStream<Uint8Array>
-
-  constructor(
-    readonly stream: KcpStream
-  ) {
+  constructor() {
     super()
-
-    this.sink = new KcpReaderSink(this)
-    this.source = new KcpReaderSource(this)
-
-    this.writable = new WritableStream(this.sink)
-    this.readable = new ReadableStream(this.source)
-  }
-
-  get writer() {
-    return this.stream.writer
-  }
-
-  async error(reason?: any) {
-    this.sink.controller.error(reason)
-    this.source.controller.error(reason)
-  }
-
-  async terminate() {
-    this.sink.controller.error(new Error(`Closed`))
-    this.source.controller.close()
   }
 
   async wait<T extends Event>(event: string) {
@@ -67,7 +39,20 @@ export class KcpReader extends AsyncEventTarget {
     }
   }
 
-  async onWrite(chunk: Uint8Array) {
+}
+
+export class PrivateKcpReader {
+
+  readonly pair: StreamPair<Uint8Array, Uint8Array>
+
+  constructor(
+    readonly publics: KcpStream,
+    readonly privates: PrivateKcpStream
+  ) {
+    this.pair = new StreamPair({}, { write: this.#onRead.bind(this) })
+  }
+
+  async #onRead(chunk: Uint8Array) {
     const cursor = new Cursor(chunk)
 
     while (cursor.remaining) {
@@ -83,7 +68,9 @@ export class KcpReader extends AsyncEventTarget {
   }
 
   async #onSegment(segment: KcpSegment) {
-    this.stream.recv_counter++
+    if (segment.conversation !== this.publics.conversation)
+      return
+
     console.log("<-", segment)
 
     if (segment.command === KcpSegment.commands.push)
@@ -95,96 +82,34 @@ export class KcpReader extends AsyncEventTarget {
   }
 
   async #onPush(segment: KcpSegment) {
-    this.source.controller.enqueue(segment.data)
+    if (segment.serial !== this.privates.recv_counter) {
+      console.warn("got old segment", segment.serial, segment)
+      return
+    }
 
-    const conversation = this.stream.conversation
+    this.privates.recv_counter++
+    this.pair.enqueue(segment.data)
+
+    const conversation = this.publics.conversation
     const command = KcpSegment.commands.ack
     const timestamp = segment.timestamp
     const serial = segment.serial
-    const una = this.stream.recv_counter
+    const una = this.privates.recv_counter
     const ack = new KcpSegment(conversation, command, 0, 65535, timestamp, serial, una, new Uint8Array())
-    this.writer.source.controller.enqueue(Writable.toBytes(ack))
+    this.privates.writer.pair.enqueue(Writable.toBytes(ack))
   }
 
   async #onAck(segment: KcpSegment) {
-    this.dispatchEvent(new MessageEvent("ack", { data: segment }))
+    this.publics.reader.dispatchEvent(new MessageEvent("ack", { data: segment }))
   }
 
   async #onWask(_: KcpSegment) {
-    const conversation = this.stream.conversation
+    const conversation = this.publics.conversation
     const command = KcpSegment.commands.wins
-    const send_counter = this.stream.send_counter++
-    const recv_counter = this.stream.recv_counter
+    const send_counter = 0
+    const recv_counter = this.privates.recv_counter
     const wins = new KcpSegment(conversation, command, 0, 65535, Date.now() / 1000, send_counter, recv_counter, new Uint8Array())
-    this.writer.source.controller.enqueue(Writable.toBytes(wins))
-  }
-
-}
-
-export class KcpReaderSink implements UnderlyingSink<Uint8Array>{
-
-  #controller?: WritableStreamDefaultController
-
-  constructor(
-    readonly reader: KcpReader
-  ) { }
-
-  get controller() {
-    return this.#controller!
-  }
-
-  get source() {
-    return this.reader.source
-  }
-
-  get stream() {
-    return this.reader.stream
-  }
-
-  async start(controller: WritableStreamDefaultController) {
-    this.#controller = controller
-  }
-
-  async write(chunk: Uint8Array) {
-    return await this.reader.onWrite(chunk)
-  }
-
-  async abort(reason?: any) {
-    this.source.controller.error(reason)
-  }
-
-  async close() {
-    this.source.controller.close()
-  }
-
-}
-
-export class KcpReaderSource implements UnderlyingSource<Uint8Array> {
-
-  #controller?: ReadableStreamController<Uint8Array>
-
-  constructor(
-    readonly reader: KcpReader
-  ) { }
-
-  get controller() {
-    return this.#controller!
-  }
-
-  get sink() {
-    return this.reader.sink
-  }
-
-  get stream() {
-    return this.reader.stream
-  }
-
-  async start(controller: ReadableStreamController<Uint8Array>) {
-    this.#controller = controller
-  }
-
-  async cancel(reason?: any) {
-    this.sink.controller.error(reason)
+    this.privates.writer.pair.enqueue(Writable.toBytes(wins))
   }
 
 }
