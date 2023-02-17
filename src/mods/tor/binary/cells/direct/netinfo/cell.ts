@@ -1,4 +1,4 @@
-import { Binary } from "@hazae41/binary";
+import { Cursor } from "@hazae41/binary";
 import { TypedAddress } from "mods/tor/binary/address.js";
 import { NewCell } from "mods/tor/binary/cells/cell.js";
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js";
@@ -21,7 +21,7 @@ export class NetinfoCell {
   }
 
   cell() {
-    const binary = Binary.allocUnsafe(PAYLOAD_LEN)
+    const binary = Cursor.allocUnsafe(PAYLOAD_LEN)
 
     binary.writeUint32(this.time)
     this.other.write(binary)
@@ -41,7 +41,7 @@ export class NetinfoCell {
     if (cell.circuit)
       throw new InvalidCircuit(this.name, cell.circuit)
 
-    const binary = new Binary(cell.payload)
+    const binary = new Cursor(cell.payload)
 
     const time = binary.readUint32()
     const other = TypedAddress.read(binary)

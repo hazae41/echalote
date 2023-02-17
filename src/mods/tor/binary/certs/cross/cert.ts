@@ -1,4 +1,4 @@
-import { Binary } from "@hazae41/binary";
+import { Cursor } from "@hazae41/binary";
 import { Cert as ICert } from "mods/tor/binary/certs/cert.js";
 
 export class Cert implements ICert {
@@ -16,7 +16,7 @@ export class Cert implements ICert {
     readonly signature: Uint8Array
   ) { }
 
-  write(binary: Binary) {
+  write(binary: Cursor) {
     throw new Error(`Unimplemented`)
   }
 
@@ -27,7 +27,7 @@ export class Cert implements ICert {
       throw new Error(`Late certificate`)
   }
 
-  static read(binary: Binary, type: number, length: number) {
+  static read(binary: Cursor, type: number, length: number) {
     const start = binary.offset
 
     const key = binary.read(32)

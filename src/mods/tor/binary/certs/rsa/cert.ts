@@ -1,4 +1,4 @@
-import { Binary } from "@hazae41/binary";
+import { Cursor } from "@hazae41/binary";
 import { Certificate } from "@hazae41/x509";
 import { Cert as ICert } from "mods/tor/binary/certs/cert.js";
 
@@ -17,7 +17,7 @@ export class Cert implements ICert {
     readonly x509: Certificate
   ) { }
 
-  write(binary: Binary) {
+  write(binary: Cursor) {
     binary.writeUint8(this.type)
     binary.writeUint16(this.data.length)
     binary.write(this.data)
@@ -32,7 +32,7 @@ export class Cert implements ICert {
       throw new Error(`Early certificate`)
   }
 
-  static read(binary: Binary, type: number, length: number) {
+  static read(binary: Cursor, type: number, length: number) {
     const start = binary.offset
 
     const data = binary.read(length)

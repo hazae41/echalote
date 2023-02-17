@@ -1,4 +1,4 @@
-import { Binary } from "@hazae41/binary";
+import { Cursor } from "@hazae41/binary";
 import { ErrorEvent } from "libs/events/error.js";
 import { Events } from "libs/events/events.js";
 import { AsyncEventTarget } from "libs/events/target.js";
@@ -126,7 +126,7 @@ export class TcpStream extends AsyncEventTarget {
       return this.circuit.tor.output.enqueue(await cell.pack())
     }
 
-    const binary = new Binary(chunk)
+    const binary = new Cursor(chunk)
     const chunks = binary.split(DATA_LEN)
 
     for (const chunk of chunks) {

@@ -1,5 +1,5 @@
 import { Ed25519PublicKey, Ed25519Signature } from "@hazae41/berith";
-import { Binary } from "@hazae41/binary";
+import { Cursor } from "@hazae41/binary";
 import { Cert } from "mods/tor/binary/certs/ed25519/cert.js";
 import { Extension } from "mods/tor/binary/certs/ed25519/extensions/extension.js";
 
@@ -25,11 +25,11 @@ export class SignedWithEd25519Key implements Extension {
     if (!verified) throw new Error(`Invalid signer for Ed25519 Cert`)
   }
 
-  write(binary: Binary) {
+  write(binary: Cursor) {
     throw new Error(`Unimplemented`)
   }
 
-  static read(binary: Binary, length: number, flags: number) {
+  static read(binary: Cursor, length: number, flags: number) {
     const start = binary.offset
 
     const key = binary.read(32)

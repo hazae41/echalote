@@ -1,4 +1,4 @@
-import { Binary } from "@hazae41/binary";
+import { Cursor } from "@hazae41/binary";
 
 export class KcpSegment {
 
@@ -57,7 +57,7 @@ export class KcpSegment {
       + this.data.length
   }
 
-  write(binary: Binary) {
+  write(binary: Cursor) {
     binary.writeUint32(this.conversation, true)
     binary.writeUint8(this.command)
     binary.writeUint8(this.count)
@@ -70,12 +70,12 @@ export class KcpSegment {
   }
 
   export() {
-    const binary = Binary.allocUnsafe(this.size())
+    const binary = Cursor.allocUnsafe(this.size())
     this.write(binary)
     return binary.bytes
   }
 
-  static read(binary: Binary) {
+  static read(binary: Cursor) {
     const conversation = binary.readUint32(true)
     const command = binary.readUint8()
     const count = binary.readUint8()
@@ -89,7 +89,7 @@ export class KcpSegment {
     return new this(conversation, command, count, window, timestamp, serial, unackSerial, data)
   }
 
-  static tryRead(binary: Binary) {
+  static tryRead(binary: Cursor) {
     const offset = binary.offset
 
     try {

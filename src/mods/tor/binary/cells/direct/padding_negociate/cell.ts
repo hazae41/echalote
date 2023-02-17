@@ -1,4 +1,4 @@
-import { Binary } from "@hazae41/binary"
+import { Cursor } from "@hazae41/binary"
 import { NewCell } from "mods/tor/binary/cells/cell.js"
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
 import { PAYLOAD_LEN } from "mods/tor/constants.js"
@@ -30,7 +30,7 @@ export class PaddingNegociateCell {
   }
 
   cell() {
-    const binary = Binary.allocUnsafe(PAYLOAD_LEN)
+    const binary = Cursor.allocUnsafe(PAYLOAD_LEN)
 
     binary.writeUint8(this.version)
     binary.writeUint8(this.pcommand)
@@ -47,7 +47,7 @@ export class PaddingNegociateCell {
     if (cell.circuit)
       throw new InvalidCircuit(this.name, cell.circuit)
 
-    const binary = new Binary(cell.payload)
+    const binary = new Cursor(cell.payload)
 
     const version = binary.readUint8()
     const pcommand = binary.readUint8()

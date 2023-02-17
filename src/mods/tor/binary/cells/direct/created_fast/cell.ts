@@ -1,4 +1,4 @@
-import { Binary } from "@hazae41/binary";
+import { Cursor } from "@hazae41/binary";
 import { NewCell } from "mods/tor/binary/cells/cell.js";
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js";
 import { Circuit } from "mods/tor/circuit.js";
@@ -20,7 +20,7 @@ export class CreatedFastCell {
   }
 
   cell() {
-    const binary = Binary.allocUnsafe(PAYLOAD_LEN)
+    const binary = Cursor.allocUnsafe(PAYLOAD_LEN)
 
     binary.write(this.material)
     binary.write(this.derivative)
@@ -35,7 +35,7 @@ export class CreatedFastCell {
     if (!cell.circuit)
       throw new InvalidCircuit(this.name, cell.circuit)
 
-    const binary = new Binary(cell.payload)
+    const binary = new Cursor(cell.payload)
 
     const material = new Uint8Array(binary.read(20))
     const derivative = new Uint8Array(binary.read(20))

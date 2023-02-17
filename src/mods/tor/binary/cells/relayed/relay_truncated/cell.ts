@@ -1,4 +1,4 @@
-import { Binary } from "@hazae41/binary";
+import { Cursor } from "@hazae41/binary";
 import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { InvalidRelayCommand, InvalidStream } from "mods/tor/binary/cells/errors.js";
@@ -22,7 +22,7 @@ export class RelayTruncatedCell {
   }
 
   cell() {
-    const binary = Binary.allocUnsafe(1)
+    const binary = Cursor.allocUnsafe(1)
 
     binary.writeUint8(this.reason)
 
@@ -35,7 +35,7 @@ export class RelayTruncatedCell {
     if (cell.stream)
       throw new InvalidStream(this.name, cell.stream)
 
-    const binary = new Binary(cell.data)
+    const binary = new Cursor(cell.data)
 
     const reason = binary.readUint8()
 

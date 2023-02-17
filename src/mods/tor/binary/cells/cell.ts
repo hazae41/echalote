@@ -1,4 +1,4 @@
-import { Binary } from "@hazae41/binary";
+import { Cursor } from "@hazae41/binary";
 import { Circuit } from "mods/tor/circuit.js";
 import { PAYLOAD_LEN } from "mods/tor/constants.js";
 import { Tor } from "mods/tor/tor.js";
@@ -31,7 +31,7 @@ export class OldCell {
   ) { }
 
   pack() {
-    const binary = Binary.allocUnsafe(2 + 1 + 2 + this.payload.length)
+    const binary = Cursor.allocUnsafe(2 + 1 + 2 + this.payload.length)
 
     binary.writeUint16(this.circuit?.id ?? 0)
     binary.writeUint8(this.command)
@@ -41,7 +41,7 @@ export class OldCell {
     return binary.buffer
   }
 
-  static tryRead(binary: Binary): OldCellRaw | undefined {
+  static tryRead(binary: Cursor): OldCellRaw | undefined {
     const start = binary.offset
 
     try {
@@ -83,7 +83,7 @@ export class NewCell {
 
   pack() {
     if (this.command >= 128) {
-      const binary = Binary.allocUnsafe(4 + 1 + 2 + this.payload.length)
+      const binary = Cursor.allocUnsafe(4 + 1 + 2 + this.payload.length)
 
       binary.writeUint32(this.circuit?.id ?? 0)
       binary.writeUint8(this.command)
@@ -92,7 +92,7 @@ export class NewCell {
 
       return binary.buffer
     } else {
-      const binary = Binary.allocUnsafe(4 + 1 + this.payload.length)
+      const binary = Cursor.allocUnsafe(4 + 1 + this.payload.length)
 
       binary.writeUint32(this.circuit?.id ?? 0)
       binary.writeUint8(this.command)
@@ -102,7 +102,7 @@ export class NewCell {
     }
   }
 
-  static tryRead(binary: Binary): NewCellRaw | undefined {
+  static tryRead(binary: Cursor): NewCellRaw | undefined {
     const start = binary.offset
 
     try {

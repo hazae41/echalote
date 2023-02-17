@@ -1,4 +1,4 @@
-import { Binary } from "@hazae41/binary";
+import { Cursor } from "@hazae41/binary";
 import { Cert as ICert } from "mods/tor/binary/certs/cert.js";
 import { SignedWithEd25519Key } from "mods/tor/binary/certs/ed25519/extensions/signer.js";
 
@@ -31,7 +31,7 @@ export class Cert implements ICert {
     readonly signature: Uint8Array
   ) { }
 
-  write(binary: Binary) {
+  write(binary: Cursor) {
     throw new Error(`Unimplemented`)
   }
 
@@ -44,7 +44,7 @@ export class Cert implements ICert {
       this.extensions.signer.check(this)
   }
 
-  static read(binary: Binary, type: number, length: number) {
+  static read(binary: Cursor, type: number, length: number) {
     const start = binary.offset
 
     const version = binary.readUint8()

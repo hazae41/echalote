@@ -1,4 +1,4 @@
-import { Binary } from "@hazae41/binary";
+import { Cursor } from "@hazae41/binary";
 
 export class TypedAddress {
   readonly #class = TypedAddress
@@ -11,13 +11,13 @@ export class TypedAddress {
     readonly value: Uint8Array
   ) { }
 
-  write(binary: Binary) {
+  write(binary: Cursor) {
     binary.writeUint8(this.type)
     binary.writeUint8(this.value.length)
     binary.write(this.value)
   }
 
-  static read(binary: Binary) {
+  static read(binary: Cursor) {
     const type = binary.readUint8()
     const length = binary.readUint8()
     const value = binary.read(length)
@@ -37,14 +37,14 @@ export class Address4 {
     readonly address: string
   ) { }
 
-  write(binary: Binary) {
+  write(binary: Cursor) {
     const parts = this.address.split(".")
 
     for (let i = 0; i < 4; i++)
       binary.writeUint8(Number(parts[i]))
   }
 
-  static read(binary: Binary) {
+  static read(binary: Cursor) {
     const parts = new Array<string>(4)
 
     for (let i = 0; i < 4; i++)
@@ -65,14 +65,14 @@ export class Address6 {
     readonly address: string
   ) { }
 
-  write(binary: Binary) {
+  write(binary: Cursor) {
     const parts = this.address.slice(1, -1).split(":")
 
     for (let i = 0; i < 8; i++)
       binary.writeUint16(Number(parts[i]))
   }
 
-  static read(binary: Binary) {
+  static read(binary: Cursor) {
     const parts = new Array<string>(8)
 
     for (let i = 0; i < 8; i++)

@@ -1,4 +1,4 @@
-import { Binary } from "@hazae41/binary";
+import { Cursor } from "@hazae41/binary";
 
 export class Kcp2Segment {
 
@@ -25,7 +25,7 @@ export class Kcp2Segment {
       + this.data.length
   }
 
-  write(binary: Binary) {
+  write(binary: Cursor) {
     binary.write(this.nonce)
     binary.writeUint32(this.checksum, true)
     binary.writeUint32(this.fecSeqID, true)
@@ -34,7 +34,7 @@ export class Kcp2Segment {
     binary.write(this.data)
   }
 
-  static read(binary: Binary) {
+  static read(binary: Cursor) {
     const nonce = binary.read(16)
     const checksum = binary.readUint32(true)
     const fecSeqID = binary.readUint32(true)

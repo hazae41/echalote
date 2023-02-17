@@ -1,4 +1,4 @@
-import { Binary } from "@hazae41/binary"
+import { Cursor } from "@hazae41/binary"
 import { Bytes } from "@hazae41/bytes"
 import { HASH_LEN, KEY_LEN } from "mods/tor/constants.js"
 
@@ -7,7 +7,7 @@ export function request(
   idh: Uint8Array,
   oid: Uint8Array
 ) {
-  const binary = Binary.allocUnsafe(20 + 32 + 32)
+  const binary = Cursor.allocUnsafe(20 + 32 + 32)
 
   binary.write(idh)
   binary.write(oid)
@@ -17,7 +17,7 @@ export function request(
 }
 
 export function response(data: Uint8Array) {
-  const binary = new Binary(data)
+  const binary = new Cursor(data)
 
   const publicy = binary.read(32)
   const auth = binary.read(32)
@@ -44,7 +44,7 @@ export async function finalize(
 ): Promise<NtorResult> {
   const protoid = "ntor-curve25519-sha256-1"
 
-  const secreti = Binary.allocUnsafe(32 + 32 + 20 + 32 + 32 + 32 + protoid.length)
+  const secreti = Cursor.allocUnsafe(32 + 32 + 20 + 32 + 32 + 32 + protoid.length)
   secreti.write(sharedxy)
   secreti.write(sharedxb)
   secreti.write(publici)
@@ -64,7 +64,7 @@ export async function finalize(
 
   const server = "Server"
 
-  const authi = Binary.allocUnsafe(32 + 20 + 32 + 32 + 32 + protoid.length + server.length)
+  const authi = Cursor.allocUnsafe(32 + 20 + 32 + 32 + 32 + protoid.length + server.length)
   authi.write(verify)
   authi.write(publici)
   authi.write(publicb)
@@ -82,7 +82,7 @@ export async function finalize(
   const ksecret = await crypto.subtle.importKey("raw", secreti.buffer, "HKDF", false, ["deriveBits"])
   const key = new Uint8Array(await crypto.subtle.deriveBits(hkdf, ksecret, 8 * ((HASH_LEN * 3) + (KEY_LEN * 2))))
 
-  const k = new Binary(key)
+  const k = new Cursor(key)
   const forwardDigest = k.read(HASH_LEN)
   const backwardDigest = k.read(HASH_LEN)
   const forwardKey = k.read(KEY_LEN)

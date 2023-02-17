@@ -1,4 +1,4 @@
-import { Binary } from "@hazae41/binary";
+import { Cursor } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { SmuxSegment } from "mods/smux/segment.js";
@@ -13,7 +13,7 @@ export class SmuxReader extends AsyncEventTarget {
   readonly readable: ReadableStream<Uint8Array>
   readonly writable: WritableStream<Uint8Array>
 
-  private buffer = Binary.allocUnsafe(65535)
+  private buffer = Cursor.allocUnsafe(65535)
 
   constructor(
     readonly stream: SmuxStream
@@ -83,7 +83,7 @@ export class SmuxReader extends AsyncEventTarget {
   }
 
   async onReadDirect(chunk: Uint8Array) {
-    const cursor = new Binary(chunk)
+    const cursor = new Cursor(chunk)
 
     while (cursor.remaining) {
       const segment = SmuxSegment.tryRead(cursor)

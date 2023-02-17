@@ -1,5 +1,5 @@
 import { Ed25519PublicKey, Ed25519Signature } from "@hazae41/berith"
-import { Binary } from "@hazae41/binary"
+import { Cursor } from "@hazae41/binary"
 import { Bytes } from "@hazae41/bytes"
 import { RsaPublicKey } from "@hazae41/paimon"
 import { NewCell } from "mods/tor/binary/cells/cell.js"
@@ -132,7 +132,7 @@ export class CertsCell {
     if (cell.circuit)
       throw new InvalidCircuit(this.name, cell.circuit)
 
-    const binary = new Binary(cell.payload)
+    const binary = new Cursor(cell.payload)
 
     const ncerts = binary.readUint8()
     const certs: Certs = {}

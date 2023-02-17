@@ -1,4 +1,4 @@
-import { Binary } from "@hazae41/binary"
+import { Cursor } from "@hazae41/binary"
 
 export class SmuxSegment {
 
@@ -31,7 +31,7 @@ export class SmuxSegment {
       + this.data.length
   }
 
-  write(binary: Binary) {
+  write(binary: Cursor) {
     binary.writeUint8(this.version)
     binary.writeUint8(this.command)
     binary.writeUint16(this.data.length, true)
@@ -40,12 +40,12 @@ export class SmuxSegment {
   }
 
   export() {
-    const binary = Binary.allocUnsafe(this.size())
+    const binary = Cursor.allocUnsafe(this.size())
     this.write(binary)
     return binary.bytes
   }
 
-  static read(binary: Binary) {
+  static read(binary: Cursor) {
     const version = binary.readUint8()
     const command = binary.readUint8()
     const length = binary.readUint16(true)
@@ -55,7 +55,7 @@ export class SmuxSegment {
     return new this(version, command, stream, data)
   }
 
-  static tryRead(binary: Binary) {
+  static tryRead(binary: Cursor) {
     const offset = binary.offset
 
     try {

@@ -1,4 +1,4 @@
-import { Binary } from "@hazae41/binary"
+import { Cursor } from "@hazae41/binary"
 import { RelayEarlyCell } from "mods/tor/binary/cells/direct/relay_early/cell.js"
 import { RelayExtend2Link } from "mods/tor/binary/cells/relayed/relay_extend2/link.js"
 import { Circuit } from "mods/tor/circuit.js"
@@ -34,7 +34,7 @@ export class RelayExtend2Cell {
   }
 
   cell() {
-    const binary = Binary.allocUnsafe(PAYLOAD_LEN)
+    const binary = Cursor.allocUnsafe(PAYLOAD_LEN)
 
     binary.writeUint8(this.links.length)
 

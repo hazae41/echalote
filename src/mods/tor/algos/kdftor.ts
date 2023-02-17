@@ -1,4 +1,4 @@
-import { Binary } from "@hazae41/binary"
+import { Cursor } from "@hazae41/binary"
 import { HASH_LEN, KEY_LEN } from "mods/tor/constants.js"
 
 export interface KDFResult {
@@ -10,10 +10,10 @@ export interface KDFResult {
 }
 
 export async function kdftor(k0: Uint8Array): Promise<KDFResult> {
-  const ki = Binary.allocUnsafe(k0.length + 1)
+  const ki = Cursor.allocUnsafe(k0.length + 1)
   ki.write(k0)
 
-  const k = Binary.allocUnsafe(HASH_LEN * 5)
+  const k = Cursor.allocUnsafe(HASH_LEN * 5)
 
   for (let i = 0; k.remaining > 0; i++) {
     ki.setUint8(i)

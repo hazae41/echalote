@@ -1,5 +1,5 @@
 import { Berith } from "@hazae41/berith";
-import { Binary } from "@hazae41/binary";
+import { Cursor } from "@hazae41/binary";
 import { Bytes } from "@hazae41/bytes";
 import { TlsStream } from "@hazae41/cadenas";
 import { Foras } from "@hazae41/foras";
@@ -100,7 +100,7 @@ export class Tor extends AsyncEventTarget {
 
   private tls: TlsStream
 
-  private buffer = Binary.allocUnsafe(65535)
+  private buffer = Cursor.allocUnsafe(65535)
 
   private state: TorState = { type: "none" }
 
@@ -233,7 +233,7 @@ export class Tor extends AsyncEventTarget {
    * @returns 
    */
   private async onReadDirect(chunk: Uint8Array) {
-    const cursor = new Binary(chunk)
+    const cursor = new Cursor(chunk)
 
     while (cursor.remaining) {
       const rawCell = this.state.type === "none"
@@ -598,7 +598,7 @@ export class Tor extends AsyncEventTarget {
   private async createCircuitAtomic() {
     return await this.circuitsMutex.lock(async () => {
       while (true) {
-        const rawCircuitId = new Binary(Bytes.random(4)).getUint32()
+        const rawCircuitId = new Cursor(Bytes.random(4)).getUint32()
         if (rawCircuitId === 0) continue
 
         const circuitId = new Bitmask(rawCircuitId).set(31, true).export()

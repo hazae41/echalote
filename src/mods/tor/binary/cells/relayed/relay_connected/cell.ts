@@ -1,4 +1,4 @@
-import { Binary } from "@hazae41/binary"
+import { Cursor } from "@hazae41/binary"
 import { ttlToDate } from "libs/time.js"
 import { Address4, Address6 } from "mods/tor/binary/address.js"
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js"
@@ -32,7 +32,7 @@ export class RelayConnectedCell {
     if (!cell.stream)
       throw new InvalidStream(this.name, cell.stream)
 
-    const binary = new Binary(cell.data)
+    const binary = new Cursor(cell.data)
 
     const ipv4 = Address4.read(binary)
 

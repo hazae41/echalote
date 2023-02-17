@@ -1,4 +1,4 @@
-import { Binary } from "@hazae41/binary"
+import { Cursor } from "@hazae41/binary"
 
 export type RelayExtend2Link =
   | RelayExtend2LinkIPv4
@@ -16,7 +16,7 @@ export class RelayExtend2LinkIPv4 {
     readonly port: number,
   ) { }
 
-  write(binary: Binary) {
+  write(binary: Cursor) {
     binary.writeUint8(this.#class.type)
     binary.writeUint8(4 + 2)
 
@@ -45,7 +45,7 @@ export class RelayExtend2LinkIPv6 {
     readonly port: number,
   ) { }
 
-  write(binary: Binary) {
+  write(binary: Cursor) {
     binary.writeUint8(this.#class.type)
     binary.writeUint8(16 + 2)
 
@@ -77,7 +77,7 @@ export class RelayExtend2LinkLegacyID {
     readonly fingerprint: Uint8Array
   ) { }
 
-  write(binary: Binary) {
+  write(binary: Cursor) {
     binary.writeUint8(this.#class.type)
     binary.writeUint8(20)
     binary.write(this.fingerprint)
@@ -93,7 +93,7 @@ export class RelayExtend2LinkModernID {
     readonly fingerprint: Uint8Array
   ) { }
 
-  write(binary: Binary) {
+  write(binary: Cursor) {
     binary.writeUint8(this.#class.type)
     binary.writeUint8(32)
     binary.write(this.fingerprint)

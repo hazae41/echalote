@@ -1,4 +1,4 @@
-import { Binary } from "@hazae41/binary";
+import { Cursor } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 
 export class TurboFrame {
@@ -19,7 +19,7 @@ export class TurboFrame {
     throw new Error(`${this.#class.name}: size() max data length`)
   }
 
-  write6(binary: Binary) {
+  write6(binary: Cursor) {
     const first = new Bitset(this.data.length, 8)
     first.setBE(0, !this.padding)
     first.setBE(1, false)
@@ -29,7 +29,7 @@ export class TurboFrame {
     binary.write(this.data)
   }
 
-  write13(binary: Binary) {
+  write13(binary: Cursor) {
     let bits = ""
     bits += this.padding ? "0" : "1"
     bits += "1"
@@ -44,7 +44,7 @@ export class TurboFrame {
     binary.write(this.data)
   }
 
-  write20(binary: Binary) {
+  write20(binary: Cursor) {
     let bits = ""
     bits += this.padding ? "0" : "1"
     bits += "1"
@@ -61,7 +61,7 @@ export class TurboFrame {
     binary.write(this.data)
   }
 
-  write(binary: Binary) {
+  write(binary: Cursor) {
     if (this.data.length < 64)
       return this.write6(binary)
     if (this.data.length < 8192)
@@ -72,7 +72,7 @@ export class TurboFrame {
   }
 
   export() {
-    const binary = Binary.allocUnsafe(this.size())
+    const binary = Cursor.allocUnsafe(this.size())
     this.write(binary)
     return binary.bytes
   }
@@ -81,7 +81,7 @@ export class TurboFrame {
    * Read from bytes
    * @param binary bytes
    */
-  static read(binary: Binary) {
+  static read(binary: Cursor) {
     let lengthBits = ""
 
     const first = binary.readUint8()

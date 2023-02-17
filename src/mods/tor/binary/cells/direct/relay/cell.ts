@@ -1,4 +1,4 @@
-import { Binary } from "@hazae41/binary";
+import { Cursor } from "@hazae41/binary";
 import { Bytes } from "@hazae41/bytes";
 import { Arrays } from "libs/arrays/arrays.js";
 import { NewCell } from "mods/tor/binary/cells/cell.js";
@@ -28,7 +28,7 @@ export class RelayCell {
   }
 
   async cell() {
-    const binary = Binary.allocUnsafe(PAYLOAD_LEN)
+    const binary = Cursor.allocUnsafe(PAYLOAD_LEN)
 
     binary.writeUint8(this.rcommand)
     binary.writeUint16(0)
@@ -71,7 +71,7 @@ export class RelayCell {
 
       target.backwardKey.apply_keystream(cell.payload)
 
-      const binary = new Binary(cell.payload)
+      const binary = new Cursor(cell.payload)
 
       const rcommand = binary.readUint8()
       const recognised = binary.readUint16()

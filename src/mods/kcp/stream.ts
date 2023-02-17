@@ -1,4 +1,4 @@
-import { Binary } from "@hazae41/binary";
+import { Cursor } from "@hazae41/binary";
 import { CloseEvent } from "libs/events/close.js";
 import { ErrorEvent } from "libs/events/error.js";
 import { KcpReader } from "./reader.js";
@@ -13,7 +13,7 @@ export class KcpStream {
   readonly readable: ReadableStream<Uint8Array>
   readonly writable: WritableStream<Uint8Array>
 
-  readonly conversation = Binary.random(4).getUint32(true)
+  readonly conversation = Cursor.random(4).getUint32(true)
 
   send_counter = 0
   recv_counter = 0

@@ -1,4 +1,4 @@
-import { Binary } from "@hazae41/binary";
+import { Cursor } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { KcpSegment } from "./segment.js";
@@ -68,7 +68,7 @@ export class KcpReader extends AsyncEventTarget {
   }
 
   async onWrite(chunk: Uint8Array) {
-    const binary = new Binary(chunk)
+    const binary = new Cursor(chunk)
 
     while (binary.remaining) {
       const segment = KcpSegment.tryRead(binary)
