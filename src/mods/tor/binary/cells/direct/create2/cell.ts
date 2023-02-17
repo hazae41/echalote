@@ -32,14 +32,14 @@ export class Create2Cell {
   }
 
   cell() {
-    const binary = Cursor.allocUnsafe(PAYLOAD_LEN)
+    const cursor = Cursor.allocUnsafe(PAYLOAD_LEN)
 
-    binary.writeUint16(this.type)
-    binary.writeUint16(this.data.length)
-    binary.write(this.data)
-    binary.fill()
+    cursor.writeUint16(this.type)
+    cursor.writeUint16(this.data.length)
+    cursor.write(this.data)
+    cursor.fill()
 
-    return new NewCell(this.circuit, this.#class.command, binary.buffer)
+    return new NewCell(this.circuit, this.#class.command, cursor.buffer)
   }
 
   static uncell(cell: NewCell) {
@@ -48,11 +48,11 @@ export class Create2Cell {
     if (!cell.circuit)
       throw new InvalidCircuit(this.name, cell.circuit)
 
-    const binary = new Cursor(cell.payload)
+    const cursor = new Cursor(cell.payload)
 
-    const type = binary.readUint16()
-    const length = binary.readUint16()
-    const data = binary.read(length)
+    const type = cursor.readUint16()
+    const length = cursor.readUint16()
+    const data = cursor.read(length)
 
     return new this(cell.circuit, type, data)
   }

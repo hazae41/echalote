@@ -29,13 +29,13 @@ export class RelayBeginCell {
   }
 
   cell() {
-    const binary = Cursor.allocUnsafe(PAYLOAD_LEN)
+    const cursor = Cursor.allocUnsafe(PAYLOAD_LEN)
 
-    binary.writeNulledString(this.address)
-    binary.writeUint32(this.flags.n)
-    binary.fill()
+    cursor.writeNulledString(this.address)
+    cursor.writeUint32(this.flags.n)
+    cursor.fill()
 
-    return new RelayCell(this.circuit, this.stream, this.#class.rcommand, binary.before)
+    return new RelayCell(this.circuit, this.stream, this.#class.rcommand, cursor.before)
   }
 
   static uncell(cell: RelayCell) {
@@ -44,10 +44,10 @@ export class RelayBeginCell {
     if (!cell.stream)
       throw new InvalidStream(this.name, cell.stream)
 
-    const binary = new Cursor(cell.data)
+    const cursor = new Cursor(cell.data)
 
-    const address = binary.readNulledString()
-    const flagsn = binary.readUint32()
+    const address = cursor.readNulledString()
+    const flagsn = cursor.readUint32()
     const flags = new Bitmask(flagsn)
 
     return new this(cell.circuit, cell.stream, address, flags)

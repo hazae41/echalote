@@ -31,31 +31,31 @@ export class OldCell {
   ) { }
 
   pack() {
-    const binary = Cursor.allocUnsafe(2 + 1 + 2 + this.payload.length)
+    const cursor = Cursor.allocUnsafe(2 + 1 + 2 + this.payload.length)
 
-    binary.writeUint16(this.circuit?.id ?? 0)
-    binary.writeUint8(this.command)
-    binary.writeUint16(this.payload.length)
-    binary.write(this.payload)
+    cursor.writeUint16(this.circuit?.id ?? 0)
+    cursor.writeUint8(this.command)
+    cursor.writeUint16(this.payload.length)
+    cursor.write(this.payload)
 
-    return binary.buffer
+    return cursor.buffer
   }
 
-  static tryRead(binary: Cursor): OldCellRaw | undefined {
-    const start = binary.offset
+  static tryRead(cursor: Cursor): OldCellRaw | undefined {
+    const start = cursor.offset
 
     try {
-      const circuitId = binary.readUint16()
-      const command = binary.readUint8()
+      const circuitId = cursor.readUint16()
+      const command = cursor.readUint8()
 
       const length = command === 7
-        ? binary.readUint16()
+        ? cursor.readUint16()
         : PAYLOAD_LEN
-      const payload = binary.read(length)
+      const payload = cursor.read(length)
 
       return { type: "old", circuitId, command, payload }
     } catch (e: unknown) {
-      binary.offset = start
+      cursor.offset = start
     }
   }
 
@@ -83,41 +83,41 @@ export class NewCell {
 
   pack() {
     if (this.command >= 128) {
-      const binary = Cursor.allocUnsafe(4 + 1 + 2 + this.payload.length)
+      const cursor = Cursor.allocUnsafe(4 + 1 + 2 + this.payload.length)
 
-      binary.writeUint32(this.circuit?.id ?? 0)
-      binary.writeUint8(this.command)
-      binary.writeUint16(this.payload.length)
-      binary.write(this.payload)
+      cursor.writeUint32(this.circuit?.id ?? 0)
+      cursor.writeUint8(this.command)
+      cursor.writeUint16(this.payload.length)
+      cursor.write(this.payload)
 
-      return binary.buffer
+      return cursor.buffer
     } else {
-      const binary = Cursor.allocUnsafe(4 + 1 + this.payload.length)
+      const cursor = Cursor.allocUnsafe(4 + 1 + this.payload.length)
 
-      binary.writeUint32(this.circuit?.id ?? 0)
-      binary.writeUint8(this.command)
-      binary.write(this.payload)
+      cursor.writeUint32(this.circuit?.id ?? 0)
+      cursor.writeUint8(this.command)
+      cursor.write(this.payload)
 
-      return binary.buffer
+      return cursor.buffer
     }
   }
 
-  static tryRead(binary: Cursor): NewCellRaw | undefined {
-    const start = binary.offset
+  static tryRead(cursor: Cursor): NewCellRaw | undefined {
+    const start = cursor.offset
 
     try {
-      const circuitId = binary.readUint32()
-      const command = binary.readUint8()
+      const circuitId = cursor.readUint32()
+      const command = cursor.readUint8()
 
       const length = command >= 128
-        ? binary.readUint16()
+        ? cursor.readUint16()
         : PAYLOAD_LEN
 
-      const payload = binary.read(length)
+      const payload = cursor.read(length)
 
       return { type: "new", circuitId, command, payload }
     } catch (e: unknown) {
-      binary.offset = start
+      cursor.offset = start
     }
   }
 

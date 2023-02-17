@@ -28,10 +28,10 @@ export class RelayExtended2Cell {
     if (cell.stream)
       throw new InvalidStream(this.name, cell.stream)
 
-    const binary = new Cursor(cell.data)
+    const cursor = new Cursor(cell.data)
 
-    const length = binary.readUint16()
-    const data = binary.read(length)
+    const length = cursor.readUint16()
+    const data = cursor.read(length)
 
     return new this(cell.circuit, cell.stream, data)
   }

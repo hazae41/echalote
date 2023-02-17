@@ -17,10 +17,10 @@ export class Cert implements ICert {
     readonly x509: Certificate
   ) { }
 
-  write(binary: Cursor) {
-    binary.writeUint8(this.type)
-    binary.writeUint16(this.data.length)
-    binary.write(this.data)
+  write(cursor: Cursor) {
+    cursor.writeUint8(this.type)
+    cursor.writeUint16(this.data.length)
+    cursor.write(this.data)
   }
 
   check() {
@@ -32,13 +32,13 @@ export class Cert implements ICert {
       throw new Error(`Early certificate`)
   }
 
-  static read(binary: Cursor, type: number, length: number) {
-    const start = binary.offset
+  static read(cursor: Cursor, type: number, length: number) {
+    const start = cursor.offset
 
-    const data = binary.read(length)
+    const data = cursor.read(length)
     const x509 = Certificate.fromBytes(data)
 
-    if (binary.offset - start !== length)
+    if (cursor.offset - start !== length)
       throw new Error(`Invalid RSA cert length ${length}`)
     return new this(type, data, x509)
   }

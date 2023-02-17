@@ -20,11 +20,11 @@ export class RelayBeginDirCell {
   }
 
   cell() {
-    const binary = Cursor.allocUnsafe(PAYLOAD_LEN)
+    const cursor = Cursor.allocUnsafe(PAYLOAD_LEN)
 
-    binary.fill()
+    cursor.fill()
 
-    return new RelayCell(this.circuit, this.stream, this.#class.rcommand, binary.before)
+    return new RelayCell(this.circuit, this.stream, this.#class.rcommand, cursor.before)
   }
 
   static uncell(cell: RelayCell) {

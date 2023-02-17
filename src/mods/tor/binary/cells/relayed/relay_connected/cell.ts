@@ -32,22 +32,22 @@ export class RelayConnectedCell {
     if (!cell.stream)
       throw new InvalidStream(this.name, cell.stream)
 
-    const binary = new Cursor(cell.data)
+    const cursor = new Cursor(cell.data)
 
-    const ipv4 = Address4.read(binary)
+    const ipv4 = Address4.read(cursor)
 
     if (ipv4.address !== "...") {
-      const ttl = ttlToDate(binary.readUint32())
+      const ttl = ttlToDate(cursor.readUint32())
       return new this(cell.circuit, cell.stream, ipv4, ttl)
     }
 
-    const type = binary.readUint8()
+    const type = cursor.readUint8()
 
     if (type !== 6)
       throw new Error(`Unknown address type ${type}`)
 
-    const ipv6 = Address6.read(binary)
-    const ttl = ttlToDate(binary.readUint32())
+    const ipv6 = Address6.read(cursor)
+    const ttl = ttlToDate(cursor.readUint32())
     return new this(cell.circuit, cell.stream, ipv6, ttl)
   }
 }

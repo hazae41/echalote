@@ -21,18 +21,18 @@ export class NetinfoCell {
   }
 
   cell() {
-    const binary = Cursor.allocUnsafe(PAYLOAD_LEN)
+    const cursor = Cursor.allocUnsafe(PAYLOAD_LEN)
 
-    binary.writeUint32(this.time)
-    this.other.write(binary)
-    binary.writeUint8(this.owneds.length)
+    cursor.writeUint32(this.time)
+    this.other.write(cursor)
+    cursor.writeUint8(this.owneds.length)
 
     for (const owned of this.owneds)
-      owned.write(binary)
+      owned.write(cursor)
 
-    binary.fill()
+    cursor.fill()
 
-    return new NewCell(this.circuit, this.#class.command, binary.buffer)
+    return new NewCell(this.circuit, this.#class.command, cursor.buffer)
   }
 
   static uncell(cell: NewCell) {
@@ -41,15 +41,15 @@ export class NetinfoCell {
     if (cell.circuit)
       throw new InvalidCircuit(this.name, cell.circuit)
 
-    const binary = new Cursor(cell.payload)
+    const cursor = new Cursor(cell.payload)
 
-    const time = binary.readUint32()
-    const other = TypedAddress.read(binary)
-    const nowneds = binary.readUint8()
+    const time = cursor.readUint32()
+    const other = TypedAddress.read(cursor)
+    const nowneds = cursor.readUint8()
     const owneds = new Array<TypedAddress>(nowneds)
 
     for (let i = 0; i < nowneds; i++)
-      owneds[i] = TypedAddress.read(binary)
+      owneds[i] = TypedAddress.read(cursor)
 
     return new this(cell.circuit, time, other, owneds)
   }

@@ -17,12 +17,12 @@ export class VersionsCell {
   }
 
   cell() {
-    const binary = Cursor.allocUnsafe(this.versions.length * 2)
+    const cursor = Cursor.allocUnsafe(this.versions.length * 2)
 
     for (const version of this.versions)
-      binary.writeUint16(version)
+      cursor.writeUint16(version)
 
-    return new OldCell(this.circuit, this.#class.command, binary.buffer)
+    return new OldCell(this.circuit, this.#class.command, cursor.buffer)
   }
 
   static uncell(cell: OldCell) {
@@ -31,13 +31,13 @@ export class VersionsCell {
     if (cell.circuit)
       throw new InvalidCircuit(this.name, cell.circuit)
 
-    const binary = new Cursor(cell.payload)
+    const cursor = new Cursor(cell.payload)
 
     const nversions = cell.payload.length / 2
     const versions = new Array<number>(nversions)
 
     for (let i = 0; i < nversions; i++)
-      versions[i] = binary.readUint16()
+      versions[i] = cursor.readUint16()
 
     return new this(cell.circuit, versions)
   }

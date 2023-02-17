@@ -30,15 +30,15 @@ export class PaddingNegociateCell {
   }
 
   cell() {
-    const binary = Cursor.allocUnsafe(PAYLOAD_LEN)
+    const cursor = Cursor.allocUnsafe(PAYLOAD_LEN)
 
-    binary.writeUint8(this.version)
-    binary.writeUint8(this.pcommand)
-    binary.writeUint16(this.ito_low_ms)
-    binary.writeUint16(this.ito_high_ms)
-    binary.fill()
+    cursor.writeUint8(this.version)
+    cursor.writeUint8(this.pcommand)
+    cursor.writeUint16(this.ito_low_ms)
+    cursor.writeUint16(this.ito_high_ms)
+    cursor.fill()
 
-    return new NewCell(this.circuit, this.#class.command, binary.buffer)
+    return new NewCell(this.circuit, this.#class.command, cursor.buffer)
   }
 
   static uncell(cell: NewCell) {
@@ -47,12 +47,12 @@ export class PaddingNegociateCell {
     if (cell.circuit)
       throw new InvalidCircuit(this.name, cell.circuit)
 
-    const binary = new Cursor(cell.payload)
+    const cursor = new Cursor(cell.payload)
 
-    const version = binary.readUint8()
-    const pcommand = binary.readUint8()
-    const ito_low_ms = binary.readUint16()
-    const ito_high_ms = binary.readUint16()
+    const version = cursor.readUint8()
+    const pcommand = cursor.readUint8()
+    const ito_low_ms = cursor.readUint16()
+    const ito_high_ms = cursor.readUint16()
 
     return new this(cell.circuit, version, pcommand, ito_low_ms, ito_high_ms)
   }

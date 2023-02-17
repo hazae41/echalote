@@ -22,11 +22,11 @@ export class RelayTruncateCell {
   }
 
   cell() {
-    const binary = Cursor.allocUnsafe(1)
+    const cursor = Cursor.allocUnsafe(1)
 
-    binary.writeUint8(this.reason)
+    cursor.writeUint8(this.reason)
 
-    return new RelayCell(this.circuit, this.stream, this.#class.rcommand, binary.buffer)
+    return new RelayCell(this.circuit, this.stream, this.#class.rcommand, cursor.buffer)
   }
 
   static uncell(cell: RelayCell) {
@@ -35,9 +35,9 @@ export class RelayTruncateCell {
     if (cell.stream)
       throw new InvalidStream(this.name, cell.stream)
 
-    const binary = new Cursor(cell.data)
+    const cursor = new Cursor(cell.data)
 
-    const reason = binary.readUint8()
+    const reason = cursor.readUint8()
 
     return new this(cell.circuit, cell.stream, reason)
   }

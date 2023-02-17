@@ -23,14 +23,14 @@ export class CreateFastCell {
   }
 
   cell() {
-    const binary = Cursor.allocUnsafe(PAYLOAD_LEN)
+    const cursor = Cursor.allocUnsafe(PAYLOAD_LEN)
 
     if (this.material.length !== 20)
       throw new Error(`Invalid ${this.#class.name} material length`)
-    binary.write(this.material)
-    binary.fill()
+    cursor.write(this.material)
+    cursor.fill()
 
-    return new NewCell(this.circuit, this.#class.command, binary.buffer)
+    return new NewCell(this.circuit, this.#class.command, cursor.buffer)
   }
 
   static uncell(cell: NewCell) {
@@ -39,9 +39,9 @@ export class CreateFastCell {
     if (!cell.circuit)
       throw new InvalidCircuit(this.name, cell.circuit)
 
-    const binary = new Cursor(cell.payload)
+    const cursor = new Cursor(cell.payload)
 
-    const material = binary.read(20)
+    const material = cursor.read(20)
 
     return new this(cell.circuit, material)
   }

@@ -40,12 +40,12 @@ export class RelayEndCell {
   }
 
   cell() {
-    const binary = Cursor.allocUnsafe(PAYLOAD_LEN)
+    const cursor = Cursor.allocUnsafe(PAYLOAD_LEN)
 
-    binary.writeUint8(this.reason.id)
-    this.reason.write(binary)
+    cursor.writeUint8(this.reason.id)
+    this.reason.write(cursor)
 
-    return new RelayCell(this.circuit, this.stream, this.#class.rcommand, binary.before)
+    return new RelayCell(this.circuit, this.stream, this.#class.rcommand, cursor.before)
   }
 
   static uncell(cell: RelayCell) {
@@ -54,12 +54,12 @@ export class RelayEndCell {
     if (!cell.stream)
       throw new InvalidStream(this.name, cell.stream)
 
-    const binary = new Cursor(cell.data)
+    const cursor = new Cursor(cell.data)
 
-    const reasonId = binary.readUint8()
+    const reasonId = cursor.readUint8()
 
     const reason = reasonId === this.reasons.REASON_EXITPOLICY
-      ? RelayEndReasonExitPolicy.read(binary)
+      ? RelayEndReasonExitPolicy.read(cursor)
       : new RelayEndReasonOther(reasonId)
 
     return new this(cell.circuit, cell.stream, reason)

@@ -7,20 +7,20 @@ export function request(
   idh: Uint8Array,
   oid: Uint8Array
 ) {
-  const binary = Cursor.allocUnsafe(20 + 32 + 32)
+  const cursor = Cursor.allocUnsafe(20 + 32 + 32)
 
-  binary.write(idh)
-  binary.write(oid)
-  binary.write(publicx)
+  cursor.write(idh)
+  cursor.write(oid)
+  cursor.write(publicx)
 
-  return binary.buffer
+  return cursor.buffer
 }
 
 export function response(data: Uint8Array) {
-  const binary = new Cursor(data)
+  const cursor = new Cursor(data)
 
-  const publicy = binary.read(32)
-  const auth = binary.read(32)
+  const publicy = cursor.read(32)
+  const auth = cursor.read(32)
 
   return { publicy, auth }
 }

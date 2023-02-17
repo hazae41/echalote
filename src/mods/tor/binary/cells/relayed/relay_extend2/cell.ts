@@ -34,17 +34,17 @@ export class RelayExtend2Cell {
   }
 
   cell() {
-    const binary = Cursor.allocUnsafe(PAYLOAD_LEN)
+    const cursor = Cursor.allocUnsafe(PAYLOAD_LEN)
 
-    binary.writeUint8(this.links.length)
+    cursor.writeUint8(this.links.length)
 
     for (const link of this.links)
-      link.write(binary)
+      link.write(cursor)
 
-    binary.writeUint16(this.type)
-    binary.writeUint16(this.data.length)
-    binary.write(this.data)
+    cursor.writeUint16(this.type)
+    cursor.writeUint16(this.data.length)
+    cursor.write(this.data)
 
-    return new RelayEarlyCell(this.circuit, this.stream, this.#class.rcommand, binary.before)
+    return new RelayEarlyCell(this.circuit, this.stream, this.#class.rcommand, cursor.before)
   }
 }

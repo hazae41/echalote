@@ -28,14 +28,14 @@ export class AuthChallengeCell {
     if (cell.circuit)
       throw new InvalidCircuit(this.name, cell.circuit)
 
-    const binary = new Cursor(cell.payload)
+    const cursor = new Cursor(cell.payload)
 
-    const challenge = binary.read(32)
-    const nmethods = binary.readUint16()
+    const challenge = cursor.read(32)
+    const nmethods = cursor.readUint16()
     const methods = new Array<number>(nmethods)
 
     for (let i = 0; i < nmethods; i++)
-      methods[i] = binary.readUint16()
+      methods[i] = cursor.readUint16()
 
     return new this(cell.circuit, challenge, methods)
   }

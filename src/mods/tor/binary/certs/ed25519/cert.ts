@@ -31,7 +31,7 @@ export class Cert implements ICert {
     readonly signature: Uint8Array
   ) { }
 
-  write(binary: Cursor) {
+  write(cursor: Cursor) {
     throw new Error(`Unimplemented`)
   }
 
@@ -44,41 +44,41 @@ export class Cert implements ICert {
       this.extensions.signer.check(this)
   }
 
-  static read(binary: Cursor, type: number, length: number) {
-    const start = binary.offset
+  static read(cursor: Cursor, type: number, length: number) {
+    const start = cursor.offset
 
-    const version = binary.readUint8()
-    const certType = binary.readUint8()
+    const version = cursor.readUint8()
+    const certType = cursor.readUint8()
 
-    const expDateHours = binary.readUint32()
+    const expDateHours = cursor.readUint32()
     const expiration = new Date(expDateHours * 60 * 60 * 1000)
 
-    const certKeyType = binary.readUint8()
-    const certKey = binary.read(32)
+    const certKeyType = cursor.readUint8()
+    const certKey = cursor.read(32)
 
-    const nextensions = binary.readUint8()
+    const nextensions = cursor.readUint8()
     const extensions: Extensions = {}
 
     for (let i = 0; i < nextensions; i++) {
-      const length = binary.readUint16()
-      const type = binary.readUint8()
-      const flags = binary.readUint8()
+      const length = cursor.readUint16()
+      const type = cursor.readUint8()
+      const flags = cursor.readUint8()
 
       if (type === SignedWithEd25519Key.type) {
-        extensions.signer = SignedWithEd25519Key.read(binary, length, flags)
+        extensions.signer = SignedWithEd25519Key.read(cursor, length, flags)
         continue
       }
 
       if (flags === this.flags.AFFECTS_VALIDATION)
         throw new Error(`Unknown Ed25519 cert extension type ${type}`)
       else
-        binary.read(length)
+        cursor.read(length)
     }
 
-    const payload = binary.reread(start)
-    const signature = binary.read(64)
+    const payload = cursor.reread(start)
+    const signature = cursor.read(64)
 
-    if (binary.offset - start !== length)
+    if (cursor.offset - start !== length)
       throw new Error(`Invalid Ed25519 cert length ${length}`)
     return new this(type, version, certType, expiration, certKeyType, certKey, extensions, payload, signature)
   }

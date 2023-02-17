@@ -11,16 +11,16 @@ export class TypedAddress {
     readonly value: Uint8Array
   ) { }
 
-  write(binary: Cursor) {
-    binary.writeUint8(this.type)
-    binary.writeUint8(this.value.length)
-    binary.write(this.value)
+  write(cursor: Cursor) {
+    cursor.writeUint8(this.type)
+    cursor.writeUint8(this.value.length)
+    cursor.write(this.value)
   }
 
-  static read(binary: Cursor) {
-    const type = binary.readUint8()
-    const length = binary.readUint8()
-    const value = binary.read(length)
+  static read(cursor: Cursor) {
+    const type = cursor.readUint8()
+    const length = cursor.readUint8()
+    const value = cursor.read(length)
 
     return new this(type, value)
   }
@@ -37,18 +37,18 @@ export class Address4 {
     readonly address: string
   ) { }
 
-  write(binary: Cursor) {
+  write(cursor: Cursor) {
     const parts = this.address.split(".")
 
     for (let i = 0; i < 4; i++)
-      binary.writeUint8(Number(parts[i]))
+      cursor.writeUint8(Number(parts[i]))
   }
 
-  static read(binary: Cursor) {
+  static read(cursor: Cursor) {
     const parts = new Array<string>(4)
 
     for (let i = 0; i < 4; i++)
-      parts[i] = String(binary.readUint8())
+      parts[i] = String(cursor.readUint8())
 
     return new this(parts.join("."))
   }
@@ -65,18 +65,18 @@ export class Address6 {
     readonly address: string
   ) { }
 
-  write(binary: Cursor) {
+  write(cursor: Cursor) {
     const parts = this.address.slice(1, -1).split(":")
 
     for (let i = 0; i < 8; i++)
-      binary.writeUint16(Number(parts[i]))
+      cursor.writeUint16(Number(parts[i]))
   }
 
-  static read(binary: Cursor) {
+  static read(cursor: Cursor) {
     const parts = new Array<string>(8)
 
     for (let i = 0; i < 8; i++)
-      parts[i] = String(binary.readUint16())
+      parts[i] = String(cursor.readUint16())
 
     return new this(`[${parts.join(":")}]`)
   }

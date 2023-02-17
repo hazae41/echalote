@@ -25,22 +25,22 @@ export class Kcp2Segment {
       + this.data.length
   }
 
-  write(binary: Cursor) {
-    binary.write(this.nonce)
-    binary.writeUint32(this.checksum, true)
-    binary.writeUint32(this.fecSeqID, true)
-    binary.writeUint16(this.fecType, true)
-    binary.writeUint16(this.data.length + 2, true)
-    binary.write(this.data)
+  write(cursor: Cursor) {
+    cursor.write(this.nonce)
+    cursor.writeUint32(this.checksum, true)
+    cursor.writeUint32(this.fecSeqID, true)
+    cursor.writeUint16(this.fecType, true)
+    cursor.writeUint16(this.data.length + 2, true)
+    cursor.write(this.data)
   }
 
-  static read(binary: Cursor) {
-    const nonce = binary.read(16)
-    const checksum = binary.readUint32(true)
-    const fecSeqID = binary.readUint32(true)
-    const fecType = binary.readUint16(true)
-    const length = binary.readUint16(true)
-    const data = binary.read(length - 2)
+  static read(cursor: Cursor) {
+    const nonce = cursor.read(16)
+    const checksum = cursor.readUint32(true)
+    const fecSeqID = cursor.readUint32(true)
+    const fecType = cursor.readUint16(true)
+    const length = cursor.readUint16(true)
+    const data = cursor.read(length - 2)
 
     return new this(nonce, checksum, fecType, fecSeqID, data)
   }

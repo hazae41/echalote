@@ -57,45 +57,45 @@ export class KcpSegment {
       + this.data.length
   }
 
-  write(binary: Cursor) {
-    binary.writeUint32(this.conversation, true)
-    binary.writeUint8(this.command)
-    binary.writeUint8(this.count)
-    binary.writeUint16(this.window, true)
-    binary.writeUint32(this.timestamp, true)
-    binary.writeUint32(this.serial, true)
-    binary.writeUint32(this.unackSerial, true)
-    binary.writeUint32(this.data.length, true)
-    binary.write(this.data)
+  write(cursor: Cursor) {
+    cursor.writeUint32(this.conversation, true)
+    cursor.writeUint8(this.command)
+    cursor.writeUint8(this.count)
+    cursor.writeUint16(this.window, true)
+    cursor.writeUint32(this.timestamp, true)
+    cursor.writeUint32(this.serial, true)
+    cursor.writeUint32(this.unackSerial, true)
+    cursor.writeUint32(this.data.length, true)
+    cursor.write(this.data)
   }
 
   export() {
-    const binary = Cursor.allocUnsafe(this.size())
-    this.write(binary)
-    return binary.bytes
+    const cursor = Cursor.allocUnsafe(this.size())
+    this.write(cursor)
+    return cursor.bytes
   }
 
-  static read(binary: Cursor) {
-    const conversation = binary.readUint32(true)
-    const command = binary.readUint8()
-    const count = binary.readUint8()
-    const window = binary.readUint16(true)
-    const timestamp = binary.readUint32(true)
-    const serial = binary.readUint32(true)
-    const unackSerial = binary.readUint32(true)
-    const length = binary.readUint32(true)
-    const data = binary.read(length)
+  static read(cursor: Cursor) {
+    const conversation = cursor.readUint32(true)
+    const command = cursor.readUint8()
+    const count = cursor.readUint8()
+    const window = cursor.readUint16(true)
+    const timestamp = cursor.readUint32(true)
+    const serial = cursor.readUint32(true)
+    const unackSerial = cursor.readUint32(true)
+    const length = cursor.readUint32(true)
+    const data = cursor.read(length)
 
     return new this(conversation, command, count, window, timestamp, serial, unackSerial, data)
   }
 
-  static tryRead(binary: Cursor) {
-    const offset = binary.offset
+  static tryRead(cursor: Cursor) {
+    const offset = cursor.offset
 
     try {
-      return this.read(binary)
+      return this.read(cursor)
     } catch (e: unknown) {
-      binary.offset = offset
+      cursor.offset = offset
     }
   }
 }

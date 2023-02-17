@@ -68,10 +68,10 @@ export class KcpReader extends AsyncEventTarget {
   }
 
   async onWrite(chunk: Uint8Array) {
-    const binary = new Cursor(chunk)
+    const cursor = new Cursor(chunk)
 
-    while (binary.remaining) {
-      const segment = KcpSegment.tryRead(binary)
+    while (cursor.remaining) {
+      const segment = KcpSegment.tryRead(cursor)
 
       if (!segment) {
         console.warn("kcp", chunk)

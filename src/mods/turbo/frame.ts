@@ -19,17 +19,17 @@ export class TurboFrame {
     throw new Error(`${this.#class.name}: size() max data length`)
   }
 
-  write6(binary: Cursor) {
+  write6(cursor: Cursor) {
     const first = new Bitset(this.data.length, 8)
     first.setBE(0, !this.padding)
     first.setBE(1, false)
     first.unsign()
 
-    binary.writeUint8(first.value)
-    binary.write(this.data)
+    cursor.writeUint8(first.value)
+    cursor.write(this.data)
   }
 
-  write13(binary: Cursor) {
+  write13(cursor: Cursor) {
     let bits = ""
     bits += this.padding ? "0" : "1"
     bits += "1"
@@ -40,11 +40,11 @@ export class TurboFrame {
     bits += "0"
     bits += length.slice(6, 13)
 
-    binary.writeUint16(parseInt(bits, 2))
-    binary.write(this.data)
+    cursor.writeUint16(parseInt(bits, 2))
+    cursor.write(this.data)
   }
 
-  write20(binary: Cursor) {
+  write20(cursor: Cursor) {
     let bits = ""
     bits += this.padding ? "0" : "1"
     bits += "1"
@@ -57,34 +57,34 @@ export class TurboFrame {
     bits += "0"
     bits += length.slice(13, 20)
 
-    binary.writeUint24(parseInt(bits, 2))
-    binary.write(this.data)
+    cursor.writeUint24(parseInt(bits, 2))
+    cursor.write(this.data)
   }
 
-  write(binary: Cursor) {
+  write(cursor: Cursor) {
     if (this.data.length < 64)
-      return this.write6(binary)
+      return this.write6(cursor)
     if (this.data.length < 8192)
-      return this.write13(binary)
+      return this.write13(cursor)
     if (this.data.length < 1048576)
-      return this.write20(binary)
+      return this.write20(cursor)
     throw new Error(`${this.#class.name}: write() max data length`)
   }
 
   export() {
-    const binary = Cursor.allocUnsafe(this.size())
-    this.write(binary)
-    return binary.bytes
+    const cursor = Cursor.allocUnsafe(this.size())
+    this.write(cursor)
+    return cursor.bytes
   }
 
   /**
    * Read from bytes
    * @param binary bytes
    */
-  static read(binary: Cursor) {
+  static read(cursor: Cursor) {
     let lengthBits = ""
 
-    const first = binary.readUint8()
+    const first = cursor.readUint8()
     const bits = new Bitset(first, 8)
 
     const padding = !bits.getBE(0)
@@ -93,14 +93,14 @@ export class TurboFrame {
     lengthBits += bits.last(6).toString()
 
     if (continuation) {
-      const second = binary.readUint8()
+      const second = cursor.readUint8()
       const bits2 = new Bitset(second, 8)
       const continuation2 = bits2.getBE(0)
 
       lengthBits += bits2.last(7).toString()
 
       if (continuation2) {
-        const third = binary.readUint8()
+        const third = cursor.readUint8()
         const bits3 = new Bitset(third, 8)
         const continuation3 = bits3.getBE(0)
 
@@ -113,7 +113,7 @@ export class TurboFrame {
     }
 
     const length = parseInt(lengthBits, 2)
-    const data = binary.read(length)
+    const data = cursor.read(length)
 
     return new this(padding, data)
   }

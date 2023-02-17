@@ -16,7 +16,7 @@ export class Cert implements ICert {
     readonly signature: Uint8Array
   ) { }
 
-  write(binary: Cursor) {
+  write(cursor: Cursor) {
     throw new Error(`Unimplemented`)
   }
 
@@ -27,20 +27,20 @@ export class Cert implements ICert {
       throw new Error(`Late certificate`)
   }
 
-  static read(binary: Cursor, type: number, length: number) {
-    const start = binary.offset
+  static read(cursor: Cursor, type: number, length: number) {
+    const start = cursor.offset
 
-    const key = binary.read(32)
+    const key = cursor.read(32)
 
-    const expDateHours = binary.readUint32()
+    const expDateHours = cursor.readUint32()
     const expiration = new Date(expDateHours * 60 * 60 * 1000)
 
-    const payload = binary.reread(start)
+    const payload = cursor.reread(start)
 
-    const sigLength = binary.readUint8()
-    const signature = binary.read(sigLength)
+    const sigLength = cursor.readUint8()
+    const signature = cursor.read(sigLength)
 
-    if (binary.offset - start !== length)
+    if (cursor.offset - start !== length)
       throw new Error(`Invalid Cross cert length ${length}`)
     return new this(type, key, expiration, payload, signature)
   }

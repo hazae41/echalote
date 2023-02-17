@@ -25,16 +25,16 @@ export class SignedWithEd25519Key implements Extension {
     if (!verified) throw new Error(`Invalid signer for Ed25519 Cert`)
   }
 
-  write(binary: Cursor) {
+  write(cursor: Cursor) {
     throw new Error(`Unimplemented`)
   }
 
-  static read(binary: Cursor, length: number, flags: number) {
-    const start = binary.offset
+  static read(cursor: Cursor, length: number, flags: number) {
+    const start = cursor.offset
 
-    const key = binary.read(32)
+    const key = cursor.read(32)
 
-    if (binary.offset - start !== length)
+    if (cursor.offset - start !== length)
       throw new Error(`Invalid Ed25519 cert extension SignedWithEd25519Key length ${length}`)
     return new this(length, flags, key)
   }

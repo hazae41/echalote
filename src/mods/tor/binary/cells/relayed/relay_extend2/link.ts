@@ -16,17 +16,17 @@ export class RelayExtend2LinkIPv4 {
     readonly port: number,
   ) { }
 
-  write(binary: Cursor) {
-    binary.writeUint8(this.#class.type)
-    binary.writeUint8(4 + 2)
+  write(cursor: Cursor) {
+    cursor.writeUint8(this.#class.type)
+    cursor.writeUint8(4 + 2)
 
     const [a, b, c, d] = this.hostname.split(".")
-    binary.writeUint8(Number(a))
-    binary.writeUint8(Number(b))
-    binary.writeUint8(Number(c))
-    binary.writeUint8(Number(d))
+    cursor.writeUint8(Number(a))
+    cursor.writeUint8(Number(b))
+    cursor.writeUint8(Number(c))
+    cursor.writeUint8(Number(d))
 
-    binary.writeUint16(this.port)
+    cursor.writeUint16(this.port)
   }
 
   static from(host: string) {
@@ -45,21 +45,21 @@ export class RelayExtend2LinkIPv6 {
     readonly port: number,
   ) { }
 
-  write(binary: Cursor) {
-    binary.writeUint8(this.#class.type)
-    binary.writeUint8(16 + 2)
+  write(cursor: Cursor) {
+    cursor.writeUint8(this.#class.type)
+    cursor.writeUint8(16 + 2)
 
     const [a, b, c, d, e, f, g, h] = this.hostname.split(":")
-    binary.writeUint16(Number(`0x${a}`) || 0)
-    binary.writeUint16(Number(`0x${b}`) || 0)
-    binary.writeUint16(Number(`0x${c}`) || 0)
-    binary.writeUint16(Number(`0x${d}`) || 0)
-    binary.writeUint16(Number(`0x${e}`) || 0)
-    binary.writeUint16(Number(`0x${f}`) || 0)
-    binary.writeUint16(Number(`0x${g}`) || 0)
-    binary.writeUint16(Number(`0x${h}`) || 0)
+    cursor.writeUint16(Number(`0x${a}`) || 0)
+    cursor.writeUint16(Number(`0x${b}`) || 0)
+    cursor.writeUint16(Number(`0x${c}`) || 0)
+    cursor.writeUint16(Number(`0x${d}`) || 0)
+    cursor.writeUint16(Number(`0x${e}`) || 0)
+    cursor.writeUint16(Number(`0x${f}`) || 0)
+    cursor.writeUint16(Number(`0x${g}`) || 0)
+    cursor.writeUint16(Number(`0x${h}`) || 0)
 
-    binary.writeUint16(this.port)
+    cursor.writeUint16(this.port)
   }
 
   static from(host: string) {
@@ -77,10 +77,10 @@ export class RelayExtend2LinkLegacyID {
     readonly fingerprint: Uint8Array
   ) { }
 
-  write(binary: Cursor) {
-    binary.writeUint8(this.#class.type)
-    binary.writeUint8(20)
-    binary.write(this.fingerprint)
+  write(cursor: Cursor) {
+    cursor.writeUint8(this.#class.type)
+    cursor.writeUint8(20)
+    cursor.write(this.fingerprint)
   }
 }
 
@@ -93,9 +93,9 @@ export class RelayExtend2LinkModernID {
     readonly fingerprint: Uint8Array
   ) { }
 
-  write(binary: Cursor) {
-    binary.writeUint8(this.#class.type)
-    binary.writeUint8(32)
-    binary.write(this.fingerprint)
+  write(cursor: Cursor) {
+    cursor.writeUint8(this.#class.type)
+    cursor.writeUint8(32)
+    cursor.write(this.fingerprint)
   }
 }

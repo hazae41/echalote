@@ -13,7 +13,7 @@ export class RelayEndReasonOther {
     readonly id: number
   ) { }
 
-  write(binary: Cursor) { }
+  write(cursor: Cursor) { }
 }
 
 export class RelayEndReasonExitPolicy {
@@ -30,17 +30,17 @@ export class RelayEndReasonExitPolicy {
     return this.#class.id
   }
 
-  write(binary: Cursor) {
-    this.address.write(binary)
-    binary.writeUint32(dateToTtl(this.ttl))
+  write(cursor: Cursor) {
+    this.address.write(cursor)
+    cursor.writeUint32(dateToTtl(this.ttl))
   }
 
-  static read(binary: Cursor) {
-    const address = binary.remaining === 8
-      ? Address4.read(binary)
-      : Address6.read(binary)
+  static read(cursor: Cursor) {
+    const address = cursor.remaining === 8
+      ? Address4.read(cursor)
+      : Address6.read(cursor)
 
-    const ttl = ttlToDate(binary.readUint32())
+    const ttl = ttlToDate(cursor.readUint32())
 
     return new this(address, ttl)
   }

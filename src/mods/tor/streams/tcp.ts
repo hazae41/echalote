@@ -126,8 +126,8 @@ export class TcpStream extends AsyncEventTarget {
       return this.circuit.tor.output.enqueue(await cell.pack())
     }
 
-    const binary = new Cursor(chunk)
-    const chunks = binary.split(DATA_LEN)
+    const cursor = new Cursor(chunk)
+    const chunks = cursor.split(DATA_LEN)
 
     for (const chunk of chunks) {
       const cell = new RelayDataCell(this.circuit, this, chunk)

@@ -132,54 +132,54 @@ export class CertsCell {
     if (cell.circuit)
       throw new InvalidCircuit(this.name, cell.circuit)
 
-    const binary = new Cursor(cell.payload)
+    const cursor = new Cursor(cell.payload)
 
-    const ncerts = binary.readUint8()
+    const ncerts = cursor.readUint8()
     const certs: Certs = {}
 
     for (let i = 0; i < ncerts; i++) {
-      const type = binary.readUint8()
-      const length = binary.readUint16()
+      const type = cursor.readUint8()
+      const length = cursor.readUint16()
 
       if (type === RSA.Cert.types.ID) {
         if (certs.id) throw new Duplicated(type)
-        certs.id = RSA.Cert.read(binary, type, length)
+        certs.id = RSA.Cert.read(cursor, type, length)
         continue
       }
 
       if (type === RSA.Cert.types.ID_TO_AUTH) {
         if (certs.id_to_auth) throw new Duplicated(type)
-        certs.id_to_auth = RSA.Cert.read(binary, type, length)
+        certs.id_to_auth = RSA.Cert.read(cursor, type, length)
         continue
       }
 
       if (type === RSA.Cert.types.ID_TO_TLS) {
         if (certs.id_to_tls) throw new Duplicated(type)
-        certs.id_to_tls = RSA.Cert.read(binary, type, length)
+        certs.id_to_tls = RSA.Cert.read(cursor, type, length)
         continue
       }
 
       if (type === Cross.Cert.types.ID_TO_EID) {
         if (certs.id_to_eid) throw new Duplicated(type)
-        certs.id_to_eid = Cross.Cert.read(binary, type, length)
+        certs.id_to_eid = Cross.Cert.read(cursor, type, length)
         continue
       }
 
       if (type === Ed25519.Cert.types.EID_TO_SIGNING) {
         if (certs.eid_to_signing) throw new Duplicated(type)
-        certs.eid_to_signing = Ed25519.Cert.read(binary, type, length)
+        certs.eid_to_signing = Ed25519.Cert.read(cursor, type, length)
         continue
       }
 
       if (type === Ed25519.Cert.types.SIGNING_TO_TLS) {
         if (certs.signing_to_tls) throw new Duplicated(type)
-        certs.signing_to_tls = Ed25519.Cert.read(binary, type, length)
+        certs.signing_to_tls = Ed25519.Cert.read(cursor, type, length)
         continue
       }
 
       if (type === Ed25519.Cert.types.SIGNING_TO_AUTH) {
         if (certs.signing_to_auth) throw new Duplicated(type)
-        certs.signing_to_auth = Ed25519.Cert.read(binary, type, length)
+        certs.signing_to_auth = Ed25519.Cert.read(cursor, type, length)
         continue
       }
 

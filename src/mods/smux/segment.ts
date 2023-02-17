@@ -31,37 +31,37 @@ export class SmuxSegment {
       + this.data.length
   }
 
-  write(binary: Cursor) {
-    binary.writeUint8(this.version)
-    binary.writeUint8(this.command)
-    binary.writeUint16(this.data.length, true)
-    binary.writeUint32(this.stream, true)
-    binary.write(this.data)
+  write(cursor: Cursor) {
+    cursor.writeUint8(this.version)
+    cursor.writeUint8(this.command)
+    cursor.writeUint16(this.data.length, true)
+    cursor.writeUint32(this.stream, true)
+    cursor.write(this.data)
   }
 
   export() {
-    const binary = Cursor.allocUnsafe(this.size())
-    this.write(binary)
-    return binary.bytes
+    const cursor = Cursor.allocUnsafe(this.size())
+    this.write(cursor)
+    return cursor.bytes
   }
 
-  static read(binary: Cursor) {
-    const version = binary.readUint8()
-    const command = binary.readUint8()
-    const length = binary.readUint16(true)
-    const stream = binary.readUint32(true)
-    const data = binary.read(length)
+  static read(cursor: Cursor) {
+    const version = cursor.readUint8()
+    const command = cursor.readUint8()
+    const length = cursor.readUint16(true)
+    const stream = cursor.readUint32(true)
+    const data = cursor.read(length)
 
     return new this(version, command, stream, data)
   }
 
-  static tryRead(binary: Cursor) {
-    const offset = binary.offset
+  static tryRead(cursor: Cursor) {
+    const offset = cursor.offset
 
     try {
-      return this.read(binary)
+      return this.read(cursor)
     } catch (e: unknown) {
-      binary.offset = offset
+      cursor.offset = offset
     }
   }
 }

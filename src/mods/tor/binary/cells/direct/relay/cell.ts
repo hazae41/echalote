@@ -28,36 +28,36 @@ export class RelayCell {
   }
 
   async cell() {
-    const binary = Cursor.allocUnsafe(PAYLOAD_LEN)
+    const cursor = Cursor.allocUnsafe(PAYLOAD_LEN)
 
-    binary.writeUint8(this.rcommand)
-    binary.writeUint16(0)
-    binary.writeUint16(this.stream?.id ?? 0)
+    cursor.writeUint8(this.rcommand)
+    cursor.writeUint16(0)
+    cursor.writeUint16(this.stream?.id ?? 0)
 
-    const digestOffset = binary.offset
+    const digestOffset = cursor.offset
 
-    binary.writeUint32(0)
+    cursor.writeUint32(0)
 
-    binary.writeUint16(this.data.length)
-    binary.write(this.data)
-    binary.fill(Math.min(binary.remaining, 4))
+    cursor.writeUint16(this.data.length)
+    cursor.write(this.data)
+    cursor.fill(Math.min(cursor.remaining, 4))
 
-    if (binary.remaining > 0)
-      binary.write(Bytes.random(binary.remaining))
+    if (cursor.remaining > 0)
+      cursor.write(Bytes.random(cursor.remaining))
 
     const exit = Arrays.lastOf(this.circuit.targets)
 
-    exit.forwardDigest.update(binary.buffer)
+    exit.forwardDigest.update(cursor.buffer)
 
     const digest = exit.forwardDigest.finalize().subarray(0, 4)
 
-    binary.offset = digestOffset
-    binary.write(digest)
+    cursor.offset = digestOffset
+    cursor.write(digest)
 
     for (let i = this.circuit.targets.length - 1; i >= 0; i--)
-      this.circuit.targets[i].forwardKey.apply_keystream(binary.buffer)
+      this.circuit.targets[i].forwardKey.apply_keystream(cursor.buffer)
 
-    return new NewCell(this.circuit, this.class.command, binary.buffer)
+    return new NewCell(this.circuit, this.class.command, cursor.buffer)
   }
 
   static async uncell(cell: NewCell) {
@@ -71,15 +71,15 @@ export class RelayCell {
 
       target.backwardKey.apply_keystream(cell.payload)
 
-      const binary = new Cursor(cell.payload)
+      const cursor = new Cursor(cell.payload)
 
-      const rcommand = binary.readUint8()
-      const recognised = binary.readUint16()
+      const rcommand = cursor.readUint8()
+      const recognised = cursor.readUint16()
 
       if (recognised !== 0)
         continue
 
-      const streamId = binary.readUint16()
+      const streamId = cursor.readUint16()
 
       const stream = streamId
         ? cell.circuit.streams.get(streamId)
@@ -88,18 +88,18 @@ export class RelayCell {
       if (streamId && !stream)
         throw new Error(`Unknown ${this.name} stream id ${streamId}`)
 
-      const digest = new Uint8Array(binary.get(4))
-      binary.writeUint32(0)
+      const digest = new Uint8Array(cursor.get(4))
+      cursor.writeUint32(0)
 
-      target.backwardDigest.update(binary.buffer)
+      target.backwardDigest.update(cursor.buffer)
 
       const digest2 = target.backwardDigest.finalize().subarray(0, 4)
 
       if (!Bytes.equals(digest, digest2))
         throw new Error(`Invalid ${this.name} digest`)
 
-      const length = binary.readUint16()
-      const data = binary.read(length)
+      const length = cursor.readUint16()
+      const data = cursor.read(length)
 
       return new this(cell.circuit, stream, rcommand, data)
     }
