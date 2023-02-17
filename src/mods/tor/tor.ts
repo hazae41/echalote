@@ -1,12 +1,12 @@
 import { Berith } from "@hazae41/berith";
 import { Cursor } from "@hazae41/binary";
+import { Bitset } from "@hazae41/bitset";
 import { Bytes } from "@hazae41/bytes";
 import { TlsStream } from "@hazae41/cadenas";
 import { Foras } from "@hazae41/foras";
 import { Morax } from "@hazae41/morax";
 import { Paimon } from "@hazae41/paimon";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
-import { Bitmask } from "libs/bits.js";
 import { AbortEvent } from "libs/events/abort.js";
 import { CloseEvent } from "libs/events/close.js";
 import { ErrorEvent } from "libs/events/error.js";
@@ -601,7 +601,10 @@ export class Tor extends AsyncEventTarget {
         const rawCircuitId = new Cursor(Bytes.random(4)).getUint32()
         if (rawCircuitId === 0) continue
 
-        const circuitId = new Bitmask(rawCircuitId).set(31, true).export()
+        const circuitId = new Bitset(rawCircuitId, 32)
+          .enableBE(0)
+          .unsign()
+          .value
         if (this.circuits.has(circuitId)) continue
 
         const circuit = new Circuit(this, circuitId)

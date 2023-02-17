@@ -1,5 +1,4 @@
 import { Cursor } from "@hazae41/binary";
-import { Bitmask } from "libs/bits.js";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/index.js";
 import { InvalidRelayCommand, InvalidStream } from "mods/tor/binary/cells/errors.js";
 import { Circuit } from "mods/tor/circuit.js";
@@ -21,7 +20,7 @@ export class RelayBeginCell {
     readonly circuit: Circuit,
     readonly stream: TcpStream,
     readonly address: string,
-    readonly flags: Bitmask
+    readonly flags: number
   ) { }
 
   async pack() {
@@ -32,7 +31,7 @@ export class RelayBeginCell {
     const cursor = Cursor.allocUnsafe(PAYLOAD_LEN)
 
     cursor.writeNulledString(this.address)
-    cursor.writeUint32(this.flags.n)
+    cursor.writeUint32(this.flags)
     cursor.fill()
 
     return new RelayCell(this.circuit, this.stream, this.#class.rcommand, cursor.before)
@@ -47,8 +46,7 @@ export class RelayBeginCell {
     const cursor = new Cursor(cell.data)
 
     const address = cursor.readNulledString()
-    const flagsn = cursor.readUint32()
-    const flags = new Bitmask(flagsn)
+    const flags = cursor.readUint32()
 
     return new this(cell.circuit, cell.stream, address, flags)
   }

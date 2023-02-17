@@ -1,11 +1,11 @@
 import { X25519PublicKey, X25519StaticSecret } from "@hazae41/berith";
+import { Bitset } from "@hazae41/bitset";
 import { Bytes } from "@hazae41/bytes";
 import { Ciphers, TlsStream } from "@hazae41/cadenas";
 import { fetch } from "@hazae41/fleche";
 import { Sha1Hasher } from "@hazae41/morax";
 import { Aes128Ctr128BEKey } from "@hazae41/zepar";
 import { Arrays } from "libs/arrays/arrays.js";
-import { Bitmask } from "libs/bits.js";
 import { AbortEvent } from "libs/events/abort.js";
 import { ErrorEvent } from "libs/events/error.js";
 import { Events } from "libs/events/events.js";
@@ -349,10 +349,12 @@ export class Circuit extends AsyncEventTarget {
     const stream = new TcpStream(this, streamId, signal)
     this.streams.set(streamId, stream)
 
-    const flags = new Bitmask(0)
-      .set(RelayBeginCell.flags.IPV4_OK, true)
-      .set(RelayBeginCell.flags.IPV6_NOT_OK, false)
-      .set(RelayBeginCell.flags.IPV6_PREFER, true)
+    const flags = new Bitset(0, 32)
+      .setLE(RelayBeginCell.flags.IPV4_OK, true)
+      .setLE(RelayBeginCell.flags.IPV6_NOT_OK, false)
+      .setLE(RelayBeginCell.flags.IPV6_PREFER, true)
+      .unsign()
+      .value
     this.tor.output.enqueue(await new RelayBeginCell(this, stream, `${hostname}:${port}`, flags).pack())
 
     return stream
