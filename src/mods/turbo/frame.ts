@@ -71,12 +71,6 @@ export class TurboFrame {
     throw new Error(`${this.#class.name}: write() max data length`)
   }
 
-  export() {
-    const cursor = Cursor.allocUnsafe(this.size())
-    this.write(cursor)
-    return cursor.bytes
-  }
-
   /**
    * Read from bytes
    * @param binary bytes

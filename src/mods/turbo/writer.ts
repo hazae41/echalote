@@ -1,3 +1,4 @@
+import { Writable } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { TurboFrame } from "./frame.js";
 import { TurboStream } from "./stream.js";
@@ -59,7 +60,7 @@ export class TurboWriterSink implements UnderlyingSink<Uint8Array> {
 
   async write(chunk: Uint8Array) {
     const frame = new TurboFrame(false, chunk)
-    this.source.controller.enqueue(frame.export())
+    this.source.controller.enqueue(Writable.toBytes(frame))
   }
 
   async abort(reason?: any) {

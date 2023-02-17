@@ -39,12 +39,6 @@ export class SmuxSegment {
     cursor.write(this.data)
   }
 
-  export() {
-    const cursor = Cursor.allocUnsafe(this.size())
-    this.write(cursor)
-    return cursor.bytes
-  }
-
   static read(cursor: Cursor) {
     const version = cursor.readUint8()
     const command = cursor.readUint8()

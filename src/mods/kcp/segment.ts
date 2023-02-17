@@ -69,12 +69,6 @@ export class KcpSegment {
     cursor.write(this.data)
   }
 
-  export() {
-    const cursor = Cursor.allocUnsafe(this.size())
-    this.write(cursor)
-    return cursor.bytes
-  }
-
   static read(cursor: Cursor) {
     const conversation = cursor.readUint32(true)
     const command = cursor.readUint8()

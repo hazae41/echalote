@@ -1,3 +1,4 @@
+import { Writable } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { KcpSegment } from "./segment.js";
 import { KcpStream } from "./stream.js";
@@ -68,7 +69,7 @@ export class KcpWriterSink implements UnderlyingSink<Uint8Array>{
     const send_counter = this.stream.send_counter++
     const recv_counter = this.stream.recv_counter
     const segment = new KcpSegment(conversation, command, 0, 65535, Date.now() / 1000, send_counter, recv_counter, chunk)
-    this.source.controller.enqueue(segment.export())
+    this.source.controller.enqueue(Writable.toBytes(segment))
     // await this.reader.wait("ack")
   }
 

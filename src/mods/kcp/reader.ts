@@ -1,4 +1,4 @@
-import { Cursor } from "@hazae41/binary";
+import { Cursor, Writable } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { KcpSegment } from "./segment.js";
@@ -103,7 +103,7 @@ export class KcpReader extends AsyncEventTarget {
     const serial = segment.serial
     const una = this.stream.recv_counter
     const ack = new KcpSegment(conversation, command, 0, 65535, timestamp, serial, una, new Uint8Array())
-    this.writer.source.controller.enqueue(ack.export())
+    this.writer.source.controller.enqueue(Writable.toBytes(ack))
   }
 
   async #onAck(segment: KcpSegment) {
@@ -116,7 +116,7 @@ export class KcpReader extends AsyncEventTarget {
     const send_counter = this.stream.send_counter++
     const recv_counter = this.stream.recv_counter
     const wins = new KcpSegment(conversation, command, 0, 65535, Date.now() / 1000, send_counter, recv_counter, new Uint8Array())
-    this.writer.source.controller.enqueue(wins.export())
+    this.writer.source.controller.enqueue(Writable.toBytes(wins))
   }
 
 }
