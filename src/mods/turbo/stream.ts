@@ -1,28 +1,6 @@
 import { Bytes } from "@hazae41/bytes"
-import { WebSocketStream } from "libs/transports/websocket.js"
-import { KcpStream } from "mods/kcp/stream.js"
-import { SmuxStream } from "mods/smux/stream.js"
 import { TurboReader } from "./reader.js"
 import { TurboWriter } from "./writer.js"
-
-export async function createWebSocketTurboStream(url: string) {
-  const websocket = new WebSocket(url)
-
-  websocket.binaryType = "arraybuffer"
-
-  await new Promise((ok, err) => {
-    websocket.addEventListener("open", ok)
-    websocket.addEventListener("error", err)
-  })
-
-  const stream = new WebSocketStream(websocket, {
-    shouldCloseOnAbort: false,
-    shouldCloseOnCancel: false,
-    shouldCloseOnClose: false
-  })
-
-  return new SmuxStream(new KcpStream(new TurboStream(stream)))
-}
 
 export interface TurboStreamParams {
   clientID?: Uint8Array
