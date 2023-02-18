@@ -72,6 +72,7 @@ export class KcpSegment<T extends Writable> {
   write(cursor: Cursor) {
     if (!this.#data)
       throw new Error(`Unprepared ${this.#class.name}`)
+
     const { size } = this.#data
 
     cursor.writeUint32(this.conversation, true)

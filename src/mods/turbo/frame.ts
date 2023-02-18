@@ -75,6 +75,7 @@ export class TurboFrame<T extends Writable> {
   write(cursor: Cursor) {
     if (!this.#data)
       throw new Error(`Unprepared ${this.#class.name}`)
+
     const { size } = this.#data
 
     if (size < 64)

@@ -1,6 +1,7 @@
-import { Cursor } from "@hazae41/binary"
+import { Cursor, Opaque, Readable, UnsafeOpaque, Writable } from "@hazae41/binary"
 
-export class SmuxSegment {
+export class SmuxSegment<T extends Writable> {
+  readonly #class = SmuxSegment
 
   static readonly versions = {
     one: 1,
@@ -19,24 +20,40 @@ export class SmuxSegment {
     readonly version: number,
     readonly command: number,
     readonly stream: number,
-    readonly data: Uint8Array
+    readonly fragment: T
   ) { }
 
+  #data?: {
+    size: number
+  }
+
+  #prepare() {
+    const size = this.fragment.size()
+    return this.#data = { size }
+  }
+
   size() {
+    const { size } = this.#prepare()
+
     return 0
       + 1
       + 1
       + 2
       + 4
-      + this.data.length
+      + size
   }
 
   write(cursor: Cursor) {
+    if (!this.#data)
+      throw new Error(`Unprepared ${this.#class.name}`)
+
+    const { size } = this.#data
+
     cursor.writeUint8(this.version)
     cursor.writeUint8(this.command)
-    cursor.writeUint16(this.data.length, true)
+    cursor.writeUint16(size, true)
     cursor.writeUint32(this.stream, true)
-    cursor.write(this.data)
+    this.fragment.write(cursor)
   }
 
   static read(cursor: Cursor) {
@@ -44,9 +61,11 @@ export class SmuxSegment {
     const command = cursor.readUint8()
     const length = cursor.readUint16(true)
     const stream = cursor.readUint32(true)
-    const data = cursor.read(length)
+    const bytes = cursor.read(length)
 
-    return new this(version, command, stream, data)
+    const opaque = Readable.fromBytes(UnsafeOpaque, bytes)
+
+    return new this<Opaque>(version, command, stream, opaque)
   }
 
   static tryRead(cursor: Cursor) {

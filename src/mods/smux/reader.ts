@@ -1,4 +1,4 @@
-import { Cursor } from "@hazae41/binary";
+import { Cursor, Opaque } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { SmuxSegment } from "mods/smux/segment.js";
@@ -69,20 +69,20 @@ export class SmuxReader extends AsyncEventTarget {
     // console.debug("<-", chunk)
 
     if (this.#buffer.offset)
-      await this.onReadBuffered(chunk)
+      await this.#onReadBuffered(chunk)
     else
-      await this.onReadDirect(chunk)
+      await this.#onReadDirect(chunk)
   }
 
-  async onReadBuffered(chunk: Uint8Array) {
+  async #onReadBuffered(chunk: Uint8Array) {
     this.#buffer.write(chunk)
     const full = this.#buffer.before
 
     this.#buffer.offset = 0
-    await this.onReadDirect(full)
+    await this.#onReadDirect(full)
   }
 
-  async onReadDirect(chunk: Uint8Array) {
+  async #onReadDirect(chunk: Uint8Array) {
     const cursor = new Cursor(chunk)
 
     while (cursor.remaining) {
@@ -93,14 +93,13 @@ export class SmuxReader extends AsyncEventTarget {
         break
       }
 
-      await this.onSegment(segment)
+      await this.#onSegment(segment)
     }
   }
 
-
-  async onSegment(segment: SmuxSegment) {
+  async #onSegment(segment: SmuxSegment<Opaque>) {
     if (segment.command === SmuxSegment.commands.psh)
-      return this.source.controller.enqueue(segment.data)
+      return this.source.controller.enqueue(segment.fragment.bytes)
   }
 
 }

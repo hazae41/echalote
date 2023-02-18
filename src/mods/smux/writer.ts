@@ -1,4 +1,4 @@
-import { Writable } from "@hazae41/binary";
+import { Empty, Opaque, Writable } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { SmuxSegment } from "mods/smux/segment.js";
 import { SmuxStream } from "./stream.js";
@@ -64,7 +64,7 @@ export class SmuxWriterSink implements UnderlyingSink<Uint8Array>{
   }
 
   async write(chunk: Uint8Array) {
-    const segment = new SmuxSegment(2, SmuxSegment.commands.psh, 1, chunk)
+    const segment = new SmuxSegment(2, SmuxSegment.commands.psh, 1, new Opaque(chunk))
     this.source.controller.enqueue(Writable.toBytes(segment))
   }
 
@@ -101,7 +101,7 @@ export class SmuxWriterSource implements UnderlyingSource<Uint8Array> {
   async start(controller: ReadableStreamController<Uint8Array>) {
     this.#controller = controller
 
-    const segment = new SmuxSegment(2, SmuxSegment.commands.syn, 1, new Uint8Array())
+    const segment = new SmuxSegment(2, SmuxSegment.commands.syn, 1, new Empty())
     this.controller.enqueue(Writable.toBytes(segment))
   }
 
