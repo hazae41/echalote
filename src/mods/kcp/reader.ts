@@ -1,4 +1,4 @@
-import { Cursor, Writable } from "@hazae41/binary";
+import { Cursor, Empty, Opaque, Writable } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { StreamPair } from "libs/streams/pair.js";
@@ -64,7 +64,7 @@ export class PrivateKcpReader {
     }
   }
 
-  async #onSegment(segment: KcpSegment) {
+  async #onSegment(segment: KcpSegment<Opaque>) {
     if (segment.conversation !== this.publics.conversation)
       return
 
@@ -78,32 +78,32 @@ export class PrivateKcpReader {
       return await this.#onWask(segment)
   }
 
-  async #onPush(segment: KcpSegment) {
+  async #onPush(segment: KcpSegment<Opaque>) {
     if (segment.serial !== this.privates.recv_counter)
       return
 
     this.privates.recv_counter++
-    this.pair.enqueue(segment.data)
+    this.pair.enqueue(segment.fragment.bytes)
 
     const conversation = this.publics.conversation
     const command = KcpSegment.commands.ack
     const timestamp = segment.timestamp
     const serial = segment.serial
     const una = this.privates.recv_counter
-    const ack = new KcpSegment(conversation, command, 0, 65535, timestamp, serial, una, new Uint8Array())
+    const ack = new KcpSegment(conversation, command, 0, 65535, timestamp, serial, una, new Empty())
     this.privates.writer.pair.enqueue(Writable.toBytes(ack))
   }
 
-  async #onAck(segment: KcpSegment) {
+  async #onAck(segment: KcpSegment<Opaque>) {
     this.publics.reader.dispatchEvent(new MessageEvent("ack", { data: segment }))
   }
 
-  async #onWask(_: KcpSegment) {
+  async #onWask(segment: KcpSegment<Opaque>) {
     const conversation = this.publics.conversation
     const command = KcpSegment.commands.wins
     const send_counter = 0
     const recv_counter = this.privates.recv_counter
-    const wins = new KcpSegment(conversation, command, 0, 65535, Date.now() / 1000, send_counter, recv_counter, new Uint8Array())
+    const wins = new KcpSegment(conversation, command, 0, 65535, Date.now() / 1000, send_counter, recv_counter, new Empty())
     this.privates.writer.pair.enqueue(Writable.toBytes(wins))
   }
 

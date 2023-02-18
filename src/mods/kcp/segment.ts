@@ -1,6 +1,7 @@
-import { Cursor } from "@hazae41/binary";
+import { Cursor, Opaque, Readable, UnsafeOpaque, Writable } from "@hazae41/binary";
 
-export class KcpSegment {
+export class KcpSegment<T extends Writable> {
+  readonly #class = KcpSegment
 
   static readonly commands = {
     push: 81,
@@ -41,10 +42,21 @@ export class KcpSegment {
     /**
      * data
      */
-    readonly data: Uint8Array
+    readonly fragment: T
   ) { }
 
+  #data?: {
+    size: number
+  }
+
+  #prepare() {
+    const size = this.fragment.size()
+    return this.#data = { size }
+  }
+
   size() {
+    const { size } = this.#prepare()
+
     return 0
       + 4
       + 1
@@ -54,10 +66,14 @@ export class KcpSegment {
       + 4
       + 4
       + 4
-      + this.data.length
+      + size
   }
 
   write(cursor: Cursor) {
+    if (!this.#data)
+      throw new Error(`Unprepared ${this.#class.name}`)
+    const { size } = this.#data
+
     cursor.writeUint32(this.conversation, true)
     cursor.writeUint8(this.command)
     cursor.writeUint8(this.count)
@@ -65,8 +81,8 @@ export class KcpSegment {
     cursor.writeUint32(this.timestamp, true)
     cursor.writeUint32(this.serial, true)
     cursor.writeUint32(this.unackSerial, true)
-    cursor.writeUint32(this.data.length, true)
-    cursor.write(this.data)
+    cursor.writeUint32(size, true)
+    this.fragment.write(cursor)
   }
 
   static read(cursor: Cursor) {
@@ -78,9 +94,11 @@ export class KcpSegment {
     const serial = cursor.readUint32(true)
     const unackSerial = cursor.readUint32(true)
     const length = cursor.readUint32(true)
-    const data = cursor.read(length)
+    const bytes = cursor.read(length)
 
-    return new this(conversation, command, count, window, timestamp, serial, unackSerial, data)
+    const opaque = Readable.fromBytes(UnsafeOpaque, bytes)
+
+    return new this<Opaque>(conversation, command, count, window, timestamp, serial, unackSerial, opaque)
   }
 
   static tryRead(cursor: Cursor) {

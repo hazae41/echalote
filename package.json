@@ -25,7 +25,7 @@
   },
   "dependencies": {
     "@hazae41/berith": "^1.1.40",
-    "@hazae41/binary": "^1.2.3",
+    "@hazae41/binary": "^1.2.5",
     "@hazae41/bitset": "^1.0.1",
     "@hazae41/bytes": "^1.0.3",
     "@hazae41/cadenas": "^0.2.0",

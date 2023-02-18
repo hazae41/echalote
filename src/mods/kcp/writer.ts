@@ -1,4 +1,4 @@
-import { Writable } from "@hazae41/binary";
+import { Opaque, Writable } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { StreamPair } from "libs/streams/pair.js";
 import { KcpSegment } from "./segment.js";
@@ -28,7 +28,7 @@ export class PrivateKcpWriter {
     const command = KcpSegment.commands.push
     const send_counter = this.privates.send_counter++
     const recv_counter = this.privates.recv_counter
-    const segment = new KcpSegment(conversation, command, 0, 65535, Date.now() / 1000, send_counter, recv_counter, chunk)
+    const segment = new KcpSegment(conversation, command, 0, 65535, Date.now() / 1000, send_counter, recv_counter, new Opaque(chunk))
     console.log("->", segment)
     this.pair.enqueue(Writable.toBytes(segment))
   }
