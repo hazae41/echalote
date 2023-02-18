@@ -1,4 +1,4 @@
-import { Cursor } from "@hazae41/binary"
+import { Readable } from "@hazae41/binary"
 import { AsyncEventTarget } from "libs/events/target.js"
 import { TurboFrame } from "./frame.js"
 import { TurboStream } from "./stream.js"
@@ -59,8 +59,7 @@ export class TurboReaderSink implements UnderlyingSink<Uint8Array> {
   }
 
   async write(chunk: Uint8Array) {
-    const frame = TurboFrame.read(new Cursor(chunk))
-    console.log("<-", frame)
+    const frame = Readable.fromBytes(TurboFrame, chunk)
 
     if (frame.padding) return
 

@@ -99,8 +99,6 @@ export class SmuxReader extends AsyncEventTarget {
 
 
   async onSegment(segment: SmuxSegment) {
-    console.log("<-", segment)
-
     if (segment.command === SmuxSegment.commands.psh)
       return this.source.controller.enqueue(segment.data)
   }

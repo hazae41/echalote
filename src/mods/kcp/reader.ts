@@ -58,10 +58,7 @@ export class PrivateKcpReader {
     while (cursor.remaining) {
       const segment = KcpSegment.tryRead(cursor)
 
-      if (!segment) {
-        console.warn("kcp", chunk)
-        break
-      }
+      if (!segment) break
 
       await this.#onSegment(segment)
     }
@@ -82,10 +79,8 @@ export class PrivateKcpReader {
   }
 
   async #onPush(segment: KcpSegment) {
-    if (segment.serial !== this.privates.recv_counter) {
-      console.warn("got old segment", segment.serial, segment)
+    if (segment.serial !== this.privates.recv_counter)
       return
-    }
 
     this.privates.recv_counter++
     this.pair.enqueue(segment.data)
