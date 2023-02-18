@@ -63,7 +63,7 @@ export class TurboReaderSink implements UnderlyingSink<Uint8Array> {
 
     if (frame.padding) return
 
-    this.source.controller.enqueue(frame.data)
+    this.source.controller.enqueue(frame.fragment.bytes)
   }
 
   async abort(reason?: any) {

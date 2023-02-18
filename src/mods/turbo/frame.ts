@@ -1,55 +1,66 @@
-import { Cursor } from "@hazae41/binary";
+import { Cursor, Opaque, Readable, UnsafeOpaque, Writable } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 
-export class TurboFrame {
+export class TurboFrame<T extends Writable> {
   readonly #class = TurboFrame
 
   constructor(
     readonly padding: boolean,
-    readonly data: Uint8Array
+    readonly fragment: T
   ) { }
 
-  size() {
-    if (this.data.length < 64)
-      return 1 + this.data.length
-    if (this.data.length < 8192)
-      return 2 + this.data.length
-    if (this.data.length < 1048576)
-      return 3 + this.data.length
-    throw new Error(`${this.#class.name}: size() max data length`)
+  #data?: {
+    size: number
   }
 
-  write6(cursor: Cursor) {
-    const first = new Bitset(this.data.length, 8)
+  #prepare() {
+    const size = this.fragment.size()
+    return this.#data = { size }
+  }
+
+  size() {
+    const { size } = this.#prepare()
+
+    if (size < 64)
+      return 1 + size
+    if (size < 8192)
+      return 2 + size
+    if (size < 1048576)
+      return 3 + size
+    throw new Error(`${this.#class.name}.size() max data length`)
+  }
+
+  write6(cursor: Cursor, size: number) {
+    const first = new Bitset(size, 8)
     first.setBE(0, !this.padding)
     first.setBE(1, false)
     first.unsign()
 
     cursor.writeUint8(first.value)
-    cursor.write(this.data)
+    this.fragment.write(cursor)
   }
 
-  write13(cursor: Cursor) {
+  write13(cursor: Cursor, size: number) {
     let bits = ""
     bits += this.padding ? "0" : "1"
     bits += "1"
 
-    const length = this.data.length.toString(2).padStart(13, "0")
+    const length = size.toString(2).padStart(13, "0")
 
     bits += length.slice(0, 6)
     bits += "0"
     bits += length.slice(6, 13)
 
     cursor.writeUint16(parseInt(bits, 2))
-    cursor.write(this.data)
+    this.fragment.write(cursor)
   }
 
-  write20(cursor: Cursor) {
+  write20(cursor: Cursor, size: number) {
     let bits = ""
     bits += this.padding ? "0" : "1"
     bits += "1"
 
-    const length = this.data.length.toString(2).padStart(20, "0")
+    const length = size.toString(2).padStart(20, "0")
 
     bits += length.slice(0, 6)
     bits += "1"
@@ -58,17 +69,21 @@ export class TurboFrame {
     bits += length.slice(13, 20)
 
     cursor.writeUint24(parseInt(bits, 2))
-    cursor.write(this.data)
+    this.fragment.write(cursor)
   }
 
   write(cursor: Cursor) {
-    if (this.data.length < 64)
-      return this.write6(cursor)
-    if (this.data.length < 8192)
-      return this.write13(cursor)
-    if (this.data.length < 1048576)
-      return this.write20(cursor)
-    throw new Error(`${this.#class.name}: write() max data length`)
+    if (!this.#data)
+      throw new Error(`Unprepared ${this.#class.name}`)
+    const { size } = this.#data
+
+    if (size < 64)
+      return this.write6(cursor, size)
+    if (size < 8192)
+      return this.write13(cursor, size)
+    if (size < 1048576)
+      return this.write20(cursor, size)
+    throw new Error(`${this.#class.name}.write() max data length`)
   }
 
   /**
@@ -107,8 +122,10 @@ export class TurboFrame {
     }
 
     const length = parseInt(lengthBits, 2)
-    const data = cursor.read(length)
+    const bytes = cursor.read(length)
 
-    return new this(padding, data)
+    const opaque = Readable.fromBytes(UnsafeOpaque, bytes)
+
+    return new this<Opaque>(padding, opaque)
   }
 }
