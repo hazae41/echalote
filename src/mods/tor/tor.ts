@@ -593,6 +593,32 @@ export class Tor extends AsyncEventTarget {
     return await this.#waitFor("CREATED_FAST", { future, onEvent, signal })
   }
 
+  async tryCreateAndExtend(timeout = 5000, delay = 1000) {
+    while (true) {
+      try {
+        const circuit = await this.tryCreate(timeout, delay)
+        await circuit.tryExtend(false, timeout, delay)
+        await circuit.tryExtend(true, timeout, delay)
+        return circuit
+      } catch (e: unknown) {
+        console.warn("Create and extend failed", e)
+        await new Promise(ok => setTimeout(ok, delay))
+      }
+    }
+  }
+
+  async tryCreate(timeout = 5000, delay = 1000) {
+    while (true) {
+      try {
+        const signal = AbortSignal.timeout(timeout)
+        return await this.create(signal)
+      } catch (e: unknown) {
+        console.warn("Create failed", e)
+        await new Promise(ok => setTimeout(ok, delay))
+      }
+    }
+  }
+
   async create(signal?: AbortSignal) {
     if (this.#state.type !== "handshaked")
       throw new Error(`Can't create a circuit yet`)

@@ -217,37 +217,39 @@ export class Circuit extends AsyncEventTarget {
     })
   }
 
-  async extend(exit: boolean) {
+  async extend(exit: boolean, signal?: AbortSignal) {
+    if (this.closed)
+      throw new Error(`Circuit is closed`)
+
+    const fallbacks = exit
+      ? this.tor.params.fallbacks.filter(it => it.exit)
+      : this.tor.params.fallbacks
+    const fallback = Arrays.randomOf(fallbacks)
+
+    if (!fallback)
+      throw new Error(`Could not find fallback`)
+
+    return await this.extendTo(fallback, signal)
+  }
+
+  async tryExtend(exit: boolean, timeout = 5000, delay = 1000) {
     while (true) {
-      if (this.closed)
-        throw new Error(`Circuit is closed`)
-
-      const fallbacks = exit
-        ? this.tor.params.fallbacks.filter(it => it.exit)
-        : this.tor.params.fallbacks
-      const fallback = Arrays.randomOf(fallbacks)
-
-      if (!fallback)
-        throw new Error(`Could not find fallback`)
-
-      const aborter = new AbortController()
-      const { signal } = aborter
-
-      setTimeout(() => aborter.abort(), 5 * 1000)
-
       try {
-        return await this.extendTo(fallback, signal)
+        const signal = AbortSignal.timeout(timeout)
+        return await this.extend(exit, signal)
       } catch (e: unknown) {
-        console.warn("Extend failed", e)
-
         if (this.closed) throw e
-      }
 
-      await new Promise(ok => setTimeout(ok, 1000))
+        console.warn("Extend failed", e)
+        await new Promise(ok => setTimeout(ok, delay))
+      }
     }
   }
 
   async extendTo(fallback: Fallback, signal?: AbortSignal) {
+    if (this.closed)
+      throw new Error(`Circuit is closed`)
+
     const idh = Bytes.fromHex(fallback.id)
 
     const eid = fallback.eid
