@@ -8,3 +8,4 @@ export * from "./errors.js";
 export * from "./streams/index.js";
 export * from "./target.js";
 export * from "./tor.js";
+export * from "./types/index.js";

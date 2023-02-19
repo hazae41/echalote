@@ -37,6 +37,7 @@ import { TorCiphers } from "mods/tor/ciphers.js";
 import { Circuit } from "mods/tor/circuit.js";
 import { Authority, parseAuthorities } from "mods/tor/consensus/authorities.js";
 import { Target } from "mods/tor/target.js";
+import { LoopParams } from "mods/tor/types/loop.js";
 
 export type TorState =
   | TorNoneState
@@ -593,26 +594,34 @@ export class Tor extends AsyncEventTarget {
     return await this.#waitFor("CREATED_FAST", { future, onEvent, signal })
   }
 
-  async tryCreateAndExtend(timeout = 5000, delay = 1000) {
+  async tryCreateAndExtend(params: LoopParams = {}) {
+    const { signal, timeout = 5000, delay = 1000 } = params
+
     while (true) {
       try {
-        const circuit = await this.tryCreate(timeout, delay)
-        await circuit.tryExtend(false, timeout, delay)
-        await circuit.tryExtend(true, timeout, delay)
+        const circuit = await this.tryCreate(params)
+        await circuit.tryExtend(false, params)
+        await circuit.tryExtend(true, params)
         return circuit
       } catch (e: unknown) {
+        if (signal?.aborted) throw e
+
         console.warn("Create and extend failed", e)
         await new Promise(ok => setTimeout(ok, delay))
       }
     }
   }
 
-  async tryCreate(timeout = 5000, delay = 1000) {
+  async tryCreate(params: LoopParams = {}) {
+    const { signal, timeout = 5000, delay = 1000 } = params
+
     while (true) {
       try {
         const signal = AbortSignal.timeout(timeout)
         return await this.create(signal)
       } catch (e: unknown) {
+        if (signal?.aborted) throw e
+
         console.warn("Create failed", e)
         await new Promise(ok => setTimeout(ok, delay))
       }

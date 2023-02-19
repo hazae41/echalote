@@ -25,6 +25,7 @@ import { RelayTruncatedCell } from "mods/tor/binary/cells/relayed/relay_truncate
 import { TcpStream } from "mods/tor/streams/tcp.js";
 import { Target } from "mods/tor/target.js";
 import { Fallback, Tor } from "mods/tor/tor.js";
+import { LoopParams } from "mods/tor/types/loop.js";
 
 export class Circuit extends AsyncEventTarget {
   readonly #class = Circuit
@@ -217,6 +218,23 @@ export class Circuit extends AsyncEventTarget {
     })
   }
 
+  async tryExtend(exit: boolean, params: LoopParams = {}) {
+    const { signal, timeout = 5000, delay = 1000 } = params
+
+    while (true) {
+      try {
+        const signal = AbortSignal.timeout(timeout)
+        return await this.extend(exit, signal)
+      } catch (e: unknown) {
+        if (this.closed) throw e
+        if (signal?.aborted) throw e
+
+        console.warn("Extend failed", e)
+        await new Promise(ok => setTimeout(ok, delay))
+      }
+    }
+  }
+
   async extend(exit: boolean, signal?: AbortSignal) {
     if (this.closed)
       throw new Error(`Circuit is closed`)
@@ -230,20 +248,6 @@ export class Circuit extends AsyncEventTarget {
       throw new Error(`Could not find fallback`)
 
     return await this.extendTo(fallback, signal)
-  }
-
-  async tryExtend(exit: boolean, timeout = 5000, delay = 1000) {
-    while (true) {
-      try {
-        const signal = AbortSignal.timeout(timeout)
-        return await this.extend(exit, signal)
-      } catch (e: unknown) {
-        if (this.closed) throw e
-
-        console.warn("Extend failed", e)
-        await new Promise(ok => setTimeout(ok, delay))
-      }
-    }
   }
 
   async extendTo(fallback: Fallback, signal?: AbortSignal) {
