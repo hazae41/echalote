@@ -21,12 +21,12 @@ This is experimental software in early development
 - 100% TypeScript and ESM
 - Zero-copy reading and writing
 - Works in the browser
+- All cryptography use either WebCrypto or reproducible WebAssembly ports of audited Rust implementations
 - Partial and unsafe Tor protocol (with Ed25519, ntor, kdf-tor)
 - Partial Meek (HTTP) transport (without domain-fronting)
 - Partial Snowflake (WebRTC/WebSocket) transport (without domain-fronting)
 - Partial and unsafe TLS using [Cadenas](https://github.com/hazae41/cadenas)
-- Partial HTTP messaging using [Fleche](https://github.com/hazae41/fleche)
-- All cryptography use either WebCrypto or reproducible WebAssembly ports of audited Rust implementations
+- Partial HTTP and WebSocket messaging using [Fleche](https://github.com/hazae41/fleche)
 
 ### [Upcoming features](https://github.com/sponsors/hazae41)
 - Tor consensus and directories support
