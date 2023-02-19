@@ -106,9 +106,7 @@ export default function Page() {
     try {
       if (!tcp) return
 
-      const tor = new Tor(tcp, { fallbacks })
-      await tor.handshake()
-      return tor
+      return new Tor(tcp, { fallbacks })
     } catch (e: unknown) {
       console.error("Tor", e)
     }

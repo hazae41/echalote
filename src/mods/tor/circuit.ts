@@ -388,8 +388,6 @@ export class Circuit extends AsyncEventTarget {
       const ciphers = [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
       const tls = new TlsStream(tcp, { ciphers })
 
-      await tls.handshake(req.signal)
-
       return fetch(input, { ...init, stream: tls })
     }
 

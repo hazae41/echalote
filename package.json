@@ -28,7 +28,7 @@
     "@hazae41/binary": "^1.2.5",
     "@hazae41/bitset": "^1.0.1",
     "@hazae41/bytes": "^1.0.3",
-    "@hazae41/cadenas": "^0.2.0",
+    "@hazae41/cadenas": "^0.2.1",
     "@hazae41/fleche": "^1.1.2",
     "@hazae41/foras": "^2.0.8",
     "@hazae41/morax": "^1.0.20",
@@ -44,7 +44,7 @@
     "@rollup/plugin-typescript": "^11.0.0",
     "@types/node": "^18.14.0",
     "rimraf": "^4.1.2",
-    "rollup": "^3.17.0",
+    "rollup": "^3.17.1",
     "rollup-plugin-dts": "^5.2.0",
     "rollup-plugin-node-externals": "^5.1.2",
     "typescript": "^4.9.5"

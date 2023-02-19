@@ -165,6 +165,52 @@ export class Tor extends AsyncEventTarget {
     return this.#output!
   }
 
+  async #wait(type: string, signal?: AbortSignal) {
+    const future = new Future<Event, Error>()
+    const onEvent = (event: Event) => future.ok(event)
+    return await this.#waitFor(type, { future, onEvent, signal })
+  }
+
+  async #waitFor<T>(type: string, params: {
+    future: Future<T, Error>,
+    onEvent: (event: Event) => void,
+    signal?: AbortSignal
+  }) {
+    const { future, onEvent, signal } = params
+
+    const onAbort = (event: Event) => {
+      const abortEvent = event as AbortEvent
+      const error = new Error(`Aborted`, { cause: abortEvent.target.reason })
+      future.err(error)
+    }
+
+    const onClose = (event: Event) => {
+      const closeEvent = event as CloseEvent
+      const error = new Error(`Closed`, { cause: closeEvent })
+      future.err(error)
+    }
+
+    const onError = (event: Event) => {
+      const errorEvent = event as ErrorEvent
+      const error = new Error(`Errored`, { cause: errorEvent })
+      future.err(error)
+    }
+
+    try {
+      signal?.addEventListener("abort", onAbort, { passive: true })
+      this.read.addEventListener("close", onClose, { passive: true })
+      this.read.addEventListener("error", onError, { passive: true })
+      this.addEventListener(type, onEvent, { passive: true })
+
+      return await future.promise
+    } finally {
+      signal?.removeEventListener("abort", onAbort)
+      this.read.removeEventListener("close", onClose)
+      this.read.removeEventListener("error", onError)
+      this.removeEventListener(type, onEvent)
+    }
+  }
+
   async #onReadClose() {
     console.debug(`${this.#class.name}.onReadClose`)
 
@@ -203,6 +249,13 @@ export class Tor extends AsyncEventTarget {
 
   async #onWriteStart(controller: TransformStreamDefaultController<Uint8Array>) {
     this.#output = controller
+
+    await this.#init()
+
+    const version = new VersionsCell(undefined, [5])
+    this.#output!.enqueue(version.pack())
+
+    await this.#wait("handshake")
   }
 
   async #onRead(chunk: Uint8Array) {
@@ -506,97 +559,6 @@ export class Tor extends AsyncEventTarget {
     data.circuit.targets.pop()
   }
 
-  async #waitHandshake(signal?: AbortSignal) {
-    const future = new Future<Event, Error>()
-
-    const onAbort = (event: Event) => {
-      const abortEvent = event as AbortEvent
-      const error = new Error(`Aborted`, { cause: abortEvent.target.reason })
-      future.err(error)
-    }
-
-    const onClose = (event: Event) => {
-      const closeEvent = event as CloseEvent
-      const error = new Error(`Closed`, { cause: closeEvent })
-      future.err(error)
-    }
-
-    const onError = (event: Event) => {
-      const errorEvent = event as ErrorEvent
-      const error = new Error(`Errored`, { cause: errorEvent })
-      future.err(error)
-    }
-
-    try {
-      signal?.addEventListener("abort", onAbort, { passive: true })
-      this.read.addEventListener("close", onClose, { passive: true })
-      this.read.addEventListener("error", onError, { passive: true })
-      this.addEventListener("handshake", future.ok, { passive: true })
-
-      await future.promise
-    } finally {
-      signal?.removeEventListener("abort", onAbort)
-      this.read.removeEventListener("close", onClose)
-      this.read.removeEventListener("error", onError)
-      this.removeEventListener("handshake", future.ok)
-    }
-  }
-
-  async handshake(signal?: AbortSignal) {
-    await this.#init()
-
-    await this.#tls.handshake(signal)
-
-    const handshake = this.#waitHandshake(signal)
-
-    const version = new VersionsCell(undefined, [5])
-    this.#output!.enqueue(version.pack())
-
-    await handshake
-  }
-
-  async #waitCreatedFast(circuit: Circuit, signal?: AbortSignal) {
-    const future = new Future<CreatedFastCell, Error>()
-
-    const onCreatedFastCell = (event: Event) => {
-      const msgEvent = event as MessageEvent<CreatedFastCell>
-      if (msgEvent.data.circuit !== circuit) return
-      future.ok(msgEvent.data)
-    }
-
-    const onAbort = (event: Event) => {
-      const abortEvent = event as AbortEvent
-      const error = new Error(`Aborted`, { cause: abortEvent.target.reason })
-      future.err(error)
-    }
-
-    const onClose = (event: Event) => {
-      const closeEvent = event as CloseEvent
-      const error = new Error(`Closed`, { cause: closeEvent })
-      future.err(error)
-    }
-
-    const onError = (event: Event) => {
-      const errorEvent = event as ErrorEvent
-      const error = new Error(`Errored`, { cause: errorEvent })
-      future.err(error)
-    }
-
-    try {
-      signal?.addEventListener("abort", onAbort, { passive: true })
-      this.read.addEventListener("close", onClose, { passive: true })
-      this.read.addEventListener("error", onError, { passive: true })
-      this.addEventListener("CREATED_FAST", onCreatedFastCell, { passive: true })
-
-      return await future.promise
-    } finally {
-      signal?.removeEventListener("abort", onAbort)
-      this.read.removeEventListener("close", onClose)
-      this.read.removeEventListener("error", onError)
-      this.removeEventListener("CREATED_FAST", onCreatedFastCell)
-    }
-  }
-
   readonly #circuitsMutex = new Mutex()
 
   async #createCircuitAtomic() {
@@ -619,6 +581,18 @@ export class Tor extends AsyncEventTarget {
     })
   }
 
+  async #waitCreatedFast(circuit: Circuit, signal?: AbortSignal) {
+    const future = new Future<CreatedFastCell, Error>()
+
+    const onEvent = (event: Event) => {
+      const msgEvent = event as MessageEvent<CreatedFastCell>
+      if (msgEvent.data.circuit !== circuit) return
+      future.ok(msgEvent.data)
+    }
+
+    return await this.#waitFor("CREATED_FAST", { future, onEvent, signal })
+  }
+
   async create(signal?: AbortSignal) {
     if (this.#state.type !== "handshaked")
       throw new Error(`Can't create a circuit yet`)
@@ -626,16 +600,15 @@ export class Tor extends AsyncEventTarget {
     const circuit = await this.#createCircuitAtomic()
     const material = Bytes.random(20)
 
-    const pcreated = this.#waitCreatedFast(circuit, signal)
     const create_fast = new CreateFastCell(circuit, material)
     this.#output!.enqueue(create_fast.pack())
 
-    const created = await pcreated
+    const created_fast = await this.#waitCreatedFast(circuit, signal)
 
-    const k0 = Bytes.concat([material, created.material])
+    const k0 = Bytes.concat([material, created_fast.material])
     const result = await kdftor(k0)
 
-    if (!Bytes.equals(result.keyHash, created.derivative))
+    if (!Bytes.equals(result.keyHash, created_fast.derivative))
       throw new Error(`Invalid KDF-TOR key hash`)
 
     const forwardDigest = new Morax.Sha1Hasher()
