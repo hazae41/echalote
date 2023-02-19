@@ -43,5 +43,5 @@ const tor = new Tor(tcp, { fallbacks })
 
 const circuit = await tor.tryCreateAndExtend()
 const res = await circuit.fetch("https://twitter.com")
-const json = await res.json()
+const text = await res.text()
 ```
