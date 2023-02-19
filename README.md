@@ -41,9 +41,7 @@ const tcp = await createWebSocketSnowflakeStream("wss://snowflake.bamsoftware.co
 
 const tor = new Tor(tcp, { fallbacks })
 
-const circuit = await tor.create()
-await circuit.extend(false) // Middle node
-await circuit.extend(true) // Exit node
-
-const res = await circuit.fetch("https://twitter.com") 
+const circuit = await tor.tryCreateAndExtend()
+const res = await circuit.fetch("https://twitter.com")
+const json = await res.json()
 ```
