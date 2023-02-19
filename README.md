@@ -6,7 +6,7 @@
 npm i @hazae41/echalote
 ```
 
-[**Node Package 📦**](https://www.npmjs.com/package/@hazae41/echalote)
+[**Node Package 📦**](https://www.npmjs.com/package/@hazae41/echalote) • [**Online Demo 🌐**](https://echalote-example-next.vercel.app) • [**Next.js CodeSandbox 🪣**](https://codesandbox.io/p/github/hazae41/echalote-example-next)
 
 ## DO NOT USE
 
