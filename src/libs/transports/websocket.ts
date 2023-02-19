@@ -1,5 +1,18 @@
 import { Future } from "libs/futures/future.js"
 
+export async function createWebSocketStream(url: string) {
+  const websocket = new WebSocket(url)
+
+  websocket.binaryType = "arraybuffer"
+
+  await new Promise((ok, err) => {
+    websocket.addEventListener("open", ok)
+    websocket.addEventListener("error", err)
+  })
+
+  return new WebSocketStream(websocket)
+}
+
 async function tryClose(websocket: WebSocket) {
   const close = new Future<void>()
 

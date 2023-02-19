@@ -1,23 +1,9 @@
-import { WebSocketStream } from "@hazae41/cadenas";
 import { Circuit, createWebSocketSnowflakeStream, Tor } from "@hazae41/echalote";
 import fallbacks from "assets/fallbacks.json";
 import lorem from "assets/lorem.json";
 import { DependencyList, useCallback, useEffect, useState } from "react";
 
 lorem;
-
-async function createWebSocketStream(url: string) {
-  const websocket = new WebSocket(url)
-
-  websocket.binaryType = "arraybuffer"
-
-  await new Promise((ok, err) => {
-    websocket.addEventListener("open", ok)
-    websocket.addEventListener("error", err)
-  })
-
-  return new WebSocketStream(websocket)
-}
 
 async function createCircuit(tor: Tor) {
   while (true)
@@ -95,22 +81,14 @@ function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
 }
 
 export default function Page() {
-  const tcp = useAsyncMemo(async () => {
-    // return await createWebSocketTurboStream("ws://localhost:12345/")
-    return await createWebSocketSnowflakeStream("wss://snowflake.bamsoftware.com/")
-    // return await createMeekStream("https://meek.bamsoftware.com/")
-    // return await createWebSocketStream("ws://localhost:8080")
-  }, [])
 
   const tor = useAsyncMemo(async () => {
-    try {
-      if (!tcp) return
+    const tcp = await createWebSocketSnowflakeStream("wss://snowflake.bamsoftware.com/")
+    // const tcp =  await createMeekStream("https://meek.bamsoftware.com/")
+    // const tcp =  await createWebSocketStream("ws://localhost:8080")
 
-      return new Tor(tcp, { fallbacks })
-    } catch (e: unknown) {
-      console.error("Tor", e)
-    }
-  }, [tcp])
+    return new Tor(tcp, { fallbacks })
+  }, [])
 
   const onClick = useCallback(async () => {
     if (!tor) return

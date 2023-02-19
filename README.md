@@ -30,3 +30,20 @@ This is experimental software in early development
 
 ### [Upcoming features](https://github.com/sponsors/hazae41)
 - Tor consensus and directories support
+
+## Usage
+
+```typescript
+import { Tor, createWebSocketSnowflakeStream } from "@hazae41/echalote"
+import fallbacks from "./fallbacks.json"
+
+const tcp = await createWebSocketSnowflakeStream("wss://snowflake.bamsoftware.com/")
+
+const tor = new Tor(tcp, { fallbacks })
+
+const circuit = await tor.create()
+await circuit.extend(false) // Middle node
+await circuit.extend(true) // Exit node
+
+const res = await circuit.fetch("https://twitter.com") 
+```
