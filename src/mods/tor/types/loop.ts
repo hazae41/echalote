@@ -1,5 +1,5 @@
 export interface LoopParams {
-  signal?: AbortSignal,
-  timeout?: number,
-  delay?: number
+  readonly signal?: AbortSignal,
+  readonly timeout?: number,
+  readonly delay?: number
 }
