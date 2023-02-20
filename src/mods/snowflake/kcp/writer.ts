@@ -6,18 +6,22 @@ import { SecretKcpStream } from "./stream.js";
 
 export class KcpWriter extends AsyncEventTarget {
 
+  readonly #stream: SecretKcpStream
   readonly #secret: SecretKcpWriter
 
-  constructor(
-    readonly stream: SecretKcpStream
-  ) {
+  constructor(secretStream: SecretKcpStream) {
     super()
 
-    this.#secret = new SecretKcpWriter(this, this.stream)
+    this.#stream = secretStream
+    this.#secret = new SecretKcpWriter(this, this.#stream)
   }
 
-  static secret(stream: SecretKcpStream) {
-    return new this(stream).#secret
+  static secret(secretStream: SecretKcpStream) {
+    return new this(secretStream).#secret
+  }
+
+  get stream() {
+    return this.#stream.overt
   }
 
 }

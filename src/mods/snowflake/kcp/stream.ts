@@ -20,16 +20,18 @@ export class SecretKcpStream {
 export class KcpStream {
   readonly #class = KcpStream
 
+  readonly #secret: SecretKcpStream
+
   readonly readable: ReadableStream<Uint8Array>
   readonly writable: WritableStream<Uint8Array>
 
   readonly conversation = Cursor.random(4).getUint32(true)
 
-  readonly #secret = new SecretKcpStream(this)
-
   constructor(
     readonly stream: ReadableWritablePair<Uint8Array>
   ) {
+    this.#secret = new SecretKcpStream(this)
+
     this.readable = this.#secret.reader.pair.readable
     this.writable = this.#secret.writer.pair.writable
 
