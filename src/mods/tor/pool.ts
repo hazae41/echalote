@@ -25,6 +25,10 @@ export class CircuitPool {
       this.#start(index, signal)
   }
 
+  get circuits() {
+    return this.#circuits as readonly Circuit[]
+  }
+
   #start(index: number, signal?: AbortSignal) {
     this.#promises[index] = this.#create(index, signal).catch(console.error)
   }
@@ -47,10 +51,6 @@ export class CircuitPool {
     this.#circuits[index] = circuit
   }
 
-  get circuits() {
-    return this.#circuits as readonly Circuit[]
-  }
-
   /**
    * Get a random circuit from the pool
    * @returns 
@@ -63,4 +63,5 @@ export class CircuitPool {
 
     return circuit
   }
+
 }
