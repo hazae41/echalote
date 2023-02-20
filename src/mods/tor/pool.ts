@@ -29,20 +29,25 @@ export class CircuitPool {
     return this.#circuits as readonly Circuit[]
   }
 
+  get promises() {
+    return this.#promises as readonly Promise<void>[]
+  }
+
   #start(index: number, signal?: AbortSignal) {
-    this.#promises[index] = this.#create(index, signal).catch(console.error)
+    if (this.#promises.at(index))
+      return
+    if (this.#circuits.at(index))
+      return
+    this.#promises[index] = this.#create(index, signal).catch(console.warn)
   }
 
   async #create(index: number, signal?: AbortSignal) {
     if (signal?.aborted)
-      return
-    if (this.#circuits.at(index))
-      return
-    if (this.#promises.at(index))
-      return
+      throw new Error(`Aborted`)
 
     const onError = () => {
       delete this.#circuits[index]
+      delete this.#promises[index]
       this.#start(index)
     }
 
@@ -52,11 +57,21 @@ export class CircuitPool {
   }
 
   /**
+   * Wait for any circuit to be created, then get a random one
+   * @returns 
+   */
+  async get() {
+    await Promise.any(this.#promises)
+    return this.getSync()
+  }
+
+  /**
    * Get a random circuit from the pool
    * @returns 
    */
-  get() {
-    const circuit = Arrays.randomOf(this.#circuits)
+  getSync() {
+    const circuits = this.#circuits.filter(Boolean)
+    const circuit = Arrays.randomOf(circuits)
 
     if (!circuit)
       throw new Error(`No circuit in pool`)

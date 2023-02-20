@@ -80,6 +80,11 @@ export class Circuit extends AsyncEventTarget {
 
     const closeEventClone = Events.clone(closeEvent)
     if (!await this.dispatchEvent(closeEventClone)) return
+
+    const error = new Error(`Circuit destroyed`, { cause: closeEvent })
+
+    const errorEvent = new ErrorEvent("error", { error })
+    if (!await this.dispatchEvent(errorEvent)) return
   }
 
   async #onReadError(event: Event) {
@@ -337,6 +342,15 @@ export class Circuit extends AsyncEventTarget {
       this.removeEventListener("error", onError)
       this.removeEventListener("RELAY_TRUNCATED", future.ok)
     }
+  }
+
+  async destroy() {
+    this.#closed = true
+
+    const error = new Error(`Circuit destroyed`)
+
+    const errorEvent = new ErrorEvent("error", { error })
+    if (!await this.dispatchEvent(errorEvent)) return
   }
 
   async truncate(reason = RelayTruncateCell.reasons.NONE) {

@@ -629,6 +629,8 @@ export class Tor extends AsyncEventTarget {
   }
 
   async create(signal?: AbortSignal) {
+    // console.log(this.#state)
+
     if (this.#state.type !== "handshaked")
       throw new Error(`Can't create a circuit yet`)
 
