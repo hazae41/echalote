@@ -122,8 +122,7 @@ export class SmuxReader extends AsyncEventTarget {
   }
 
   async #onUpdSegment(segment: SmuxSegment<Opaque>) {
-    const ping = segment.fragment.into(SmuxUpdate)
-    console.log(segment, ping)
+    const update = segment.fragment.into(SmuxUpdate)
   }
 
   async #onFinSegment(segment: SmuxSegment<Opaque>) {
