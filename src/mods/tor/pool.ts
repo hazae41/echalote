@@ -3,7 +3,7 @@ import { Circuit } from "mods/tor/circuit.js";
 import { Tor } from "mods/tor/tor.js";
 
 export interface CircuitPoolParams {
-  readonly count: number
+  readonly count?: number
   readonly signal?: AbortSignal
 }
 
@@ -16,7 +16,7 @@ export class CircuitPool {
     readonly tor: Tor,
     readonly params: CircuitPoolParams
   ) {
-    const { count, signal } = this.params
+    const { count = 3, signal } = this.params
 
     this.#circuits = new Array<Circuit>(count)
     this.#promises = new Array<Promise<void>>(count)
