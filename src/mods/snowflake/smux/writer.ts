@@ -1,7 +1,7 @@
 import { Empty, Opaque, Writable } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { StreamPair } from "libs/streams/pair.js";
-import { SmuxSegment } from "mods/snowflake/smux/segment.js";
+import { SmuxSegment, SmuxUpdate } from "mods/snowflake/smux/segment.js";
 import { SmuxStream } from "./stream.js";
 
 export class SmuxWriter extends AsyncEventTarget {
@@ -21,7 +21,18 @@ export class SmuxWriter extends AsyncEventTarget {
   }
 
   async #onStart(controller: ReadableStreamDefaultController<Uint8Array>) {
+    await this.#sendSYN(controller)
+    await this.#sendUPD(controller)
+  }
+
+  async #sendSYN(controller: ReadableStreamDefaultController<Uint8Array>) {
     const segment = new SmuxSegment(2, SmuxSegment.commands.syn, 1, new Empty())
+    controller.enqueue(Writable.toBytes(segment))
+  }
+
+  async #sendUPD(controller: ReadableStreamDefaultController<Uint8Array>) {
+    const update = new SmuxUpdate(0, 1048576)
+    const segment = new SmuxSegment(2, SmuxSegment.commands.upd, 1, update)
     controller.enqueue(Writable.toBytes(segment))
   }
 

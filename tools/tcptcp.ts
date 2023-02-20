@@ -1,12 +1,12 @@
 import { iterateReader } from "https://deno.land/std@0.172.0/streams/mod.ts";
 
-const server = Deno.listen({ hostname: "0.0.0.0", port: 44331 })
+const server = Deno.listen({ hostname: "0.0.0.0", port: 9002 })
 
 for await (const conn of server)
   onconn(conn)
 
 async function onconn(conn: Deno.Conn) {
-  const target = await Deno.connect({ hostname: "twitter.com", port: 443, transport: "tcp" })
+  const target = await Deno.connect({ hostname: "localhost", port: 9001, transport: "tcp" })
 
   console.log("open")
 

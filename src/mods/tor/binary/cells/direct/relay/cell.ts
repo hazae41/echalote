@@ -104,7 +104,6 @@ export class RelayCell {
       return new this(cell.circuit, stream, rcommand, data)
     }
 
-    console.warn("payload", cell.payload)
     throw new Error(`Unrecognised ${this.name}`)
   }
 }

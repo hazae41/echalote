@@ -45,7 +45,6 @@ export class SecretKcpWriter {
     const send_counter = this.stream.send_counter++
     const recv_counter = this.stream.recv_counter
     const segment = new KcpSegment(conversation, command, 0, 65535, Date.now() / 1000, send_counter, recv_counter, new Opaque(chunk))
-    console.log("->", segment)
     this.pair.enqueue(Writable.toBytes(segment))
   }
 

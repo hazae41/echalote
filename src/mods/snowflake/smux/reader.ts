@@ -2,13 +2,16 @@ import { Cursor, Empty, Opaque, Writable } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { StreamPair } from "libs/streams/pair.js";
-import { SmuxSegment } from "mods/snowflake/smux/segment.js";
+import { SmuxSegment, SmuxUpdate } from "mods/snowflake/smux/segment.js";
 import { SmuxStream } from "./stream.js";
 
 export class SmuxReader extends AsyncEventTarget {
   readonly #class = SmuxReader
 
   readonly pair: StreamPair<Uint8Array, Uint8Array>
+
+  #consumed = 0
+  #increment = 0
 
   readonly #buffer = Cursor.allocUnsafe(65535)
 
@@ -86,24 +89,41 @@ export class SmuxReader extends AsyncEventTarget {
     if (segment.version !== 2)
       throw new Error(`Invalid SMUX version`)
 
-    console.log("<-", segment)
+    // console.log("<-", segment)
 
     if (segment.command === SmuxSegment.commands.psh)
       return await this.#onPshSegment(segment)
     if (segment.command === SmuxSegment.commands.nop)
       return await this.#onNopSegment(segment)
+    if (segment.command === SmuxSegment.commands.upd)
+      return await this.#onUpdSegment(segment)
     if (segment.command === SmuxSegment.commands.fin)
       return await this.#onFinSegment(segment)
-    return
+    console.warn(segment)
   }
 
   async #onPshSegment(segment: SmuxSegment<Opaque>) {
-    return this.pair.enqueue(segment.fragment.bytes)
+    this.#consumed += segment.fragment.bytes.length
+    this.#increment += segment.fragment.bytes.length
+
+    this.pair.enqueue(segment.fragment.bytes)
+
+    if (this.#increment >= (1048576 / 2)) {
+      const update = new SmuxUpdate(this.#consumed, 1048576)
+      const segment = new SmuxSegment(2, SmuxSegment.commands.upd, 1, update)
+      this.stream.writer.pair.enqueue(Writable.toBytes(segment))
+      this.#increment = 0
+    }
   }
 
   async #onNopSegment(ping: SmuxSegment<Opaque>) {
     const pong = new SmuxSegment(2, SmuxSegment.commands.nop, ping.stream, new Empty())
     this.stream.writer.pair.enqueue(Writable.toBytes(pong))
+  }
+
+  async #onUpdSegment(segment: SmuxSegment<Opaque>) {
+    const ping = segment.fragment.into(SmuxUpdate)
+    console.log(segment, ping)
   }
 
   async #onFinSegment(segment: SmuxSegment<Opaque>) {

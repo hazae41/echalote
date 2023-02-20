@@ -89,8 +89,6 @@ export class SecretKcpReader {
     if (segment.conversation !== this.stream.overt.conversation)
       return
 
-    console.log("<-", segment)
-
     if (segment.command === KcpSegment.commands.push)
       return await this.#onPushSegment(segment)
     if (segment.command === KcpSegment.commands.ack)

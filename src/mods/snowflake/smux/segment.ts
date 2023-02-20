@@ -1,5 +1,30 @@
 import { Cursor, Opaque, Readable, UnsafeOpaque, Writable } from "@hazae41/binary"
 
+export class SmuxUpdate {
+
+  constructor(
+    readonly consumed: number,
+    readonly window: number
+  ) { }
+
+  size() {
+    return 4 + 4
+  }
+
+  write(cursor: Cursor) {
+    cursor.writeUint32(this.consumed, true)
+    cursor.writeUint32(this.window, true)
+  }
+
+  static read(cursor: Cursor) {
+    const consumed = cursor.readUint32(true)
+    const window = cursor.readUint32(true)
+
+    return new this(consumed, window)
+  }
+
+}
+
 export class SmuxSegment<T extends Writable> {
   readonly #class = SmuxSegment
 
