@@ -3,12 +3,22 @@ import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { StreamPair } from "libs/streams/pair.js";
 import { KcpSegment } from "./segment.js";
-import { KcpStream, PrivateKcpStream } from "./stream.js";
+import { SecretKcpStream } from "./stream.js";
 
 export class KcpReader extends AsyncEventTarget {
 
-  constructor() {
+  readonly #secret: SecretKcpReader
+
+  constructor(
+    readonly stream: SecretKcpStream
+  ) {
     super()
+
+    this.#secret = new SecretKcpReader(this, this.stream)
+  }
+
+  static secret(stream: SecretKcpStream) {
+    return new this(stream).#secret
   }
 
   async wait<T extends Event>(event: string) {
@@ -41,13 +51,13 @@ export class KcpReader extends AsyncEventTarget {
 
 }
 
-export class PrivateKcpReader {
+export class SecretKcpReader {
 
   readonly pair: StreamPair<Uint8Array, Uint8Array>
 
   constructor(
-    readonly publics: KcpStream,
-    readonly privates: PrivateKcpStream
+    readonly overt: KcpReader,
+    readonly stream: SecretKcpStream
   ) {
     this.pair = new StreamPair({}, { write: this.#onRead.bind(this) })
   }
@@ -65,7 +75,7 @@ export class PrivateKcpReader {
   }
 
   async #onSegment(segment: KcpSegment<Opaque>) {
-    if (segment.conversation !== this.publics.conversation)
+    if (segment.conversation !== this.stream.overt.conversation)
       return
 
     console.log("<-", segment)
@@ -79,32 +89,32 @@ export class PrivateKcpReader {
   }
 
   async #onPush(segment: KcpSegment<Opaque>) {
-    if (segment.serial !== this.privates.recv_counter)
+    if (segment.serial !== this.stream.recv_counter)
       return
 
-    this.privates.recv_counter++
+    this.stream.recv_counter++
     this.pair.enqueue(segment.fragment.bytes)
 
-    const conversation = this.publics.conversation
+    const conversation = this.stream.overt.conversation
     const command = KcpSegment.commands.ack
     const timestamp = segment.timestamp
     const serial = segment.serial
-    const una = this.privates.recv_counter
+    const una = this.stream.recv_counter
     const ack = new KcpSegment(conversation, command, 0, 65535, timestamp, serial, una, new Empty())
-    this.privates.writer.pair.enqueue(Writable.toBytes(ack))
+    this.stream.writer.pair.enqueue(Writable.toBytes(ack))
   }
 
   async #onAck(segment: KcpSegment<Opaque>) {
-    this.publics.reader.dispatchEvent(new MessageEvent("ack", { data: segment }))
+    this.stream.overt.reader.dispatchEvent(new MessageEvent("ack", { data: segment }))
   }
 
   async #onWask(segment: KcpSegment<Opaque>) {
-    const conversation = this.publics.conversation
+    const conversation = this.stream.overt.conversation
     const command = KcpSegment.commands.wins
     const send_counter = 0
-    const recv_counter = this.privates.recv_counter
+    const recv_counter = this.stream.recv_counter
     const wins = new KcpSegment(conversation, command, 0, 65535, Date.now() / 1000, send_counter, recv_counter, new Empty())
-    this.privates.writer.pair.enqueue(Writable.toBytes(wins))
+    this.stream.writer.pair.enqueue(Writable.toBytes(wins))
   }
 
 }

@@ -1,53 +1,55 @@
 import { Cursor } from "@hazae41/binary";
 import { CloseEvent } from "libs/events/close.js";
 import { ErrorEvent } from "libs/events/error.js";
-import { KcpReader, PrivateKcpReader } from "./reader.js";
-import { KcpWriter, PrivateKcpWriter } from "./writer.js";
+import { KcpReader } from "./reader.js";
+import { KcpWriter } from "./writer.js";
 
-export class PrivateKcpStream {
-
-  readonly reader: PrivateKcpReader
-  readonly writer: PrivateKcpWriter
+export class SecretKcpStream {
 
   send_counter = 0
   recv_counter = 0
 
+  readonly reader = KcpReader.secret(this)
+  readonly writer = KcpWriter.secret(this)
+
   constructor(
-    readonly outer: KcpStream
-  ) {
-    this.reader = new PrivateKcpReader(outer, this)
-    this.writer = new PrivateKcpWriter(outer, this)
-  }
+    readonly overt: KcpStream
+  ) { }
 }
 
 export class KcpStream {
   readonly #class = KcpStream
-
-  readonly reader = new KcpReader()
-  readonly writer = new KcpWriter()
 
   readonly readable: ReadableStream<Uint8Array>
   readonly writable: WritableStream<Uint8Array>
 
   readonly conversation = Cursor.random(4).getUint32(true)
 
-  readonly #privates = new PrivateKcpStream(this)
+  readonly #secret = new SecretKcpStream(this)
 
   constructor(
     readonly stream: ReadableWritablePair<Uint8Array>
   ) {
-    this.readable = this.#privates.reader.pair.readable
-    this.writable = this.#privates.writer.pair.writable
+    this.readable = this.#secret.reader.pair.readable
+    this.writable = this.#secret.writer.pair.writable
 
     stream.readable
-      .pipeTo(this.#privates.reader.pair.writable)
+      .pipeTo(this.#secret.reader.pair.writable)
       .then(this.#onReadClose.bind(this))
       .catch(this.#onReadError.bind(this))
 
-    this.#privates.writer.pair.readable
+    this.#secret.writer.pair.readable
       .pipeTo(stream.writable)
       .then(this.#onWriteClose.bind(this))
       .catch(this.#onWriteError.bind(this))
+  }
+
+  get reader() {
+    return this.#secret.reader.overt
+  }
+
+  get writer() {
+    return this.#secret.writer.overt
   }
 
   async #onReadClose() {
