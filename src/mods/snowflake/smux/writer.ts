@@ -1,6 +1,6 @@
 import { Empty, Opaque, Writable } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
-import { SmuxSegment } from "mods/smux/segment.js";
+import { SmuxSegment } from "mods/snowflake/smux/segment.js";
 import { SmuxStream } from "./stream.js";
 
 export class SmuxWriter extends AsyncEventTarget {

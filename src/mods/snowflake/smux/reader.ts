@@ -1,7 +1,7 @@
 import { Cursor, Opaque } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
-import { SmuxSegment } from "mods/smux/segment.js";
+import { SmuxSegment } from "mods/snowflake/smux/segment.js";
 import { SmuxStream } from "./stream.js";
 
 export class SmuxReader extends AsyncEventTarget {

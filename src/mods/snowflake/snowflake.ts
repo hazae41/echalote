@@ -1,7 +1,7 @@
 import { WebSocketStream } from "libs/transports/websocket.js"
-import { KcpStream } from "mods/kcp/stream.js"
-import { SmuxStream } from "mods/smux/stream.js"
-import { TurboStream } from "mods/turbo/stream.js"
+import { KcpStream } from "mods/snowflake/kcp/stream.js"
+import { SmuxStream } from "mods/snowflake/smux/stream.js"
+import { TurboStream } from "mods/snowflake/turbo/stream.js"
 
 export async function createWebSocketSnowflakeStream(url: string) {
   const websocket = new WebSocket(url)
