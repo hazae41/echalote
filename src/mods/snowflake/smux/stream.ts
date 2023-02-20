@@ -16,19 +16,18 @@ export class SmuxStream {
     this.reader = new SmuxReader(this)
     this.writer = new SmuxWriter(this)
 
-    this.readable = this.reader.readable
-    this.writable = this.writer.writable
+    this.readable = this.reader.pair.readable
+    this.writable = this.writer.pair.writable
 
     stream.readable
-      .pipeTo(this.reader.writable)
+      .pipeTo(this.reader.pair.writable)
       .then(this.onReadClose.bind(this))
       .catch(this.onReadError.bind(this))
 
-    this.writer.readable
+    this.writer.pair.readable
       .pipeTo(stream.writable)
       .then(this.onWriteClose.bind(this))
       .catch(this.onWriteError.bind(this))
-
   }
 
   async onReadClose() {
@@ -49,6 +48,8 @@ export class SmuxStream {
   }
 
   async onWriteError(error?: unknown) {
+    console.debug(`${this.#class.name}.onWriteError`, error)
+
     const errorEvent = new ErrorEvent("error", { error })
     await this.writer.dispatchEvent(errorEvent)
   }

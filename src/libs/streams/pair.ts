@@ -9,7 +9,7 @@ export class StreamPair<R, W> extends AsyncEventTarget {
   readonly writable: WritableStream<W>
 
   constructor(
-    subsource: UnderlyingSource<R>,
+    subsource: UnderlyingDefaultSource<R>,
     subsink: UnderlyingSink<W>,
   ) {
     super()
@@ -21,16 +21,16 @@ export class StreamPair<R, W> extends AsyncEventTarget {
     this.writable = new WritableStream(this.sink)
   }
 
-  async enqueue(chunk?: R) {
+  enqueue(chunk?: R) {
     this.source.controller.enqueue(chunk)
   }
 
-  async error(reason?: any) {
+  error(reason?: any) {
     this.sink.controller.error(reason)
     this.source.controller.error(reason)
   }
 
-  async terminate() {
+  terminate() {
     this.sink.controller.error(new Error(`Closed`))
     this.source.controller.close()
   }
@@ -77,7 +77,7 @@ export class StreamPairSource<R, W> implements UnderlyingDefaultSource<R> {
 
   constructor(
     readonly pair: StreamPair<R, W>,
-    readonly subsource: UnderlyingSource<R>
+    readonly subsource: UnderlyingDefaultSource<R>
   ) { }
 
   get controller() {

@@ -72,6 +72,8 @@ export class KcpStream {
   }
 
   async #onWriteError(error?: unknown) {
+    console.debug(`${this.#class.name}.onWriteError`, error)
+
     const errorEvent = new ErrorEvent("error", { error })
     await this.writer.dispatchEvent(errorEvent)
   }

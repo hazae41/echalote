@@ -34,7 +34,9 @@ export class SecretKcpWriter {
     readonly overt: KcpWriter,
     readonly stream: SecretKcpStream,
   ) {
-    this.pair = new StreamPair({}, { write: this.#onWrite.bind(this) })
+    this.pair = new StreamPair({}, {
+      write: this.#onWrite.bind(this)
+    })
   }
 
   async #onWrite(chunk: Uint8Array) {

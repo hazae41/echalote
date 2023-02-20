@@ -63,18 +63,25 @@ export class SecretKcpReader {
     readonly overt: KcpReader,
     readonly stream: SecretKcpStream
   ) {
-    this.pair = new StreamPair({}, { write: this.#onRead.bind(this) })
+    this.pair = new StreamPair({}, {
+      write: this.#onRead.bind(this)
+    })
   }
 
   async #onRead(chunk: Uint8Array) {
     const cursor = new Cursor(chunk)
 
     while (cursor.remaining) {
-      const segment = KcpSegment.tryRead(cursor)
+      try {
+        const segment = KcpSegment.tryRead(cursor)
 
-      if (!segment) break
+        if (!segment) break
 
-      await this.#onSegment(segment)
+        await this.#onSegment(segment)
+      } catch (e: unknown) {
+        console.error(e)
+        throw e
+      }
     }
   }
 
@@ -85,14 +92,14 @@ export class SecretKcpReader {
     console.log("<-", segment)
 
     if (segment.command === KcpSegment.commands.push)
-      return await this.#onPush(segment)
+      return await this.#onPushSegment(segment)
     if (segment.command === KcpSegment.commands.ack)
-      return await this.#onAck(segment)
+      return await this.#onAckSegment(segment)
     if (segment.command === KcpSegment.commands.wask)
-      return await this.#onWask(segment)
+      return await this.#onWaskSegment(segment)
   }
 
-  async #onPush(segment: KcpSegment<Opaque>) {
+  async #onPushSegment(segment: KcpSegment<Opaque>) {
     if (segment.serial !== this.stream.recv_counter)
       return
 
@@ -108,16 +115,17 @@ export class SecretKcpReader {
     this.stream.writer.pair.enqueue(Writable.toBytes(ack))
   }
 
-  async #onAck(segment: KcpSegment<Opaque>) {
+  async #onAckSegment(segment: KcpSegment<Opaque>) {
     this.stream.overt.reader.dispatchEvent(new MessageEvent("ack", { data: segment }))
   }
 
-  async #onWask(segment: KcpSegment<Opaque>) {
+  async #onWaskSegment(segment: KcpSegment<Opaque>) {
     const conversation = this.stream.overt.conversation
     const command = KcpSegment.commands.wins
-    const send_counter = 0
-    const recv_counter = this.stream.recv_counter
-    const wins = new KcpSegment(conversation, command, 0, 65535, Date.now() / 1000, send_counter, recv_counter, new Empty())
+    const timestamp = Date.now() / 1000
+    const serial = 0
+    const una = this.stream.recv_counter
+    const wins = new KcpSegment(conversation, command, 0, 65535, timestamp, serial, una, new Empty())
     this.stream.writer.pair.enqueue(Writable.toBytes(wins))
   }
 

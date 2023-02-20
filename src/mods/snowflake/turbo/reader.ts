@@ -59,11 +59,16 @@ export class TurboReaderSink implements UnderlyingSink<Uint8Array> {
   }
 
   async write(chunk: Uint8Array) {
-    const frame = Readable.fromBytes(TurboFrame, chunk)
+    try {
+      const frame = Readable.fromBytes(TurboFrame, chunk)
 
-    if (frame.padding) return
+      if (frame.padding) return
 
-    this.source.controller.enqueue(frame.fragment.bytes)
+      this.source.controller.enqueue(frame.fragment.bytes)
+    } catch (e: unknown) {
+      console.error(e)
+      throw e
+    }
   }
 
   async abort(reason?: any) {
