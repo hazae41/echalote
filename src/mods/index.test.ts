@@ -1,1 +1,1 @@
-export * from "./snowflake/turbo/index.test.js";
+export * from "./snowflake/index.test.js";

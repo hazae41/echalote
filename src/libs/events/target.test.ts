@@ -1,4 +1,4 @@
-import { test } from "@hazae41/phobos";
+import { assert, test } from "@hazae41/phobos";
 import { relative, resolve } from "path";
 import { AsyncEventTarget } from "./target.js";
 
@@ -9,16 +9,23 @@ console.log(relative(directory, pathname.replace(".mjs", ".ts")))
 test("AsyncEventTarget", async ({ test }) => {
   const target = new AsyncEventTarget()
 
+  const stack = []
+
   target.addEventListener("test", async () => {
-    console.log("first")
+    stack.push("first")
   }, { passive: true })
 
   target.addEventListener("test", async () => {
-    console.log("second")
+    stack.push("second")
   }, { passive: true })
 
   const event = new Event("test")
   await target.dispatchEvent(event)
 
-  console.log("done")
+  stack.push("done")
+
+  assert(stack.length === 3)
+  assert(stack[0] === "first")
+  assert(stack[1] === "second")
+  assert(stack[2] === "done")
 })
