@@ -75,7 +75,7 @@ export class SecretSmuxReader {
 
   async #onReadBuffered(chunk: Uint8Array) {
     this.#buffer.write(chunk)
-    const full = this.#buffer.before
+    const full = new Uint8Array(this.#buffer.before)
 
     this.#buffer.offset = 0
     await this.#onReadDirect(full)
