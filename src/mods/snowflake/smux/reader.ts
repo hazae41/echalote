@@ -3,29 +3,23 @@ import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { StreamPair } from "libs/streams/pair.js";
 import { SmuxSegment, SmuxUpdate } from "mods/snowflake/smux/segment.js";
-import { SmuxStream } from "./stream.js";
+import { SecretSmuxStream } from "./stream.js";
 
-export class SmuxReader extends AsyncEventTarget {
-  readonly #class = SmuxReader
+export class SmuxReader extends AsyncEventTarget<"close" | "error"> {
 
-  readonly pair: StreamPair<Uint8Array, Uint8Array>
+  readonly #secret: SecretSmuxReader
 
-  #consumed = 0
-  #increment = 0
-
-  readonly #buffer = Cursor.allocUnsafe(65535)
-
-  constructor(
-    readonly stream: SmuxStream
-  ) {
+  constructor(secret: SecretSmuxReader) {
     super()
 
-    this.pair = new StreamPair({}, {
-      write: this.#onRead.bind(this)
-    })
+    this.#secret = secret
   }
 
-  async wait<T extends Event>(event: string) {
+  get stream() {
+    return this.#secret.stream.overt
+  }
+
+  async wait<E extends Event>(event: "close" | "error") {
     const future = new Future<Event, Error>()
 
     const onClose = (event: Event) => {
@@ -45,12 +39,29 @@ export class SmuxReader extends AsyncEventTarget {
       this.addEventListener("error", onError, { passive: true })
       this.addEventListener(event, future.ok, { passive: true })
 
-      return await future.promise as T
+      return await future.promise as E
     } finally {
       this.removeEventListener("close", onClose)
       this.removeEventListener("error", onError)
       this.removeEventListener(event, future.ok)
     }
+  }
+}
+
+export class SecretSmuxReader {
+
+  readonly overt = new SmuxReader(this)
+
+  readonly pair: StreamPair<Uint8Array, Uint8Array>
+
+  readonly #buffer = Cursor.allocUnsafe(65535)
+
+  constructor(
+    readonly stream: SecretSmuxStream
+  ) {
+    this.pair = new StreamPair({}, {
+      write: this.#onRead.bind(this)
+    })
   }
 
   async #onRead(chunk: Uint8Array) {
@@ -103,16 +114,16 @@ export class SmuxReader extends AsyncEventTarget {
   }
 
   async #onPshSegment(segment: SmuxSegment<Opaque>) {
-    this.#consumed += segment.fragment.bytes.length
-    this.#increment += segment.fragment.bytes.length
+    this.stream.selfRead += segment.fragment.bytes.length
+    this.stream.selfIncrement += segment.fragment.bytes.length
 
     this.pair.enqueue(segment.fragment.bytes)
 
-    if (this.#increment >= (1048576 / 2)) {
-      const update = new SmuxUpdate(this.#consumed, 1048576)
+    if (this.stream.selfIncrement >= (this.stream.selfWindow / 2)) {
+      const update = new SmuxUpdate(this.stream.selfRead, this.stream.selfWindow)
       const segment = new SmuxSegment(2, SmuxSegment.commands.upd, 1, update)
       this.stream.writer.pair.enqueue(Writable.toBytes(segment))
-      this.#increment = 0
+      this.stream.selfIncrement = 0
     }
   }
 
@@ -123,6 +134,8 @@ export class SmuxReader extends AsyncEventTarget {
 
   async #onUpdSegment(segment: SmuxSegment<Opaque>) {
     const update = segment.fragment.into(SmuxUpdate)
+    this.stream.peerConsumed = update.consumed
+    this.stream.peerWindow = update.window
   }
 
   async #onFinSegment(segment: SmuxSegment<Opaque>) {

@@ -1,18 +1,63 @@
 import { Empty, Opaque, Writable } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
+import { Future } from "libs/futures/future.js";
 import { StreamPair } from "libs/streams/pair.js";
 import { SmuxSegment, SmuxUpdate } from "mods/snowflake/smux/segment.js";
-import { SmuxStream } from "./stream.js";
+import { SecretSmuxStream } from "./stream.js";
 
-export class SmuxWriter extends AsyncEventTarget {
+export class SmuxWriter extends AsyncEventTarget<"close" | "error"> {
+
+  readonly #secret: SecretSmuxWriter
+
+  constructor(secret: SecretSmuxWriter) {
+    super()
+
+    this.#secret = secret
+  }
+
+  get stream() {
+    return this.#secret.stream.overt
+  }
+
+  async wait<E extends Event>(event: "close" | "error") {
+    const future = new Future<Event, Error>()
+
+    const onClose = (event: Event) => {
+      const closeEvent = event as CloseEvent
+      const error = new Error(`Closed`, { cause: closeEvent })
+      future.err(error)
+    }
+
+    const onError = (event: Event) => {
+      const errorEvent = event as ErrorEvent
+      const error = new Error(`Errored`, { cause: errorEvent })
+      future.err(error)
+    }
+
+    try {
+      this.addEventListener("close", onClose, { passive: true })
+      this.addEventListener("error", onError, { passive: true })
+      this.addEventListener(event, future.ok, { passive: true })
+
+      return await future.promise as E
+    } finally {
+      this.removeEventListener("close", onClose)
+      this.removeEventListener("error", onError)
+      this.removeEventListener(event, future.ok)
+    }
+  }
+
+}
+
+export class SecretSmuxWriter {
 
   readonly pair: StreamPair<Uint8Array, Uint8Array>
 
-  constructor(
-    readonly stream: SmuxStream
-  ) {
-    super()
+  readonly overt = new SmuxWriter(this)
 
+  constructor(
+    readonly stream: SecretSmuxStream
+  ) {
     this.pair = new StreamPair({
       start: this.#onStart.bind(this),
     }, {
@@ -37,8 +82,15 @@ export class SmuxWriter extends AsyncEventTarget {
   }
 
   async #onWrite(chunk: Uint8Array) {
+    const inflight = this.stream.selfWrite - this.stream.peerConsumed
+
+    if (inflight >= this.stream.peerWindow)
+      throw new Error(`Peer window reached`)
+
     const segment = new SmuxSegment(2, SmuxSegment.commands.psh, 1, new Opaque(chunk))
     this.pair.enqueue(Writable.toBytes(segment))
+
+    this.stream.selfWrite += chunk.length
   }
 
 }

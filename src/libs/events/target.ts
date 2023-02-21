@@ -15,10 +15,12 @@ type EventListenerOptions = {
   onabort: () => void
 }
 
-export class AsyncEventTarget {
+export class AsyncEventTarget<T extends string = string> {
   readonly #listeners = new Map<string, Map<AsyncEventListener, EventListenerOptions>>()
 
-  #get(type: string) {
+  constructor() { }
+
+  #get(type: T) {
     const listeners = this.#listeners.get(type)
     if (listeners !== undefined) return listeners
 
@@ -35,7 +37,7 @@ export class AsyncEventTarget {
    * @param options Options // { passive: true }
    * @returns 
    */
-  addEventListener(type: string, listener: AsyncEventListener | null, options: AddAsyncEventListenerOptions = {}) {
+  addEventListener(type: T, listener: AsyncEventListener | null, options: AddAsyncEventListenerOptions = {}) {
     if (!listener) return
 
     const listeners = this.#get(type)
@@ -55,7 +57,7 @@ export class AsyncEventTarget {
    * @param _ Just to look like DOM's EventTarget
    * @returns 
    */
-  removeEventListener(type: string, listener: AsyncEventListener | null, _: {} = {}) {
+  removeEventListener(type: T, listener: AsyncEventListener | null, _: {} = {}) {
     if (!listener) return
 
     const listeners = this.#get(type)
@@ -82,7 +84,7 @@ export class AsyncEventTarget {
    * @returns 
    */
   async dispatchEvent(event: Event) {
-    const { type } = event
+    const type = event.type as T
 
     const listeners = this.#listeners.get(type)
 
@@ -94,7 +96,7 @@ export class AsyncEventTarget {
       const onsettle = () => {
         if (!options.once) return
 
-        this.removeEventListener(type, listener)
+        this.removeEventListener(type as T, listener)
       }
 
       try {
