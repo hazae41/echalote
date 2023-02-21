@@ -26,6 +26,7 @@ import { TcpStream } from "mods/tor/streams/tcp.js";
 import { Target } from "mods/tor/target.js";
 import { Fallback, Tor } from "mods/tor/tor.js";
 import { LoopParams } from "mods/tor/types/loop.js";
+import { AesCounter } from "./algos/aes/counter.js";
 
 export class Circuit extends AsyncEventTarget {
   readonly #class = Circuit
@@ -300,10 +301,15 @@ export class Circuit extends AsyncEventTarget {
     forwardDigest.update(result.forwardDigest)
     backwardDigest.update(result.backwardDigest)
 
-    const forwardKey = new Aes128Ctr128BEKey(result.forwardKey, Bytes.alloc(16))
-    const backwardKey = new Aes128Ctr128BEKey(result.backwardKey, Bytes.alloc(16))
+    const forwardKey2 = new Aes128Ctr128BEKey(result.forwardKey, Bytes.alloc(16))
+    const backwardKey2 = new Aes128Ctr128BEKey(result.backwardKey, Bytes.alloc(16))
 
-    const target = new Target(idh, this, forwardDigest, backwardDigest, forwardKey, backwardKey)
+    const forwardKey = await AesCounter.from(result.forwardKey, 0n, 128)
+    const backwardKey = await AesCounter.from(result.backwardKey, 0n, 128)
+
+    console.log("hello")
+
+    const target = new Target(idh, this, forwardDigest, backwardDigest, forwardKey, backwardKey, forwardKey2, backwardKey2)
 
     this.targets.push(target)
   }

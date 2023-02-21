@@ -5,7 +5,7 @@ import { StreamPair } from "libs/streams/pair.js";
 import { KcpSegment } from "./segment.js";
 import { SecretKcpStream } from "./stream.js";
 
-export class KcpReader extends AsyncEventTarget {
+export class KcpReader extends AsyncEventTarget<"close" | "error"> {
 
   readonly #stream: SecretKcpStream
   readonly #secret: SecretKcpReader
@@ -25,7 +25,7 @@ export class KcpReader extends AsyncEventTarget {
     return this.#stream.overt
   }
 
-  async wait<T extends Event>(event: string) {
+  async wait<T extends Event>(event: "close" | "error") {
     const future = new Future<Event, Error>()
 
     const onClose = (event: Event) => {

@@ -17,7 +17,7 @@ export async function kdftor(k0: Uint8Array): Promise<KDFResult> {
 
   for (let i = 0; k.remaining > 0; i++) {
     ki.setUint8(i)
-    const h = await crypto.subtle.digest("SHA-1", ki.buffer)
+    const h = await crypto.subtle.digest("SHA-1", ki.bytes)
     k.write(new Uint8Array(h))
   }
 

@@ -13,7 +13,7 @@ export function request(
   cursor.write(oid)
   cursor.write(publicx)
 
-  return cursor.buffer
+  return cursor.bytes
 }
 
 export function response(data: Uint8Array) {
@@ -60,7 +60,7 @@ export async function finalize(
   const hmac = { name: "HMAC", hash: "SHA-256" }
 
   const kt_verify = await crypto.subtle.importKey("raw", t_verify, hmac, false, ["sign"])
-  const verify = new Uint8Array(await crypto.subtle.sign("HMAC", kt_verify, secreti.buffer))
+  const verify = new Uint8Array(await crypto.subtle.sign("HMAC", kt_verify, secreti.bytes))
 
   const server = "Server"
 
@@ -74,12 +74,12 @@ export async function finalize(
   authi.writeString(server)
 
   const kt_mac = await crypto.subtle.importKey("raw", t_mac, hmac, false, ["sign"])
-  const auth = new Uint8Array(await crypto.subtle.sign("HMAC", kt_mac, authi.buffer))
+  const auth = new Uint8Array(await crypto.subtle.sign("HMAC", kt_mac, authi.bytes))
 
   const m_expand = Bytes.fromUtf8(`${protoid}:key_expand`)
 
   const hkdf = { name: "HKDF", hash: "SHA-256", info: m_expand, salt: t_key }
-  const ksecret = await crypto.subtle.importKey("raw", secreti.buffer, "HKDF", false, ["deriveBits"])
+  const ksecret = await crypto.subtle.importKey("raw", secreti.bytes, "HKDF", false, ["deriveBits"])
   const key = new Uint8Array(await crypto.subtle.deriveBits(hkdf, ksecret, 8 * ((HASH_LEN * 3) + (KEY_LEN * 2))))
 
   const k = new Cursor(key)

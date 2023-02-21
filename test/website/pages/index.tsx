@@ -83,8 +83,8 @@ function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
 export default function Page() {
 
   const tor = useAsyncMemo(async () => {
-    // const tcp = await createWebSocketSnowflakeStream("wss://snowflake.bamsoftware.com/")
-    const tcp = await createWebSocketSnowflakeStream("ws://localhost:12345/")
+    const tcp = await createWebSocketSnowflakeStream("wss://snowflake.bamsoftware.com/")
+    // const tcp = await createWebSocketSnowflakeStream("ws://localhost:12345/")
     // const tcp =  await createMeekStream("https://meek.bamsoftware.com/")
     // const tcp = await createWebSocketStream("ws://localhost:8080")
 
