@@ -38,7 +38,6 @@ import { Circuit } from "mods/tor/circuit.js";
 import { Authority, parseAuthorities } from "mods/tor/consensus/authorities.js";
 import { Target } from "mods/tor/target.js";
 import { LoopParams } from "mods/tor/types/loop.js";
-import { AesCounter } from "./algos/aes/counter.js";
 
 export type TorState =
   | TorNoneState
@@ -649,13 +648,10 @@ export class Tor extends AsyncEventTarget {
     forwardDigest.update(result.forwardDigest)
     backwardDigest.update(result.backwardDigest)
 
-    const forwardKey2 = new Aes128Ctr128BEKey(result.forwardKey, Bytes.alloc(16))
-    const backwardKey2 = new Aes128Ctr128BEKey(result.backwardKey, Bytes.alloc(16))
+    const forwardKey = new Aes128Ctr128BEKey(result.forwardKey, Bytes.alloc(16))
+    const backwardKey = new Aes128Ctr128BEKey(result.backwardKey, Bytes.alloc(16))
 
-    const forwardKey = await AesCounter.from(result.forwardKey, 0n, 128)
-    const backwardKey = await AesCounter.from(result.backwardKey, 0n, 128)
-
-    const target = new Target(this.#state.guard.idh, circuit, forwardDigest, backwardDigest, forwardKey, backwardKey, forwardKey2, backwardKey2)
+    const target = new Target(this.#state.guard.idh, circuit, forwardDigest, backwardDigest, forwardKey, backwardKey)
 
     circuit.targets.push(target)
 
