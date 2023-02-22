@@ -1,110 +1,72 @@
 import { Readable } from "@hazae41/binary"
 import { AsyncEventTarget } from "libs/events/target.js"
+import { Future } from "libs/futures/future.js"
+import { StreamPair } from "libs/streams/pair.js"
 import { TurboFrame } from "./frame.js"
-import { TurboStream } from "./stream.js"
+import { SecretTurboStream } from "./stream.js"
 
-export class TurboReader extends AsyncEventTarget {
+export class TurboReader extends AsyncEventTarget<"close" | "error"> {
 
-  readonly sink: TurboReaderSink
-  readonly source: TurboReaderSource
+  readonly #secret: SecretTurboReader
 
-  readonly readable: ReadableStream<Uint8Array>
-  readonly writable: WritableStream<Uint8Array>
-
-  constructor(
-    readonly stream: TurboStream
-  ) {
+  constructor(secret: SecretTurboReader) {
     super()
 
-    this.sink = new TurboReaderSink(this)
-    this.source = new TurboReaderSource(this)
-
-    this.writable = new WritableStream<Uint8Array>(this.sink)
-    this.readable = new ReadableStream<Uint8Array>(this.source)
-  }
-
-  async error(reason?: any) {
-    this.sink.controller.error(reason)
-    this.source.controller.error(reason)
-  }
-
-  async terminate() {
-    this.sink.controller.error(new Error(`Closed`))
-    this.source.controller.close()
-  }
-}
-
-export class TurboReaderSink implements UnderlyingSink<Uint8Array> {
-
-  #controller?: WritableStreamDefaultController
-
-  constructor(
-    readonly reader: TurboReader
-  ) { }
-
-  get controller() {
-    return this.#controller!
-  }
-
-  get source() {
-    return this.reader.source
+    this.#secret = secret
   }
 
   get stream() {
-    return this.reader.stream
+    return this.#secret.stream.overt
   }
 
-  async start(controller: WritableStreamDefaultController) {
-    this.#controller = controller
-  }
+  async wait<E extends Event>(event: "close" | "error") {
+    const future = new Future<Event, Error>()
 
-  async write(chunk: Uint8Array) {
+    const onClose = (event: Event) => {
+      const closeEvent = event as CloseEvent
+      const error = new Error(`Closed`, { cause: closeEvent })
+      future.err(error)
+    }
+
+    const onError = (event: Event) => {
+      const errorEvent = event as ErrorEvent
+      const error = new Error(`Errored`, { cause: errorEvent })
+      future.err(error)
+    }
+
     try {
-      const frame = Readable.fromBytes(TurboFrame, chunk)
+      this.addEventListener("close", onClose, { passive: true })
+      this.addEventListener("error", onError, { passive: true })
+      this.addEventListener(event, future.ok, { passive: true })
 
-      if (frame.padding) return
-
-      this.source.controller.enqueue(frame.fragment.bytes)
-    } catch (e: unknown) {
-      console.error(e)
-      throw e
+      return await future.promise as E
+    } finally {
+      this.removeEventListener("close", onClose)
+      this.removeEventListener("error", onError)
+      this.removeEventListener(event, future.ok)
     }
   }
-
-  async abort(reason?: any) {
-    this.source.controller.error(reason)
-  }
-
-  async close() {
-    this.source.controller.close()
-  }
 }
 
-export class TurboReaderSource implements UnderlyingSource<Uint8Array> {
+export class SecretTurboReader {
 
-  #controller?: ReadableStreamController<Uint8Array>
+  readonly overt = new TurboReader(this)
+
+  readonly pair: StreamPair<Uint8Array, Uint8Array>
 
   constructor(
-    readonly reader: TurboReader
-  ) { }
-
-  get controller() {
-    return this.#controller!
+    readonly stream: SecretTurboStream
+  ) {
+    this.pair = new StreamPair({}, {
+      write: this.#onRead.bind(this)
+    })
   }
 
-  get sink() {
-    return this.reader.sink
-  }
+  async #onRead(chunk: Uint8Array) {
+    const frame = Readable.fromBytes(TurboFrame, chunk)
 
-  get stream() {
-    return this.reader.stream
-  }
+    if (frame.padding) return
 
-  async start(controller: ReadableStreamController<Uint8Array>) {
-    this.#controller = controller
-  }
-
-  async cancel(reason?: any) {
-    this.sink.controller.error(reason)
+    this.pair.enqueue(frame.fragment.bytes)
   }
 }

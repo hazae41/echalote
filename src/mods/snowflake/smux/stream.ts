@@ -1,9 +1,8 @@
 import { Cursor } from "@hazae41/binary"
-import { AsyncEventTarget } from "libs/events/target.js"
 import { SecretSmuxReader } from "./reader.js"
 import { SecretSmuxWriter } from "./writer.js"
 
-export class SecretSmuxStream extends AsyncEventTarget {
+export class SecretSmuxStream {
 
   selfRead = 0
   selfWrite = 0
@@ -19,9 +18,7 @@ export class SecretSmuxStream extends AsyncEventTarget {
 
   constructor(
     readonly overt: SmuxStream
-  ) {
-    super()
-  }
+  ) { }
 
   get selfWindow() {
     return this.buffer.bytes.length

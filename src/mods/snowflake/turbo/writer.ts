@@ -1,108 +1,81 @@
 import { Opaque, Writable } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
+import { Future } from "libs/futures/future.js";
+import { StreamPair } from "libs/streams/pair.js";
 import { TurboFrame } from "./frame.js";
-import { TurboStream } from "./stream.js";
+import { SecretTurboStream } from "./stream.js";
 
-export class TurboWriter extends AsyncEventTarget {
+export class SmuxWriter extends AsyncEventTarget<"close" | "error"> {
 
-  readonly sink: TurboWriterSink
-  readonly source: TurboWriterSource
+  readonly #secret: SecretTurboWriter
 
-  readonly readable: ReadableStream<Uint8Array>
-  readonly writable: WritableStream<Uint8Array>
-
-  constructor(
-    readonly stream: TurboStream
-  ) {
+  constructor(secret: SecretTurboWriter) {
     super()
 
-    this.sink = new TurboWriterSink(this)
-    this.source = new TurboWriterSource(this)
-
-    this.writable = new WritableStream(this.sink)
-    this.readable = new ReadableStream(this.source)
-  }
-
-  async error(reason?: any) {
-    this.sink.controller.error(reason)
-    this.source.controller.error(reason)
-  }
-
-  async terminate() {
-    this.sink.controller.error(new Error(`Closed`))
-    this.source.controller.close()
-  }
-}
-
-export class TurboWriterSink implements UnderlyingSink<Uint8Array> {
-
-  #controller?: WritableStreamDefaultController
-
-  constructor(
-    readonly writer: TurboWriter
-  ) { }
-
-  get controller() {
-    return this.#controller!
-  }
-
-  get source() {
-    return this.writer.source
+    this.#secret = secret
   }
 
   get stream() {
-    return this.writer.stream
+    return this.#secret.stream.overt
   }
 
-  async start(controller: WritableStreamDefaultController) {
-    this.#controller = controller
+  async wait<E extends Event>(event: "close" | "error") {
+    const future = new Future<Event, Error>()
+
+    const onClose = (event: Event) => {
+      const closeEvent = event as CloseEvent
+      const error = new Error(`Closed`, { cause: closeEvent })
+      future.err(error)
+    }
+
+    const onError = (event: Event) => {
+      const errorEvent = event as ErrorEvent
+      const error = new Error(`Errored`, { cause: errorEvent })
+      future.err(error)
+    }
+
+    try {
+      this.addEventListener("close", onClose, { passive: true })
+      this.addEventListener("error", onError, { passive: true })
+      this.addEventListener(event, future.ok, { passive: true })
+
+      return await future.promise as E
+    } finally {
+      this.removeEventListener("close", onClose)
+      this.removeEventListener("error", onError)
+      this.removeEventListener(event, future.ok)
+    }
   }
 
-  async write(chunk: Uint8Array) {
-    const frame = new TurboFrame(false, new Opaque(chunk))
-    this.source.controller.enqueue(Writable.toBytes(frame))
-  }
-
-  async abort(reason?: any) {
-    this.source.controller.error(reason)
-  }
-
-  async close() {
-    this.source.controller.close()
-  }
 }
 
-export class TurboWriterSource implements UnderlyingSource<Uint8Array> {
+export class SecretTurboWriter {
 
-  #controller?: ReadableStreamController<Uint8Array>
+  readonly pair: StreamPair<Uint8Array, Uint8Array>
+
+  readonly overt = new SmuxWriter(this)
 
   constructor(
-    readonly writer: TurboWriter
-  ) { }
-
-  get controller() {
-    return this.#controller!
+    readonly stream: SecretTurboStream
+  ) {
+    this.pair = new StreamPair({
+      start: this.#onStart.bind(this),
+    }, {
+      write: this.#onWrite.bind(this)
+    })
   }
 
-  get sink() {
-    return this.writer.sink
-  }
-
-  get stream() {
-    return this.writer.stream
-  }
-
-  async start(controller: ReadableStreamController<Uint8Array>) {
-    this.#controller = controller
-
+  async #onStart(controller: ReadableStreamController<Uint8Array>) {
     const token = this.stream.class.token
-    this.controller.enqueue(token)
+    controller.enqueue(token)
 
     const clientID = this.stream.clientID
-    this.controller.enqueue(clientID)
+    controller.enqueue(clientID)
   }
 
-  async cancel(reason?: any) {
-    this.sink.controller.error(reason)
+  async #onWrite(chunk: Uint8Array) {
+    const frame = new TurboFrame(false, new Opaque(chunk))
+    this.pair.enqueue(Writable.toBytes(frame))
   }
 }
+
