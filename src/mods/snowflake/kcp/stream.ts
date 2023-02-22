@@ -32,7 +32,7 @@ export class KcpStream {
   readonly conversation = Cursor.random(4).getUint32(true)
 
   constructor(
-    readonly stream: ReadableWritablePair<Uint8Array>
+    readonly stream: ReadableWritablePair<Uint8Array, Uint8Array>
   ) {
     this.#secret = new SecretKcpStream(this)
 

@@ -38,7 +38,7 @@ export class SmuxStream {
   readonly writable: WritableStream<Uint8Array>
 
   constructor(
-    readonly stream: ReadableWritablePair<Uint8Array>
+    readonly stream: ReadableWritablePair<Uint8Array, Uint8Array>
   ) {
     this.#secret = new SecretSmuxStream(this)
 
