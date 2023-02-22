@@ -1,20 +1,24 @@
 import { Cursor } from "@hazae41/binary";
 import { CloseEvent } from "libs/events/close.js";
 import { ErrorEvent } from "libs/events/error.js";
-import { KcpReader } from "./reader.js";
-import { KcpWriter } from "./writer.js";
+import { SecretKcpReader } from "./reader.js";
+import { SecretKcpWriter } from "./writer.js";
 
 export class SecretKcpStream {
 
   send_counter = 0
   recv_counter = 0
 
-  readonly reader = KcpReader.secret(this)
-  readonly writer = KcpWriter.secret(this)
+  readonly reader: SecretKcpReader
+  readonly writer: SecretKcpWriter
 
   constructor(
     readonly overt: KcpStream
-  ) { }
+  ) {
+    this.reader = new SecretKcpReader(this)
+    this.writer = new SecretKcpWriter(this)
+  }
+
 }
 
 export class KcpStream {
@@ -55,6 +59,8 @@ export class KcpStream {
   }
 
   async #onReadClose() {
+    console.debug(`${this.#class.name}.onReadClose`)
+
     const closeEvent = new CloseEvent("close", {})
     await this.reader.dispatchEvent(closeEvent)
   }
@@ -67,6 +73,8 @@ export class KcpStream {
   }
 
   async #onWriteClose() {
+    console.debug(`${this.#class.name}.onWriteClose`)
+
     const closeEvent = new CloseEvent("close", {})
     await this.writer.dispatchEvent(closeEvent)
   }

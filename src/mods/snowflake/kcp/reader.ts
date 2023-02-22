@@ -7,22 +7,16 @@ import { SecretKcpStream } from "./stream.js";
 
 export class KcpReader extends AsyncEventTarget<"close" | "error"> {
 
-  readonly #stream: SecretKcpStream
   readonly #secret: SecretKcpReader
 
-  constructor(secretStream: SecretKcpStream) {
+  constructor(secret: SecretKcpReader) {
     super()
 
-    this.#stream = secretStream
-    this.#secret = new SecretKcpReader(this, this.#stream)
-  }
-
-  static secret(secretStream: SecretKcpStream) {
-    return new this(secretStream).#secret
+    this.#secret = secret
   }
 
   get stream() {
-    return this.#stream.overt
+    return this.#secret.stream.overt
   }
 
   async wait<T extends Event>(event: "close" | "error") {
@@ -57,10 +51,11 @@ export class KcpReader extends AsyncEventTarget<"close" | "error"> {
 
 export class SecretKcpReader {
 
+  readonly overt = new KcpReader(this)
+
   readonly pair: StreamPair<Uint8Array, Uint8Array>
 
   constructor(
-    readonly overt: KcpReader,
     readonly stream: SecretKcpStream
   ) {
     this.pair = new StreamPair({}, {

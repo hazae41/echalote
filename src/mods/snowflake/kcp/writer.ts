@@ -1,37 +1,61 @@
 import { Opaque, Writable } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
+import { Future } from "libs/futures/future.js";
 import { StreamPair } from "libs/streams/pair.js";
 import { KcpSegment } from "./segment.js";
 import { SecretKcpStream } from "./stream.js";
 
-export class KcpWriter extends AsyncEventTarget {
+export class KcpWriter extends AsyncEventTarget<"close" | "error"> {
 
-  readonly #stream: SecretKcpStream
   readonly #secret: SecretKcpWriter
 
-  constructor(secretStream: SecretKcpStream) {
+  constructor(secret: SecretKcpWriter) {
     super()
 
-    this.#stream = secretStream
-    this.#secret = new SecretKcpWriter(this, this.#stream)
-  }
-
-  static secret(secretStream: SecretKcpStream) {
-    return new this(secretStream).#secret
+    this.#secret = secret
   }
 
   get stream() {
-    return this.#stream.overt
+    return this.#secret.stream.overt
+  }
+
+  async wait<E extends Event>(event: "close" | "error") {
+    const future = new Future<Event, Error>()
+
+    const onClose = (event: Event) => {
+      const closeEvent = event as CloseEvent
+      const error = new Error(`Closed`, { cause: closeEvent })
+      future.err(error)
+    }
+
+    const onError = (event: Event) => {
+      const errorEvent = event as ErrorEvent
+      const error = new Error(`Errored`, { cause: errorEvent })
+      future.err(error)
+    }
+
+    try {
+      this.addEventListener("close", onClose, { passive: true })
+      this.addEventListener("error", onError, { passive: true })
+      this.addEventListener(event, future.ok, { passive: true })
+
+      return await future.promise as E
+    } finally {
+      this.removeEventListener("close", onClose)
+      this.removeEventListener("error", onError)
+      this.removeEventListener(event, future.ok)
+    }
   }
 
 }
 
 export class SecretKcpWriter {
 
+  readonly overt = new KcpWriter(this)
+
   readonly pair: StreamPair<Uint8Array, Uint8Array>
 
   constructor(
-    readonly overt: KcpWriter,
     readonly stream: SecretKcpStream,
   ) {
     this.pair = new StreamPair({}, {
