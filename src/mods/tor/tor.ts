@@ -109,7 +109,7 @@ export class Tor extends AsyncEventTarget {
    * @param params Tor params
    */
   constructor(
-    readonly tcp: ReadableWritablePair<Uint8Array>,
+    readonly tcp: ReadableWritablePair<Uint8Array, Uint8Array>,
     readonly params: TorParams
   ) {
     super()
@@ -131,12 +131,15 @@ export class Tor extends AsyncEventTarget {
       start: this.#onWriteStart.bind(this)
     }, {})
 
+    const readers = this.reader.pipe()
+    const writers = this.writer.pipe()
+
     tls.readable
-      .pipeTo(this.reader.writable, { signal })
+      .pipeTo(readers.writable, { signal })
       .then(this.#onReadClose.bind(this))
       .catch(this.#onReadError.bind(this))
 
-    this.writer.readable
+    writers.readable
       .pipeTo(tls.writable, { signal })
       .then(this.#onWriteClose.bind(this))
       .catch(this.#onWriteError.bind(this))

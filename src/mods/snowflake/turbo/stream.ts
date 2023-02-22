@@ -48,18 +48,21 @@ export class TurboStream {
   ) {
     this.#secret = new SecretTurboStream(this)
 
-    this.readable = this.#secret.reader.pair.readable
-    this.writable = this.#secret.writer.pair.writable
+    const readers = this.#secret.reader.pair.pipe()
+    const writers = this.#secret.writer.pair.pipe()
+
+    this.readable = readers.readable
+    this.writable = writers.writable
 
     stream.readable
-      .pipeTo(this.#secret.reader.pair.writable)
-      .then(this.onReadClose.bind(this))
-      .catch(this.onReadError.bind(this))
+      .pipeTo(readers.writable)
+      .then(this.#onReadClose.bind(this))
+      .catch(this.#onReadError.bind(this))
 
-    this.#secret.writer.pair.readable
+    writers.readable
       .pipeTo(stream.writable)
-      .then(this.onWriteClose.bind(this))
-      .catch(this.onWriteError.bind(this))
+      .then(this.#onWriteClose.bind(this))
+      .catch(this.#onWriteError.bind(this))
   }
 
   get reader() {
@@ -70,28 +73,28 @@ export class TurboStream {
     return this.#secret.writer.overt
   }
 
-  async onReadClose() {
+  async #onReadClose() {
     console.debug(`${this.#class.name}.onReadClose`)
 
     const closeEvent = new CloseEvent("close", {})
     await this.reader.dispatchEvent(closeEvent)
   }
 
-  async onReadError(error?: unknown) {
+  async #onReadError(error?: unknown) {
     console.debug(`${this.#class.name}.onReadError`, error)
 
     const errorEvent = new ErrorEvent("error", { error })
     await this.reader.dispatchEvent(errorEvent)
   }
 
-  async onWriteClose() {
+  async #onWriteClose() {
     console.debug(`${this.#class.name}.onWriteClose`)
 
     const closeEvent = new CloseEvent("close", {})
     await this.writer.dispatchEvent(closeEvent)
   }
 
-  async onWriteError(error?: unknown) {
+  async #onWriteError(error?: unknown) {
     console.debug(`${this.#class.name}.onWriteError`, error)
 
     const errorEvent = new ErrorEvent("error", { error })

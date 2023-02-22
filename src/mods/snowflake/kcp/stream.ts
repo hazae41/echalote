@@ -36,15 +36,18 @@ export class KcpStream {
   ) {
     this.#secret = new SecretKcpStream(this)
 
-    this.readable = this.#secret.reader.pair.readable
-    this.writable = this.#secret.writer.pair.writable
+    const readers = this.#secret.reader.pair.pipe()
+    const writers = this.#secret.writer.pair.pipe()
+
+    this.readable = readers.readable
+    this.writable = writers.writable
 
     stream.readable
-      .pipeTo(this.#secret.reader.pair.writable)
+      .pipeTo(readers.writable)
       .then(this.#onReadClose.bind(this))
       .catch(this.#onReadError.bind(this))
 
-    this.#secret.writer.pair.readable
+    writers.readable
       .pipeTo(stream.writable)
       .then(this.#onWriteClose.bind(this))
       .catch(this.#onWriteError.bind(this))
