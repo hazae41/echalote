@@ -19,7 +19,7 @@ export class SmuxReader extends AsyncEventTarget<"close" | "error"> {
     return this.#secret.stream.overt
   }
 
-  async wait<E extends Event>(event: "close" | "error") {
+  async wait<E extends Event>(event: never) {
     const future = new Future<Event, Error>()
 
     const onClose = (event: Event) => {

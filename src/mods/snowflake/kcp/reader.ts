@@ -19,7 +19,7 @@ export class KcpReader extends AsyncEventTarget<"close" | "error"> {
     return this.#secret.stream.overt
   }
 
-  async wait<T extends Event>(event: "close" | "error") {
+  async wait<T extends Event>(event: never) {
     const future = new Future<Event, Error>()
 
     const onClose = (event: Event) => {
