@@ -1,4 +1,4 @@
-import { Cursor } from "@hazae41/binary";
+import { Cursor, Opaque, Writable } from "@hazae41/binary";
 import { CloseEvent } from "libs/events/close.js";
 import { ErrorEvent } from "libs/events/error.js";
 import { SecretKcpReader } from "./reader.js";
@@ -26,13 +26,13 @@ export class KcpStream {
 
   readonly #secret: SecretKcpStream
 
-  readonly readable: ReadableStream<Uint8Array>
-  readonly writable: WritableStream<Uint8Array>
+  readonly readable: ReadableStream<Opaque>
+  readonly writable: WritableStream<Writable>
 
   readonly conversation = Cursor.random(4).getUint32(true)
 
   constructor(
-    readonly stream: ReadableWritablePair<Uint8Array, Uint8Array>
+    readonly stream: ReadableWritablePair<Opaque, Writable>
   ) {
     this.#secret = new SecretKcpStream(this)
 

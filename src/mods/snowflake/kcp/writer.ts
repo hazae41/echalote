@@ -1,4 +1,4 @@
-import { Opaque, Writable } from "@hazae41/binary";
+import { Writable } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { StreamPair } from "libs/streams/pair.js";
@@ -53,7 +53,7 @@ export class SecretKcpWriter {
 
   readonly overt = new KcpWriter(this)
 
-  readonly pair: StreamPair<Uint8Array, Uint8Array>
+  readonly pair: StreamPair<Writable, Writable>
 
   constructor(
     readonly stream: SecretKcpStream,
@@ -63,13 +63,13 @@ export class SecretKcpWriter {
     })
   }
 
-  async #onWrite(chunk: Uint8Array) {
+  async #onWrite(chunk: Writable) {
     const conversation = this.stream.overt.conversation
     const command = KcpSegment.commands.push
     const send_counter = this.stream.send_counter++
     const recv_counter = this.stream.recv_counter
-    const segment = new KcpSegment(conversation, command, 0, 65535, Date.now() / 1000, send_counter, recv_counter, new Opaque(chunk))
-    this.pair.enqueue(Writable.toBytes(segment))
+    const segment = new KcpSegment(conversation, command, 0, 65535, Date.now() / 1000, send_counter, recv_counter, chunk)
+    this.pair.enqueue(segment)
   }
 
 }

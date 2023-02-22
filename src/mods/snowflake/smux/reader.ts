@@ -1,4 +1,4 @@
-import { Cursor, Empty, Opaque, Writable } from "@hazae41/binary";
+import { Cursor, Empty, Opaque } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { StreamPair } from "libs/streams/pair.js";
@@ -52,7 +52,7 @@ export class SecretSmuxReader {
 
   readonly overt = new SmuxReader(this)
 
-  readonly pair: StreamPair<Uint8Array, Uint8Array>
+  readonly pair: StreamPair<Uint8Array, Opaque>
 
   readonly #buffer = Cursor.allocUnsafe(65535)
 
@@ -64,13 +64,13 @@ export class SecretSmuxReader {
     })
   }
 
-  async #onRead(chunk: Uint8Array) {
+  async #onRead(chunk: Opaque) {
     // console.debug("<-", chunk)
 
     if (this.#buffer.offset)
-      await this.#onReadBuffered(chunk)
+      await this.#onReadBuffered(chunk.bytes)
     else
-      await this.#onReadDirect(chunk)
+      await this.#onReadDirect(chunk.bytes)
   }
 
   async #onReadBuffered(chunk: Uint8Array) {
@@ -122,14 +122,14 @@ export class SecretSmuxReader {
     if (this.stream.selfIncrement >= (this.stream.selfWindow / 2)) {
       const update = new SmuxUpdate(this.stream.selfRead, this.stream.selfWindow)
       const segment = new SmuxSegment(2, SmuxSegment.commands.upd, 1, update)
-      this.stream.writer.pair.enqueue(Writable.toBytes(segment))
+      this.stream.writer.pair.enqueue(segment)
       this.stream.selfIncrement = 0
     }
   }
 
   async #onNopSegment(ping: SmuxSegment<Opaque>) {
     const pong = new SmuxSegment(2, SmuxSegment.commands.nop, ping.stream, new Empty())
-    this.stream.writer.pair.enqueue(Writable.toBytes(pong))
+    this.stream.writer.pair.enqueue(pong)
   }
 
   async #onUpdSegment(segment: SmuxSegment<Opaque>) {

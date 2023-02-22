@@ -1,4 +1,4 @@
-import { Readable } from "@hazae41/binary"
+import { Opaque, Readable } from "@hazae41/binary"
 import { AsyncEventTarget } from "libs/events/target.js"
 import { Future } from "libs/futures/future.js"
 import { StreamPair } from "libs/streams/pair.js"
@@ -52,7 +52,7 @@ export class SecretTurboReader {
 
   readonly overt = new TurboReader(this)
 
-  readonly pair: StreamPair<Uint8Array, Uint8Array>
+  readonly pair: StreamPair<Opaque, Uint8Array>
 
   constructor(
     readonly stream: SecretTurboStream
@@ -67,6 +67,6 @@ export class SecretTurboReader {
 
     if (frame.padding) return
 
-    this.pair.enqueue(frame.fragment.bytes)
+    this.pair.enqueue(frame.fragment)
   }
 }

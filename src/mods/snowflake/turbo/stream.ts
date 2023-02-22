@@ -1,3 +1,4 @@
+import { Opaque, Writable } from "@hazae41/binary"
 import { Bytes } from "@hazae41/bytes"
 import { SecretTurboReader } from "./reader.js"
 import { SecretTurboWriter } from "./writer.js"
@@ -38,8 +39,8 @@ export class TurboStream {
 
   readonly #secret: SecretTurboStream
 
-  readonly readable: ReadableStream<Uint8Array>
-  readonly writable: WritableStream<Uint8Array>
+  readonly readable: ReadableStream<Opaque>
+  readonly writable: WritableStream<Writable>
 
   constructor(
     readonly stream: ReadableWritablePair<Uint8Array, Uint8Array>,

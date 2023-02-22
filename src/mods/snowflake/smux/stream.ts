@@ -1,4 +1,4 @@
-import { Cursor } from "@hazae41/binary"
+import { Cursor, Opaque, Writable } from "@hazae41/binary"
 import { SecretSmuxReader } from "./reader.js"
 import { SecretSmuxWriter } from "./writer.js"
 
@@ -38,7 +38,7 @@ export class SmuxStream {
   readonly writable: WritableStream<Uint8Array>
 
   constructor(
-    readonly stream: ReadableWritablePair<Uint8Array, Uint8Array>
+    readonly stream: ReadableWritablePair<Opaque, Writable>
   ) {
     this.#secret = new SecretSmuxStream(this)
 

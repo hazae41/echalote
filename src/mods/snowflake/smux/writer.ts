@@ -51,7 +51,7 @@ export class SmuxWriter extends AsyncEventTarget<"close" | "error"> {
 
 export class SecretSmuxWriter {
 
-  readonly pair: StreamPair<Uint8Array, Uint8Array>
+  readonly pair: StreamPair<Writable, Uint8Array>
 
   readonly overt = new SmuxWriter(this)
 
@@ -65,20 +65,20 @@ export class SecretSmuxWriter {
     })
   }
 
-  async #onStart(controller: ReadableStreamDefaultController<Uint8Array>) {
+  async #onStart(controller: ReadableStreamDefaultController<Writable>) {
     await this.#sendSYN(controller)
     await this.#sendUPD(controller)
   }
 
-  async #sendSYN(controller: ReadableStreamDefaultController<Uint8Array>) {
+  async #sendSYN(controller: ReadableStreamDefaultController<Writable>) {
     const segment = new SmuxSegment(2, SmuxSegment.commands.syn, 1, new Empty())
-    controller.enqueue(Writable.toBytes(segment))
+    controller.enqueue(segment)
   }
 
-  async #sendUPD(controller: ReadableStreamDefaultController<Uint8Array>) {
+  async #sendUPD(controller: ReadableStreamDefaultController<Writable>) {
     const update = new SmuxUpdate(0, 1048576)
     const segment = new SmuxSegment(2, SmuxSegment.commands.upd, 1, update)
-    controller.enqueue(Writable.toBytes(segment))
+    controller.enqueue(segment)
   }
 
   async #onWrite(chunk: Uint8Array) {
@@ -88,7 +88,7 @@ export class SecretSmuxWriter {
       throw new Error(`Peer window reached`)
 
     const segment = new SmuxSegment(2, SmuxSegment.commands.psh, 1, new Opaque(chunk))
-    this.pair.enqueue(Writable.toBytes(segment))
+    this.pair.enqueue(segment)
 
     this.stream.selfWrite += chunk.length
   }

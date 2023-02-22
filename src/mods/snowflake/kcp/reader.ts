@@ -1,4 +1,4 @@
-import { Cursor, Empty, Opaque, Writable } from "@hazae41/binary";
+import { Cursor, Empty, Opaque } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { StreamPair } from "libs/streams/pair.js";
@@ -53,7 +53,7 @@ export class SecretKcpReader {
 
   readonly overt = new KcpReader(this)
 
-  readonly pair: StreamPair<Uint8Array, Uint8Array>
+  readonly pair: StreamPair<Opaque, Opaque>
 
   constructor(
     readonly stream: SecretKcpStream
@@ -63,20 +63,15 @@ export class SecretKcpReader {
     })
   }
 
-  async #onRead(chunk: Uint8Array) {
-    const cursor = new Cursor(chunk)
+  async #onRead(chunk: Opaque) {
+    const cursor = new Cursor(chunk.bytes)
 
     while (cursor.remaining) {
-      try {
-        const segment = KcpSegment.tryRead(cursor)
+      const segment = KcpSegment.tryRead(cursor)
 
-        if (!segment) break
+      if (!segment) break
 
-        await this.#onSegment(segment)
-      } catch (e: unknown) {
-        console.error(e)
-        throw e
-      }
+      await this.#onSegment(segment)
     }
   }
 
@@ -97,7 +92,7 @@ export class SecretKcpReader {
       return
 
     this.stream.recv_counter++
-    this.pair.enqueue(segment.fragment.bytes)
+    this.pair.enqueue(segment.fragment)
 
     const conversation = this.stream.overt.conversation
     const command = KcpSegment.commands.ack
@@ -105,7 +100,7 @@ export class SecretKcpReader {
     const serial = segment.serial
     const una = this.stream.recv_counter
     const ack = new KcpSegment(conversation, command, 0, 65535, timestamp, serial, una, new Empty())
-    this.stream.writer.pair.enqueue(Writable.toBytes(ack))
+    this.stream.writer.pair.enqueue(ack)
   }
 
   async #onAckSegment(segment: KcpSegment<Opaque>) {
@@ -119,7 +114,7 @@ export class SecretKcpReader {
     const serial = 0
     const una = this.stream.recv_counter
     const wins = new KcpSegment(conversation, command, 0, 65535, timestamp, serial, una, new Empty())
-    this.stream.writer.pair.enqueue(Writable.toBytes(wins))
+    this.stream.writer.pair.enqueue(wins)
   }
 
 }

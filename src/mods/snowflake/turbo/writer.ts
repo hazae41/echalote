@@ -1,4 +1,4 @@
-import { Opaque, Writable } from "@hazae41/binary";
+import { Writable } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { StreamPair } from "libs/streams/pair.js";
@@ -51,7 +51,7 @@ export class SmuxWriter extends AsyncEventTarget<"close" | "error"> {
 
 export class SecretTurboWriter {
 
-  readonly pair: StreamPair<Uint8Array, Uint8Array>
+  readonly pair: StreamPair<Uint8Array, Writable>
 
   readonly overt = new SmuxWriter(this)
 
@@ -65,7 +65,7 @@ export class SecretTurboWriter {
     })
   }
 
-  async #onStart(controller: ReadableStreamController<Uint8Array>) {
+  async #onStart(controller: ReadableStreamDefaultController<Uint8Array>) {
     const token = this.stream.class.token
     controller.enqueue(token)
 
@@ -73,9 +73,10 @@ export class SecretTurboWriter {
     controller.enqueue(clientID)
   }
 
-  async #onWrite(chunk: Uint8Array) {
-    const frame = new TurboFrame(false, new Opaque(chunk))
+  async #onWrite(chunk: Writable) {
+    const frame = new TurboFrame(false, chunk)
     this.pair.enqueue(Writable.toBytes(frame))
   }
+
 }
 
