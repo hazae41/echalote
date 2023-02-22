@@ -52,13 +52,16 @@ export class SmuxSegment<T extends Writable> {
     size: number
   }
 
-  #prepare() {
+  prepare() {
     const size = this.fragment.size()
-    return this.#data = { size }
+    this.#data = { size }
+    return this
   }
 
   size() {
-    const { size } = this.#prepare()
+    if (!this.#data)
+      throw new Error(`Unprepared ${this.#class.name}`)
+    const { size } = this.#data
 
     return 0
       + 1
@@ -71,7 +74,6 @@ export class SmuxSegment<T extends Writable> {
   write(cursor: Cursor) {
     if (!this.#data)
       throw new Error(`Unprepared ${this.#class.name}`)
-
     const { size } = this.#data
 
     cursor.writeUint8(this.version)

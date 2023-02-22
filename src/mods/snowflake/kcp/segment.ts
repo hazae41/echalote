@@ -49,13 +49,16 @@ export class KcpSegment<T extends Writable> {
     size: number
   }
 
-  #prepare() {
+  prepare() {
     const size = this.fragment.size()
-    return this.#data = { size }
+    this.#data = { size }
+    return this
   }
 
   size() {
-    const { size } = this.#prepare()
+    if (!this.#data)
+      throw new Error(`Unprepared ${this.#class.name}`)
+    const { size } = this.#data
 
     return 0
       + 4
@@ -72,7 +75,6 @@ export class KcpSegment<T extends Writable> {
   write(cursor: Cursor) {
     if (!this.#data)
       throw new Error(`Unprepared ${this.#class.name}`)
-
     const { size } = this.#data
 
     cursor.writeUint32(this.conversation, true)

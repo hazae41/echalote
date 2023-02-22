@@ -100,7 +100,7 @@ export class SecretKcpReader {
     const serial = segment.serial
     const una = this.stream.recv_counter
     const ack = new KcpSegment(conversation, command, 0, 65535, timestamp, serial, una, new Empty())
-    this.stream.writer.pair.enqueue(ack)
+    this.stream.writer.pair.enqueue(ack.prepare())
   }
 
   async #onAckSegment(segment: KcpSegment<Opaque>) {
@@ -114,7 +114,7 @@ export class SecretKcpReader {
     const serial = 0
     const una = this.stream.recv_counter
     const wins = new KcpSegment(conversation, command, 0, 65535, timestamp, serial, una, new Empty())
-    this.stream.writer.pair.enqueue(wins)
+    this.stream.writer.pair.enqueue(wins.prepare())
   }
 
 }

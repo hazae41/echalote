@@ -122,14 +122,14 @@ export class SecretSmuxReader {
     if (this.stream.selfIncrement >= (this.stream.selfWindow / 2)) {
       const update = new SmuxUpdate(this.stream.selfRead, this.stream.selfWindow)
       const segment = new SmuxSegment(2, SmuxSegment.commands.upd, 1, update)
-      this.stream.writer.pair.enqueue(segment)
+      this.stream.writer.pair.enqueue(segment.prepare())
       this.stream.selfIncrement = 0
     }
   }
 
   async #onNopSegment(ping: SmuxSegment<Opaque>) {
     const pong = new SmuxSegment(2, SmuxSegment.commands.nop, ping.stream, new Empty())
-    this.stream.writer.pair.enqueue(pong)
+    this.stream.writer.pair.enqueue(pong.prepare())
   }
 
   async #onUpdSegment(segment: SmuxSegment<Opaque>) {

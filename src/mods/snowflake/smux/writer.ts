@@ -72,13 +72,13 @@ export class SecretSmuxWriter {
 
   async #sendSYN(controller: ReadableStreamDefaultController<Writable>) {
     const segment = new SmuxSegment(2, SmuxSegment.commands.syn, 1, new Empty())
-    controller.enqueue(segment)
+    controller.enqueue(segment.prepare())
   }
 
   async #sendUPD(controller: ReadableStreamDefaultController<Writable>) {
     const update = new SmuxUpdate(0, 1048576)
     const segment = new SmuxSegment(2, SmuxSegment.commands.upd, 1, update)
-    controller.enqueue(segment)
+    controller.enqueue(segment.prepare())
   }
 
   async #onWrite(chunk: Uint8Array) {
@@ -88,7 +88,7 @@ export class SecretSmuxWriter {
       throw new Error(`Peer window reached`)
 
     const segment = new SmuxSegment(2, SmuxSegment.commands.psh, 1, new Opaque(chunk))
-    this.pair.enqueue(segment)
+    this.pair.enqueue(segment.prepare())
 
     this.stream.selfWrite += chunk.length
   }

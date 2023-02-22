@@ -13,13 +13,16 @@ export class TurboFrame<T extends Writable> {
     size: number
   }
 
-  #prepare() {
+  prepare() {
     const size = this.fragment.size()
-    return this.#data = { size }
+    this.#data = { size }
+    return this
   }
 
   size() {
-    const { size } = this.#prepare()
+    if (!this.#data)
+      throw new Error(`Unprepared ${this.#class.name}`)
+    const { size } = this.#data
 
     if (size < 64)
       return 1 + size
@@ -28,6 +31,20 @@ export class TurboFrame<T extends Writable> {
     if (size < 1048576)
       return 3 + size
     throw new Error(`${this.#class.name}.size() max data length`)
+  }
+
+  write(cursor: Cursor) {
+    if (!this.#data)
+      throw new Error(`Unprepared ${this.#class.name}`)
+    const { size } = this.#data
+
+    if (size < 64)
+      return this.write6(cursor, size)
+    if (size < 8192)
+      return this.write13(cursor, size)
+    if (size < 1048576)
+      return this.write20(cursor, size)
+    throw new Error(`${this.#class.name}.write() max data length`)
   }
 
   write6(cursor: Cursor, size: number) {
@@ -70,21 +87,6 @@ export class TurboFrame<T extends Writable> {
 
     cursor.writeUint24(parseInt(bits, 2))
     this.fragment.write(cursor)
-  }
-
-  write(cursor: Cursor) {
-    if (!this.#data)
-      throw new Error(`Unprepared ${this.#class.name}`)
-
-    const { size } = this.#data
-
-    if (size < 64)
-      return this.write6(cursor, size)
-    if (size < 8192)
-      return this.write13(cursor, size)
-    if (size < 1048576)
-      return this.write20(cursor, size)
-    throw new Error(`${this.#class.name}.write() max data length`)
   }
 
   /**
