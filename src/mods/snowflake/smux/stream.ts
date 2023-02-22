@@ -11,14 +11,17 @@ export class SecretSmuxStream {
   peerConsumed = 0
   peerWindow = 65535
 
-  readonly reader = new SecretSmuxReader(this)
-  readonly writer = new SecretSmuxWriter(this)
+  readonly reader: SecretSmuxReader
+  readonly writer: SecretSmuxWriter
 
   readonly buffer = Cursor.allocUnsafe(65535)
 
   constructor(
     readonly overt: SmuxStream
-  ) { }
+  ) {
+    this.reader = new SecretSmuxReader(this)
+    this.writer = new SecretSmuxWriter(this)
+  }
 
   get selfWindow() {
     return this.buffer.bytes.length
