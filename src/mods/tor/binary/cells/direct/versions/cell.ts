@@ -22,7 +22,7 @@ export class VersionsCell {
     for (const version of this.versions)
       cursor.writeUint16(version)
 
-    return new OldCell(this.circuit, this.#class.command, cursor.buffer)
+    return new OldCell(this.circuit, this.#class.command, cursor.bytes)
   }
 
   static uncell(cell: OldCell) {

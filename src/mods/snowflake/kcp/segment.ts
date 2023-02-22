@@ -22,15 +22,15 @@ export class KcpSegment<T extends Writable> {
     /**
      * frg
      */
-    readonly count: number,
+    readonly count = 0,
     /**
      * wnd
      */
-    readonly window: number,
+    readonly window = 65535,
     /**
      * ts
      */
-    readonly timestamp: number,
+    readonly timestamp = Math.ceil(Date.now() / 1000),
     /**
      * sn
      */
@@ -44,6 +44,20 @@ export class KcpSegment<T extends Writable> {
      */
     readonly fragment: T
   ) { }
+
+  static new<T extends Writable>(params: {
+    conversation: number,
+    command: number,
+    count?: number,
+    window?: number,
+    timestamp?: number,
+    serial: number,
+    unackSerial: number,
+    fragment: T
+  }) {
+    const { conversation, command, count, window, timestamp, serial, unackSerial, fragment } = params
+    return new this(conversation, command, count, window, timestamp, serial, unackSerial, fragment)
+  }
 
   #data?: {
     size: number

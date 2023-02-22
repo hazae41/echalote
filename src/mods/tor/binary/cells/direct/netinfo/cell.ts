@@ -32,7 +32,7 @@ export class NetinfoCell {
 
     cursor.fill()
 
-    return new NewCell(this.circuit, this.#class.command, cursor.buffer)
+    return new NewCell(this.circuit, this.#class.command, cursor.bytes)
   }
 
   static uncell(cell: NewCell) {

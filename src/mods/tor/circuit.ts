@@ -1,4 +1,5 @@
 import { X25519PublicKey, X25519StaticSecret } from "@hazae41/berith";
+import { Opaque } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Bytes } from "@hazae41/bytes";
 import { Ciphers, TlsStream } from "@hazae41/cadenas";
@@ -280,7 +281,7 @@ export class Circuit extends AsyncEventTarget {
 
     const pextended2 = this.#waitExtended(signal)
     const relay_extend2 = new RelayExtend2Cell(this, undefined, RelayExtend2Cell.types.NTOR, links, request)
-    this.tor.writer.enqueue(await relay_extend2.pack())
+    this.tor.writer.enqueue(new Opaque(await relay_extend2.pack()))
     const extended2 = await pextended2
 
     const response = Ntor.response(extended2.data.data)
@@ -356,7 +357,7 @@ export class Circuit extends AsyncEventTarget {
   async truncate(reason = RelayTruncateCell.reasons.NONE) {
     const ptruncated = this.#waitTruncated()
     const relay_truncate = new RelayTruncateCell(this, undefined, reason)
-    this.tor.writer.enqueue(await relay_truncate.pack())
+    this.tor.writer.enqueue(new Opaque(await relay_truncate.pack()))
     await ptruncated
   }
 
@@ -375,7 +376,8 @@ export class Circuit extends AsyncEventTarget {
       .setLE(RelayBeginCell.flags.IPV6_PREFER, true)
       .unsign()
       .value
-    this.tor.writer.enqueue(await new RelayBeginCell(this, stream, `${hostname}:${port}`, flags).pack())
+    const begin = new RelayBeginCell(this, stream, `${hostname}:${port}`, flags)
+    this.tor.writer.enqueue(new Opaque(await begin.pack()))
 
     return stream
   }

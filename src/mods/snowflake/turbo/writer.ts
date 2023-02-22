@@ -1,4 +1,4 @@
-import { Preparable, Writable } from "@hazae41/binary";
+import { Writable } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { StreamPair } from "libs/streams/pair.js";
@@ -75,7 +75,7 @@ export class SecretTurboWriter {
 
   async #onWrite(chunk: Writable) {
     const frame = new TurboFrame(false, chunk)
-    this.pair.enqueue(Preparable.toBytes(frame))
+    this.pair.enqueue(Writable.toBytes(frame.prepare()))
   }
 
 }

@@ -47,7 +47,7 @@ export class RelayCell {
 
     const exit = Arrays.lastOf(this.circuit.targets)
 
-    exit.forwardDigest.update(cursor.buffer)
+    exit.forwardDigest.update(cursor.bytes)
 
     const digest = exit.forwardDigest.finalize().subarray(0, 4)
 
@@ -55,9 +55,9 @@ export class RelayCell {
     cursor.write(digest)
 
     for (let i = this.circuit.targets.length - 1; i >= 0; i--)
-      this.circuit.targets[i].forwardKey.apply_keystream(cursor.buffer)
+      this.circuit.targets[i].forwardKey.apply_keystream(cursor.bytes)
 
-    return new NewCell(this.circuit, this.class.command, cursor.buffer)
+    return new NewCell(this.circuit, this.class.command, cursor.bytes)
   }
 
   static async uncell(cell: NewCell) {
@@ -91,7 +91,7 @@ export class RelayCell {
       const digest = new Uint8Array(cursor.get(4))
       cursor.writeUint32(0)
 
-      target.backwardDigest.update(cursor.buffer)
+      target.backwardDigest.update(cursor.bytes)
 
       const digest2 = target.backwardDigest.finalize().subarray(0, 4)
 

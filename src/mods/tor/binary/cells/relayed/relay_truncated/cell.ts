@@ -26,7 +26,7 @@ export class RelayTruncatedCell {
 
     cursor.writeUint8(this.reason)
 
-    return new RelayCell(this.circuit, this.stream, this.#class.rcommand, cursor.buffer)
+    return new RelayCell(this.circuit, this.stream, this.#class.rcommand, cursor.bytes)
   }
 
   static uncell(cell: RelayCell) {

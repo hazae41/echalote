@@ -52,7 +52,7 @@ export class SecretSmuxReader {
 
   readonly overt = new SmuxReader(this)
 
-  readonly pair: StreamPair<Uint8Array, Opaque>
+  readonly pair: StreamPair<Opaque, Opaque>
 
   readonly #buffer = Cursor.allocUnsafe(65535)
 
@@ -117,7 +117,7 @@ export class SecretSmuxReader {
     this.stream.selfRead += segment.fragment.bytes.length
     this.stream.selfIncrement += segment.fragment.bytes.length
 
-    this.pair.enqueue(segment.fragment.bytes)
+    this.pair.enqueue(segment.fragment)
 
     if (this.stream.selfIncrement >= (this.stream.selfWindow / 2)) {
       const update = new SmuxUpdate(this.stream.selfRead, this.stream.selfWindow)

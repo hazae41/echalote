@@ -38,7 +38,7 @@ export class PaddingNegociateCell {
     cursor.writeUint16(this.ito_high_ms)
     cursor.fill()
 
-    return new NewCell(this.circuit, this.#class.command, cursor.buffer)
+    return new NewCell(this.circuit, this.#class.command, cursor.bytes)
   }
 
   static uncell(cell: NewCell) {

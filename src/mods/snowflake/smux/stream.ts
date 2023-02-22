@@ -34,8 +34,8 @@ export class SmuxStream {
 
   readonly #secret: SecretSmuxStream
 
-  readonly readable: ReadableStream<Uint8Array>
-  readonly writable: WritableStream<Uint8Array>
+  readonly readable: ReadableStream<Opaque>
+  readonly writable: WritableStream<Writable>
 
   constructor(
     readonly stream: ReadableWritablePair<Opaque, Writable>

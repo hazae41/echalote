@@ -30,7 +30,7 @@ export class CreateFastCell {
     cursor.write(this.material)
     cursor.fill()
 
-    return new NewCell(this.circuit, this.#class.command, cursor.buffer)
+    return new NewCell(this.circuit, this.#class.command, cursor.bytes)
   }
 
   static uncell(cell: NewCell) {

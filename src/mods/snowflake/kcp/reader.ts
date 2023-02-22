@@ -98,8 +98,9 @@ export class SecretKcpReader {
     const command = KcpSegment.commands.ack
     const timestamp = segment.timestamp
     const serial = segment.serial
-    const una = this.stream.recv_counter
-    const ack = new KcpSegment(conversation, command, 0, 65535, timestamp, serial, una, new Empty())
+    const unackSerial = this.stream.recv_counter
+    const fragment = new Empty()
+    const ack = KcpSegment.new({ conversation, command, timestamp, serial, unackSerial, fragment })
     this.stream.writer.pair.enqueue(ack.prepare())
   }
 
@@ -110,10 +111,10 @@ export class SecretKcpReader {
   async #onWaskSegment(segment: KcpSegment<Opaque>) {
     const conversation = this.stream.overt.conversation
     const command = KcpSegment.commands.wins
-    const timestamp = Date.now() / 1000
     const serial = 0
-    const una = this.stream.recv_counter
-    const wins = new KcpSegment(conversation, command, 0, 65535, timestamp, serial, una, new Empty())
+    const unackSerial = this.stream.recv_counter
+    const fragment = new Empty()
+    const wins = KcpSegment.new({ conversation, command, serial, unackSerial, fragment })
     this.stream.writer.pair.enqueue(wins.prepare())
   }
 

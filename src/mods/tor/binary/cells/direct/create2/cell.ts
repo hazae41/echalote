@@ -39,7 +39,7 @@ export class Create2Cell {
     cursor.write(this.data)
     cursor.fill()
 
-    return new NewCell(this.circuit, this.#class.command, cursor.buffer)
+    return new NewCell(this.circuit, this.#class.command, cursor.bytes)
   }
 
   static uncell(cell: NewCell) {

@@ -1,5 +1,5 @@
 import { Berith } from "@hazae41/berith";
-import { Cursor } from "@hazae41/binary";
+import { Cursor, Opaque, Writable } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Bytes } from "@hazae41/bytes";
 import { TlsStream } from "@hazae41/cadenas";
@@ -91,8 +91,8 @@ export class Tor extends AsyncEventTarget {
   readonly read = new AsyncEventTarget()
   readonly write = new AsyncEventTarget()
 
-  readonly reader: StreamPair<Uint8Array, Uint8Array>
-  readonly writer: StreamPair<Uint8Array, Uint8Array>
+  readonly reader: StreamPair<Opaque, Opaque>
+  readonly writer: StreamPair<Writable, Writable>
 
   readonly authorities = new Array<Authority>()
   readonly circuits = new Map<number, Circuit>()
@@ -109,7 +109,7 @@ export class Tor extends AsyncEventTarget {
    * @param params Tor params
    */
   constructor(
-    readonly tcp: ReadableWritablePair<Uint8Array, Uint8Array>,
+    readonly tcp: ReadableWritablePair<Opaque, Writable>,
     readonly params: TorParams
   ) {
     super()
@@ -227,22 +227,22 @@ export class Tor extends AsyncEventTarget {
     if (!await this.write.dispatchEvent(errorEvent)) return
   }
 
-  async #onWriteStart(controller: ReadableStreamDefaultController<Uint8Array>) {
+  async #onWriteStart(controller: ReadableStreamDefaultController<Writable>) {
     await this.#init()
 
     const version = new VersionsCell(undefined, [5])
-    controller.enqueue(version.pack())
+    controller.enqueue(new Opaque(version.pack()))
 
     await this.#wait("handshake")
   }
 
-  async #onRead(chunk: Uint8Array) {
+  async #onRead(chunk: Opaque) {
     // console.debug(this.#class.name, "<-", chunk)
 
     if (this.#buffer.offset)
-      await this.#onReadBuffered(chunk)
+      await this.#onReadBuffered(chunk.bytes)
     else
-      await this.#onReadDirect(chunk)
+      await this.#onReadDirect(chunk.bytes)
   }
 
   /**
@@ -424,12 +424,12 @@ export class Tor extends AsyncEventTarget {
 
     const address = new TypedAddress(4, new Uint8Array([127, 0, 0, 1]))
     const netinfo = new NetinfoCell(undefined, 0, address, [])
-    this.writer.enqueue(netinfo.pack())
+    this.writer.enqueue(new Opaque(netinfo.pack()))
 
     const pversion = PaddingNegociateCell.versions.ZERO
     const pcommand = PaddingNegociateCell.commands.STOP
     const padding = new PaddingNegociateCell(undefined, pversion, pcommand, 0, 0)
-    this.writer.enqueue(padding.pack())
+    this.writer.enqueue(new Opaque(padding.pack()))
 
     const { version, guard } = this.#state
     this.#state = { type: "handshaked", version, guard }
@@ -609,7 +609,7 @@ export class Tor extends AsyncEventTarget {
     const material = Bytes.random(20)
 
     const create_fast = new CreateFastCell(circuit, material)
-    this.writer.enqueue(create_fast.pack())
+    this.writer.enqueue(new Opaque(create_fast.pack()))
 
     const created_fast = await this.#waitCreatedFast(circuit, signal)
 

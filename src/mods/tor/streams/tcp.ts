@@ -1,4 +1,4 @@
-import { Cursor } from "@hazae41/binary";
+import { Cursor, Opaque, Writable } from "@hazae41/binary";
 import { ErrorEvent } from "libs/events/error.js";
 import { Events } from "libs/events/events.js";
 import { AsyncEventTarget } from "libs/events/target.js";
@@ -12,10 +12,10 @@ const DATA_LEN = PAYLOAD_LEN - (1 + 2 + 2 + 4 + 2)
 export class TcpStream extends AsyncEventTarget {
   readonly #class = TcpStream
 
-  readonly readable: ReadableStream<Uint8Array>
-  readonly writable: WritableStream<Uint8Array>
+  readonly readable: ReadableStream<Opaque>
+  readonly writable: WritableStream<Writable>
 
-  #input?: ReadableStreamController<Uint8Array>
+  #input?: ReadableStreamDefaultController<Opaque>
   #output?: WritableStreamDefaultController
 
   #closed = false
@@ -53,7 +53,7 @@ export class TcpStream extends AsyncEventTarget {
     return this.#closed
   }
 
-  async #onReadStart(controller: ReadableStreamController<Uint8Array>) {
+  async #onReadStart(controller: ReadableStreamDefaultController<Opaque>) {
     this.#input = controller
   }
 
@@ -97,7 +97,9 @@ export class TcpStream extends AsyncEventTarget {
 
     console.debug(`${this.#class.name}.onRelayDataCell`, event)
 
-    try { this.#input!.enqueue(msgEvent.data.data) } catch (e: unknown) { }
+    try {
+      this.#input!.enqueue(new Opaque(msgEvent.data.data))
+    } catch (e: unknown) { }
 
     const msgEventClone = Events.clone(msgEvent)
     if (!await this.dispatchEvent(msgEventClone)) return
@@ -120,18 +122,22 @@ export class TcpStream extends AsyncEventTarget {
     if (!await this.dispatchEvent(msgEventClone)) return
   }
 
-  async #onWrite(chunk: Uint8Array) {
-    if (chunk.length <= DATA_LEN) {
-      const cell = new RelayDataCell(this.circuit, this, chunk)
-      return this.circuit.tor.writer.enqueue(await cell.pack())
+  async #onWrite(chunk: Writable) {
+    const bytes = chunk instanceof Opaque
+      ? chunk.bytes
+      : Writable.toBytes(chunk)
+
+    if (bytes.length <= DATA_LEN) {
+      const cell = new RelayDataCell(this.circuit, this, bytes)
+      return this.circuit.tor.writer.enqueue(new Opaque(await cell.pack()))
     }
 
-    const cursor = new Cursor(chunk)
+    const cursor = new Cursor(bytes)
     const chunks = cursor.split(DATA_LEN)
 
     for (const chunk of chunks) {
       const cell = new RelayDataCell(this.circuit, this, chunk)
-      this.circuit.tor.writer.enqueue(await cell.pack())
+      this.circuit.tor.writer.enqueue(new Opaque(await cell.pack()))
     }
   }
 }

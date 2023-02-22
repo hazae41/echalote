@@ -1,4 +1,4 @@
-import { Empty, Opaque, Writable } from "@hazae41/binary";
+import { Empty, Writable } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { StreamPair } from "libs/streams/pair.js";
@@ -51,7 +51,7 @@ export class SmuxWriter extends AsyncEventTarget<"close" | "error"> {
 
 export class SecretSmuxWriter {
 
-  readonly pair: StreamPair<Writable, Uint8Array>
+  readonly pair: StreamPair<Writable, Writable>
 
   readonly overt = new SmuxWriter(this)
 
@@ -81,16 +81,16 @@ export class SecretSmuxWriter {
     controller.enqueue(segment.prepare())
   }
 
-  async #onWrite(chunk: Uint8Array) {
+  async #onWrite(chunk: Writable) {
     const inflight = this.stream.selfWrite - this.stream.peerConsumed
 
     if (inflight >= this.stream.peerWindow)
       throw new Error(`Peer window reached`)
 
-    const segment = new SmuxSegment(2, SmuxSegment.commands.psh, 1, new Opaque(chunk))
+    const segment = new SmuxSegment(2, SmuxSegment.commands.psh, 1, chunk)
     this.pair.enqueue(segment.prepare())
 
-    this.stream.selfWrite += chunk.length
+    this.stream.selfWrite += chunk.size()
   }
 
 }

@@ -60,13 +60,13 @@ export class StreamPairSink<R, W> implements UnderlyingSink<W> {
   }
 
   async abort(reason?: any) {
-    this.pair.source.controller.error(reason)
     await this.subsink.abort?.(reason)
+    this.pair.source.controller.error(reason)
   }
 
   async close() {
-    this.pair.source.controller.close()
     await this.subsink.close?.()
+    this.pair.source.controller.close()
   }
 
 }
@@ -101,8 +101,8 @@ export class StreamPairSource<R, W> implements UnderlyingDefaultSource<R> {
   }
 
   async cancel(reason?: any) {
-    this.pair.sink.controller.error(reason)
     await this.subsource.cancel?.(reason)
+    this.pair.sink.controller.error(reason)
   }
 
 }

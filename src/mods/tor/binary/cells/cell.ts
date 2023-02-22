@@ -38,7 +38,7 @@ export class OldCell {
     cursor.writeUint16(this.payload.length)
     cursor.write(this.payload)
 
-    return cursor.buffer
+    return cursor.bytes
   }
 
   static tryRead(cursor: Cursor): OldCellRaw | undefined {
@@ -90,7 +90,7 @@ export class NewCell {
       cursor.writeUint16(this.payload.length)
       cursor.write(this.payload)
 
-      return cursor.buffer
+      return cursor.bytes
     } else {
       const cursor = Cursor.allocUnsafe(4 + 1 + this.payload.length)
 
@@ -98,7 +98,7 @@ export class NewCell {
       cursor.writeUint8(this.command)
       cursor.write(this.payload)
 
-      return cursor.buffer
+      return cursor.bytes
     }
   }
 
