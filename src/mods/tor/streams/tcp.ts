@@ -123,7 +123,7 @@ export class TcpStream extends AsyncEventTarget {
   async #onWrite(chunk: Uint8Array) {
     if (chunk.length <= DATA_LEN) {
       const cell = new RelayDataCell(this.circuit, this, chunk)
-      return this.circuit.tor.output.enqueue(await cell.pack())
+      return this.circuit.tor.writer.enqueue(await cell.pack())
     }
 
     const cursor = new Cursor(chunk)
@@ -131,7 +131,7 @@ export class TcpStream extends AsyncEventTarget {
 
     for (const chunk of chunks) {
       const cell = new RelayDataCell(this.circuit, this, chunk)
-      this.circuit.tor.output.enqueue(await cell.pack())
+      this.circuit.tor.writer.enqueue(await cell.pack())
     }
   }
 }

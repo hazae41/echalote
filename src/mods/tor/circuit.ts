@@ -280,7 +280,7 @@ export class Circuit extends AsyncEventTarget {
 
     const pextended2 = this.#waitExtended(signal)
     const relay_extend2 = new RelayExtend2Cell(this, undefined, RelayExtend2Cell.types.NTOR, links, request)
-    this.tor.output.enqueue(await relay_extend2.pack())
+    this.tor.writer.enqueue(await relay_extend2.pack())
     const extended2 = await pextended2
 
     const response = Ntor.response(extended2.data.data)
@@ -356,7 +356,7 @@ export class Circuit extends AsyncEventTarget {
   async truncate(reason = RelayTruncateCell.reasons.NONE) {
     const ptruncated = this.#waitTruncated()
     const relay_truncate = new RelayTruncateCell(this, undefined, reason)
-    this.tor.output.enqueue(await relay_truncate.pack())
+    this.tor.writer.enqueue(await relay_truncate.pack())
     await ptruncated
   }
 
@@ -375,7 +375,7 @@ export class Circuit extends AsyncEventTarget {
       .setLE(RelayBeginCell.flags.IPV6_PREFER, true)
       .unsign()
       .value
-    this.tor.output.enqueue(await new RelayBeginCell(this, stream, `${hostname}:${port}`, flags).pack())
+    this.tor.writer.enqueue(await new RelayBeginCell(this, stream, `${hostname}:${port}`, flags).pack())
 
     return stream
   }

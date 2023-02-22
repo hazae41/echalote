@@ -13,6 +13,7 @@ import { ErrorEvent } from "libs/events/error.js";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { Mutex } from "libs/mutex/mutex.js";
+import { StreamPair } from "libs/streams/pair.js";
 import { kdftor } from "mods/tor/algos/kdftor.js";
 import { TypedAddress } from "mods/tor/binary/address.js";
 import { Cell, NewCell, OldCell } from "mods/tor/binary/cells/cell.js";
@@ -90,11 +91,8 @@ export class Tor extends AsyncEventTarget {
   readonly read = new AsyncEventTarget()
   readonly write = new AsyncEventTarget()
 
-  readonly #reader: TransformStream<Uint8Array>
-  readonly #writer: TransformStream<Uint8Array>
-
-  #input?: TransformStreamDefaultController<Uint8Array>
-  #output?: TransformStreamDefaultController<Uint8Array>
+  readonly reader: StreamPair<Uint8Array, Uint8Array>
+  readonly writer: StreamPair<Uint8Array, Uint8Array>
 
   readonly authorities = new Array<Authority>()
   readonly circuits = new Map<number, Circuit>()
@@ -125,29 +123,23 @@ export class Tor extends AsyncEventTarget {
 
     this.#tls = tls
 
-    this.#reader = new TransformStream<Uint8Array>({
-      start: this.#onReadStart.bind(this),
-      transform: this.#onRead.bind(this),
+    this.reader = new StreamPair({}, {
+      write: this.#onRead.bind(this)
     })
 
-    this.#writer = new TransformStream<Uint8Array>({
-      start: this.#onWriteStart.bind(this),
-    })
+    this.writer = new StreamPair({
+      start: this.#onWriteStart.bind(this)
+    }, {})
 
     tls.readable
-      .pipeTo(this.#reader.writable, { signal })
+      .pipeTo(this.reader.writable, { signal })
       .then(this.#onReadClose.bind(this))
       .catch(this.#onReadError.bind(this))
 
-    this.#writer.readable
+    this.writer.readable
       .pipeTo(tls.writable, { signal })
       .then(this.#onWriteClose.bind(this))
       .catch(this.#onWriteError.bind(this))
-
-    this.#reader.readable
-      .pipeTo(new WritableStream())
-      .then(() => { })
-      .catch(() => { })
   }
 
   async #init() {
@@ -156,14 +148,6 @@ export class Tor extends AsyncEventTarget {
     await Zepar.initBundledOnce()
     await Morax.initBundledOnce()
     await Foras.initBundledOnce()
-  }
-
-  get input() {
-    return this.#input!
-  }
-
-  get output() {
-    return this.#output!
   }
 
   async #wait(type: string, signal?: AbortSignal) {
@@ -229,8 +213,6 @@ export class Tor extends AsyncEventTarget {
   async #onReadError(error?: unknown) {
     console.debug(`${this.#class.name}.onReadError`, error)
 
-    try { this.output!.error(error) } catch (e: unknown) { }
-
     const errorEvent = new ErrorEvent("error", { error })
     if (!await this.read.dispatchEvent(errorEvent)) return
   }
@@ -238,23 +220,15 @@ export class Tor extends AsyncEventTarget {
   async #onWriteError(error?: unknown) {
     console.debug(`${this.#class.name}.onWriteError`, error)
 
-    try { this.input!.error(error) } catch (e: unknown) { }
-
     const errorEvent = new ErrorEvent("error", { error })
     if (!await this.write.dispatchEvent(errorEvent)) return
   }
 
-  async #onReadStart(controller: TransformStreamDefaultController<Uint8Array>) {
-    this.#input = controller
-  }
-
-  async #onWriteStart(controller: TransformStreamDefaultController<Uint8Array>) {
-    this.#output = controller
-
+  async #onWriteStart(controller: ReadableStreamDefaultController<Uint8Array>) {
     await this.#init()
 
     const version = new VersionsCell(undefined, [5])
-    this.#output!.enqueue(version.pack())
+    controller.enqueue(version.pack())
 
     await this.#wait("handshake")
   }
@@ -447,12 +421,12 @@ export class Tor extends AsyncEventTarget {
 
     const address = new TypedAddress(4, new Uint8Array([127, 0, 0, 1]))
     const netinfo = new NetinfoCell(undefined, 0, address, [])
-    this.#output!.enqueue(netinfo.pack())
+    this.writer.enqueue(netinfo.pack())
 
     const pversion = PaddingNegociateCell.versions.ZERO
     const pcommand = PaddingNegociateCell.commands.STOP
     const padding = new PaddingNegociateCell(undefined, pversion, pcommand, 0, 0)
-    this.#output!.enqueue(padding.pack())
+    this.writer.enqueue(padding.pack())
 
     const { version, guard } = this.#state
     this.#state = { type: "handshaked", version, guard }
@@ -632,7 +606,7 @@ export class Tor extends AsyncEventTarget {
     const material = Bytes.random(20)
 
     const create_fast = new CreateFastCell(circuit, material)
-    this.#output!.enqueue(create_fast.pack())
+    this.writer.enqueue(create_fast.pack())
 
     const created_fast = await this.#waitCreatedFast(circuit, signal)
 
