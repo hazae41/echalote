@@ -65,6 +65,8 @@ export class SmuxStream {
   }
 
   async onReadClose() {
+    console.debug(`${this.#class.name}.onReadClose`)
+
     const closeEvent = new CloseEvent("close", {})
     await this.reader.dispatchEvent(closeEvent)
   }
@@ -77,6 +79,8 @@ export class SmuxStream {
   }
 
   async onWriteClose() {
+    console.debug(`${this.#class.name}.onWriteClose`)
+
     const closeEvent = new CloseEvent("close", {})
     await this.writer.dispatchEvent(closeEvent)
   }
