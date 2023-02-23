@@ -55,6 +55,8 @@ export class SecretKcpReader {
 
   readonly pair: StreamPair<Opaque, Opaque>
 
+  readonly #buffer = new Map<number, KcpSegment<Opaque>>()
+
   constructor(
     readonly stream: SecretKcpStream
   ) {
@@ -69,7 +71,10 @@ export class SecretKcpReader {
     while (cursor.remaining) {
       const segment = KcpSegment.tryRead(cursor)
 
-      if (!segment) break
+      if (!segment) {
+        console.warn(`Not a KCP segment`, cursor.after)
+        break
+      }
 
       await this.#onSegment(segment)
     }
@@ -88,12 +93,6 @@ export class SecretKcpReader {
   }
 
   async #onPushSegment(segment: KcpSegment<Opaque>) {
-    if (segment.serial !== this.stream.recv_counter)
-      return
-
-    this.stream.recv_counter++
-    this.pair.enqueue(segment.fragment)
-
     const conversation = this.stream.overt.conversation
     const command = KcpSegment.commands.ack
     const timestamp = segment.timestamp
@@ -102,6 +101,29 @@ export class SecretKcpReader {
     const fragment = new Empty()
     const ack = KcpSegment.new({ conversation, command, timestamp, serial, unackSerial, fragment })
     this.stream.writer.pair.enqueue(ack.prepare())
+
+    if (segment.serial < this.stream.recv_counter) {
+      console.warn(`Received previous KCP segment`)
+      return
+    }
+
+    if (segment.serial > this.stream.recv_counter) {
+      console.warn(`Received next KCP segment`)
+      this.#buffer.set(segment.serial, segment)
+      return
+    }
+
+    this.pair.enqueue(segment.fragment)
+    this.stream.recv_counter++
+
+    let next: KcpSegment<Opaque> | undefined
+
+    while (next = this.#buffer.get(this.stream.recv_counter)) {
+      console.warn(`Unblocked next KCP segment`)
+      this.pair.enqueue(next.fragment)
+      this.#buffer.delete(this.stream.recv_counter)
+      this.stream.recv_counter++
+    }
   }
 
   async #onAckSegment(segment: KcpSegment<Opaque>) {

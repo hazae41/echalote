@@ -77,6 +77,7 @@ export class WebSocketSource implements UnderlyingSource<Uint8Array> {
 
     const onMessage = (msgEvent: MessageEvent<ArrayBuffer>) => {
       const chunk = new Uint8Array(msgEvent.data)
+      // console.debug("ws <-", chunk)
       try { controller.enqueue(chunk) } catch (e: unknown) { }
     }
 
@@ -154,6 +155,7 @@ export class WebSocketSink implements UnderlyingSink<Uint8Array> {
   }
 
   async write(chunk: Uint8Array) {
+    // console.debug("ws ->", chunk)
     this.websocket.send(chunk)
   }
 
