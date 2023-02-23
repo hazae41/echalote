@@ -2,7 +2,28 @@ import { Cursor, Opaque, Writable } from "@hazae41/binary"
 import { SecretSmuxReader } from "./reader.js"
 import { SecretSmuxWriter } from "./writer.js"
 
+export class SmuxStream {
+
+  readonly #secret: SecretSmuxStream
+
+  constructor(
+    readonly stream: ReadableWritablePair<Opaque, Writable>
+  ) {
+    this.#secret = new SecretSmuxStream(stream)
+  }
+
+  get readable() {
+    return this.#secret.readable
+  }
+
+  get writable() {
+    return this.#secret.writable
+  }
+
+}
+
 export class SecretSmuxStream {
+  readonly #class = SecretSmuxStream
 
   selfRead = 0
   selfWrite = 0
@@ -14,36 +35,21 @@ export class SecretSmuxStream {
   readonly reader: SecretSmuxReader
   readonly writer: SecretSmuxWriter
 
-  readonly buffer = Cursor.allocUnsafe(65535)
-
-  constructor(
-    readonly overt: SmuxStream
-  ) {
-    this.reader = new SecretSmuxReader(this)
-    this.writer = new SecretSmuxWriter(this)
-  }
-
-  get selfWindow() {
-    return this.buffer.bytes.length
-  }
-
-}
-
-export class SmuxStream {
-  readonly #class = SmuxStream
-
-  readonly #secret: SecretSmuxStream
-
   readonly readable: ReadableStream<Opaque>
   readonly writable: WritableStream<Writable>
+
+  readonly buffer = Cursor.allocUnsafe(65535)
+
+  readonly streamID = 3
 
   constructor(
     readonly stream: ReadableWritablePair<Opaque, Writable>
   ) {
-    this.#secret = new SecretSmuxStream(this)
+    this.reader = new SecretSmuxReader(this)
+    this.writer = new SecretSmuxWriter(this)
 
-    const readers = this.#secret.reader.pair.pipe()
-    const writers = this.#secret.writer.pair.pipe()
+    const readers = this.reader.pair.pipe()
+    const writers = this.writer.pair.pipe()
 
     this.readable = readers.readable
     this.writable = writers.writable
@@ -59,32 +65,36 @@ export class SmuxStream {
       .catch(this.#onWriteError.bind(this))
   }
 
+  get selfWindow() {
+    return this.buffer.bytes.length
+  }
+
   async #onReadClose() {
     console.debug(`${this.#class.name}.onReadClose`)
 
     const closeEvent = new CloseEvent("close", {})
-    await this.#secret.reader.dispatchEvent(closeEvent)
+    await this.reader.dispatchEvent(closeEvent)
   }
 
   async #onReadError(error?: unknown) {
     console.debug(`${this.#class.name}.onReadError`, error)
 
     const errorEvent = new ErrorEvent("error", { error })
-    await this.#secret.reader.dispatchEvent(errorEvent)
+    await this.reader.dispatchEvent(errorEvent)
   }
 
   async #onWriteClose() {
     console.debug(`${this.#class.name}.onWriteClose`)
 
     const closeEvent = new CloseEvent("close", {})
-    await this.#secret.writer.dispatchEvent(closeEvent)
+    await this.writer.dispatchEvent(closeEvent)
   }
 
   async #onWriteError(error?: unknown) {
     console.debug(`${this.#class.name}.onWriteError`, error)
 
     const errorEvent = new ErrorEvent("error", { error })
-    await this.#secret.writer.dispatchEvent(errorEvent)
+    await this.writer.dispatchEvent(errorEvent)
   }
 
 }

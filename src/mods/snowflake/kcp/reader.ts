@@ -84,7 +84,7 @@ export class SecretKcpReader extends AsyncEventTarget<"close" | "error" | "ack">
   }
 
   async #onSegment(segment: KcpSegment<Opaque>) {
-    if (segment.conversation !== this.stream.overt.conversation)
+    if (segment.conversation !== this.stream.conversation)
       return
 
     if (segment.command === KcpSegment.commands.push)
@@ -96,7 +96,7 @@ export class SecretKcpReader extends AsyncEventTarget<"close" | "error" | "ack">
   }
 
   async #onPushSegment(segment: KcpSegment<Opaque>) {
-    const conversation = this.stream.overt.conversation
+    const conversation = this.stream.conversation
     const command = KcpSegment.commands.ack
     const timestamp = segment.timestamp
     const serial = segment.serial
@@ -135,7 +135,7 @@ export class SecretKcpReader extends AsyncEventTarget<"close" | "error" | "ack">
   }
 
   async #onWaskSegment(segment: KcpSegment<Opaque>) {
-    const conversation = this.stream.overt.conversation
+    const conversation = this.stream.conversation
     const command = KcpSegment.commands.wins
     const serial = 0
     const unackSerial = this.stream.recv_counter

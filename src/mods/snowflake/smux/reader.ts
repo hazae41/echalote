@@ -8,8 +8,6 @@ export class SecretSmuxReader extends AsyncEventTarget<"close" | "error"> {
 
   readonly pair: StreamPair<Opaque, Opaque>
 
-  readonly #buffer = Cursor.allocUnsafe(65535)
-
   constructor(
     readonly stream: SecretSmuxStream
   ) {
@@ -23,17 +21,17 @@ export class SecretSmuxReader extends AsyncEventTarget<"close" | "error"> {
   async #onRead(chunk: Opaque) {
     // console.debug("<-", chunk)
 
-    if (this.#buffer.offset)
+    if (this.stream.buffer.offset)
       await this.#onReadBuffered(chunk.bytes)
     else
       await this.#onReadDirect(chunk.bytes)
   }
 
   async #onReadBuffered(chunk: Uint8Array) {
-    this.#buffer.write(chunk)
-    const full = new Uint8Array(this.#buffer.before)
+    this.stream.buffer.write(chunk)
+    const full = new Uint8Array(this.stream.buffer.before)
 
-    this.#buffer.offset = 0
+    this.stream.buffer.offset = 0
     await this.#onReadDirect(full)
   }
 
@@ -44,7 +42,7 @@ export class SecretSmuxReader extends AsyncEventTarget<"close" | "error"> {
       const segment = SmuxSegment.tryRead(cursor)
 
       if (!segment) {
-        this.#buffer.write(cursor.after)
+        this.stream.buffer.write(cursor.after)
         break
       }
 
@@ -70,6 +68,9 @@ export class SecretSmuxReader extends AsyncEventTarget<"close" | "error"> {
   }
 
   async #onPshSegment(segment: SmuxSegment<Opaque>) {
+    if (segment.stream !== this.stream.streamID)
+      throw new Error(`Invalid SMUX stream ID ${segment.stream}`)
+
     this.stream.selfRead += segment.fragment.bytes.length
     this.stream.selfIncrement += segment.fragment.bytes.length
 
@@ -77,7 +78,7 @@ export class SecretSmuxReader extends AsyncEventTarget<"close" | "error"> {
 
     if (this.stream.selfIncrement >= (this.stream.selfWindow / 2)) {
       const update = new SmuxUpdate(this.stream.selfRead, this.stream.selfWindow)
-      const segment = new SmuxSegment(2, SmuxSegment.commands.upd, 1, update)
+      const segment = new SmuxSegment(2, SmuxSegment.commands.upd, this.stream.streamID, update)
       this.stream.writer.pair.enqueue(segment.prepare())
       this.stream.selfIncrement = 0
     }
@@ -95,7 +96,10 @@ export class SecretSmuxReader extends AsyncEventTarget<"close" | "error"> {
   }
 
   async #onFinSegment(segment: SmuxSegment<Opaque>) {
-    throw new Error(`Closed`)
+    if (segment.stream !== this.stream.streamID)
+      throw new Error(`Invalid SMUX stream ID ${segment.stream}`)
+
+    this.pair.terminate()
   }
 
 }

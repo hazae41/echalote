@@ -26,13 +26,13 @@ export class SecretSmuxWriter extends AsyncEventTarget<"close" | "error">{
   }
 
   async #sendSYN(controller: ReadableStreamDefaultController<Writable>) {
-    const segment = new SmuxSegment(2, SmuxSegment.commands.syn, 1, new Empty())
+    const segment = new SmuxSegment(2, SmuxSegment.commands.syn, this.stream.streamID, new Empty())
     controller.enqueue(segment.prepare())
   }
 
   async #sendUPD(controller: ReadableStreamDefaultController<Writable>) {
-    const update = new SmuxUpdate(0, 1048576)
-    const segment = new SmuxSegment(2, SmuxSegment.commands.upd, 1, update)
+    const update = new SmuxUpdate(0, this.stream.selfWindow)
+    const segment = new SmuxSegment(2, SmuxSegment.commands.upd, this.stream.streamID, update)
     controller.enqueue(segment.prepare())
   }
 
@@ -42,7 +42,7 @@ export class SecretSmuxWriter extends AsyncEventTarget<"close" | "error">{
     if (inflight >= this.stream.peerWindow)
       throw new Error(`Peer window reached`)
 
-    const segment = new SmuxSegment(2, SmuxSegment.commands.psh, 1, chunk)
+    const segment = new SmuxSegment(2, SmuxSegment.commands.psh, this.stream.streamID, chunk)
     this.pair.enqueue(segment.prepare())
 
     this.stream.selfWrite += chunk.size()

@@ -4,27 +4,38 @@ import { ErrorEvent } from "libs/events/error.js";
 import { SecretKcpReader } from "./reader.js";
 import { SecretKcpWriter } from "./writer.js";
 
+export class KcpStream {
+
+  readonly #secret: SecretKcpStream
+
+  constructor(
+    readonly stream: ReadableWritablePair<Opaque, Writable>
+  ) {
+    this.#secret = new SecretKcpStream(stream)
+  }
+
+  get readable() {
+    return this.#secret.readable
+  }
+
+  get writable() {
+    return this.#secret.writable
+  }
+
+  get conversation() {
+    return this.#secret.conversation
+  }
+
+}
+
 export class SecretKcpStream {
+  readonly #class = SecretKcpStream
 
   send_counter = 0
   recv_counter = 0
 
   readonly reader: SecretKcpReader
   readonly writer: SecretKcpWriter
-
-  constructor(
-    readonly overt: KcpStream
-  ) {
-    this.reader = new SecretKcpReader(this)
-    this.writer = new SecretKcpWriter(this)
-  }
-
-}
-
-export class KcpStream {
-  readonly #class = KcpStream
-
-  readonly #secret: SecretKcpStream
 
   readonly readable: ReadableStream<Opaque>
   readonly writable: WritableStream<Writable>
@@ -34,10 +45,11 @@ export class KcpStream {
   constructor(
     readonly stream: ReadableWritablePair<Opaque, Writable>
   ) {
-    this.#secret = new SecretKcpStream(this)
+    this.reader = new SecretKcpReader(this)
+    this.writer = new SecretKcpWriter(this)
 
-    const readers = this.#secret.reader.pair.pipe()
-    const writers = this.#secret.writer.pair.pipe()
+    const readers = this.reader.pair.pipe()
+    const writers = this.writer.pair.pipe()
 
     this.readable = readers.readable
     this.writable = writers.writable
@@ -57,28 +69,28 @@ export class KcpStream {
     console.debug(`${this.#class.name}.onReadClose`)
 
     const closeEvent = new CloseEvent("close", {})
-    await this.#secret.reader.dispatchEvent(closeEvent)
+    await this.reader.dispatchEvent(closeEvent)
   }
 
   async #onReadError(error?: unknown) {
     console.debug(`${this.#class.name}.onReadError`, error)
 
     const errorEvent = new ErrorEvent("error", { error })
-    await this.#secret.reader.dispatchEvent(errorEvent)
+    await this.reader.dispatchEvent(errorEvent)
   }
 
   async #onWriteClose() {
     console.debug(`${this.#class.name}.onWriteClose`)
 
     const closeEvent = new CloseEvent("close", {})
-    await this.#secret.writer.dispatchEvent(closeEvent)
+    await this.writer.dispatchEvent(closeEvent)
   }
 
   async #onWriteError(error?: unknown) {
     console.debug(`${this.#class.name}.onWriteError`, error)
 
     const errorEvent = new ErrorEvent("error", { error })
-    await this.#secret.writer.dispatchEvent(errorEvent)
+    await this.writer.dispatchEvent(errorEvent)
   }
 
 }

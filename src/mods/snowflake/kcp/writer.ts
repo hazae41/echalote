@@ -20,7 +20,7 @@ export class SecretKcpWriter extends AsyncEventTarget<"close" | "error"> {
   }
 
   async #onWrite(fragment: Writable) {
-    const conversation = this.stream.overt.conversation
+    const conversation = this.stream.conversation
     const command = KcpSegment.commands.push
     const serial = this.stream.send_counter++
     const unackSerial = this.stream.recv_counter
