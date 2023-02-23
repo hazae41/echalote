@@ -72,7 +72,7 @@ export class SecretKcpReader {
       const segment = KcpSegment.tryRead(cursor)
 
       if (!segment) {
-        console.warn(`Not a KCP segment`, cursor.after)
+        console.warn(`Not a KCP segment`)
         break
       }
 
