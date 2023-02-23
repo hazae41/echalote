@@ -53,40 +53,32 @@ export class KcpStream {
       .catch(this.#onWriteError.bind(this))
   }
 
-  get reader() {
-    return this.#secret.reader.overt
-  }
-
-  get writer() {
-    return this.#secret.writer.overt
-  }
-
   async #onReadClose() {
     console.debug(`${this.#class.name}.onReadClose`)
 
     const closeEvent = new CloseEvent("close", {})
-    await this.reader.dispatchEvent(closeEvent)
+    await this.#secret.reader.dispatchEvent(closeEvent)
   }
 
   async #onReadError(error?: unknown) {
     console.debug(`${this.#class.name}.onReadError`, error)
 
     const errorEvent = new ErrorEvent("error", { error })
-    await this.reader.dispatchEvent(errorEvent)
+    await this.#secret.reader.dispatchEvent(errorEvent)
   }
 
   async #onWriteClose() {
     console.debug(`${this.#class.name}.onWriteClose`)
 
     const closeEvent = new CloseEvent("close", {})
-    await this.writer.dispatchEvent(closeEvent)
+    await this.#secret.writer.dispatchEvent(closeEvent)
   }
 
   async #onWriteError(error?: unknown) {
     console.debug(`${this.#class.name}.onWriteError`, error)
 
     const errorEvent = new ErrorEvent("error", { error })
-    await this.writer.dispatchEvent(errorEvent)
+    await this.#secret.writer.dispatchEvent(errorEvent)
   }
 
 }

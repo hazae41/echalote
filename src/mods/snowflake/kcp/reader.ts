@@ -1,26 +1,45 @@
 import { Cursor, Empty, Opaque } from "@hazae41/binary";
+import { AbortEvent } from "libs/events/abort.js";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { StreamPair } from "libs/streams/pair.js";
 import { KcpSegment } from "./segment.js";
 import { SecretKcpStream } from "./stream.js";
 
-export class KcpReader extends AsyncEventTarget<"close" | "error"> {
+export class SecretKcpReader extends AsyncEventTarget<"close" | "error" | "ack">  {
 
-  readonly #secret: SecretKcpReader
+  readonly pair: StreamPair<Opaque, Opaque>
 
-  constructor(secret: SecretKcpReader) {
+  readonly #buffer = new Map<number, KcpSegment<Opaque>>()
+
+  constructor(
+    readonly stream: SecretKcpStream
+  ) {
     super()
 
-    this.#secret = secret
+    this.pair = new StreamPair({}, {
+      write: this.#onRead.bind(this)
+    })
   }
 
-  get stream() {
-    return this.#secret.stream.overt
-  }
-
-  async wait<T extends Event>(event: never) {
+  async wait(type: "ack", signal?: AbortSignal) {
     const future = new Future<Event, Error>()
+    const onEvent = (event: Event) => future.ok(event)
+    return await this.waitFor(type, { future, onEvent, signal })
+  }
+
+  async waitFor<T>(type: "ack", params: {
+    future: Future<T, Error>,
+    onEvent: (event: Event) => void,
+    signal?: AbortSignal
+  }) {
+    const { future, onEvent, signal } = params
+
+    const onAbort = (event: Event) => {
+      const abortEvent = event as AbortEvent
+      const error = new Error(`Aborted`, { cause: abortEvent.target.reason })
+      future.err(error)
+    }
 
     const onClose = (event: Event) => {
       const closeEvent = event as CloseEvent
@@ -35,34 +54,18 @@ export class KcpReader extends AsyncEventTarget<"close" | "error"> {
     }
 
     try {
+      signal?.addEventListener("abort", onAbort, { passive: true })
       this.addEventListener("close", onClose, { passive: true })
       this.addEventListener("error", onError, { passive: true })
-      this.addEventListener(event, future.ok, { passive: true })
+      this.addEventListener(type, onEvent, { passive: true })
 
-      return await future.promise as T
+      return await future.promise
     } finally {
+      signal?.removeEventListener("abort", onAbort)
       this.removeEventListener("close", onClose)
       this.removeEventListener("error", onError)
-      this.removeEventListener(event, future.ok)
+      this.removeEventListener(type, onEvent)
     }
-  }
-
-}
-
-export class SecretKcpReader {
-
-  readonly overt = new KcpReader(this)
-
-  readonly pair: StreamPair<Opaque, Opaque>
-
-  readonly #buffer = new Map<number, KcpSegment<Opaque>>()
-
-  constructor(
-    readonly stream: SecretKcpStream
-  ) {
-    this.pair = new StreamPair({}, {
-      write: this.#onRead.bind(this)
-    })
   }
 
   async #onRead(chunk: Opaque) {
@@ -127,7 +130,8 @@ export class SecretKcpReader {
   }
 
   async #onAckSegment(segment: KcpSegment<Opaque>) {
-    this.stream.overt.reader.dispatchEvent(new MessageEvent("ack", { data: segment }))
+    const msgEvent = new MessageEvent("ack", { data: segment })
+    this.dispatchEvent(msgEvent)
   }
 
   async #onWaskSegment(segment: KcpSegment<Opaque>) {

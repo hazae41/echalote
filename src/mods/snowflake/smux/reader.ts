@@ -1,56 +1,10 @@
 import { Cursor, Empty, Opaque } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
-import { Future } from "libs/futures/future.js";
 import { StreamPair } from "libs/streams/pair.js";
 import { SmuxSegment, SmuxUpdate } from "mods/snowflake/smux/segment.js";
 import { SecretSmuxStream } from "./stream.js";
 
-export class SmuxReader extends AsyncEventTarget<"close" | "error"> {
-
-  readonly #secret: SecretSmuxReader
-
-  constructor(secret: SecretSmuxReader) {
-    super()
-
-    this.#secret = secret
-  }
-
-  get stream() {
-    return this.#secret.stream.overt
-  }
-
-  async wait<E extends Event>(event: never) {
-    const future = new Future<Event, Error>()
-
-    const onClose = (event: Event) => {
-      const closeEvent = event as CloseEvent
-      const error = new Error(`Closed`, { cause: closeEvent })
-      future.err(error)
-    }
-
-    const onError = (event: Event) => {
-      const errorEvent = event as ErrorEvent
-      const error = new Error(`Errored`, { cause: errorEvent })
-      future.err(error)
-    }
-
-    try {
-      this.addEventListener("close", onClose, { passive: true })
-      this.addEventListener("error", onError, { passive: true })
-      this.addEventListener(event, future.ok, { passive: true })
-
-      return await future.promise as E
-    } finally {
-      this.removeEventListener("close", onClose)
-      this.removeEventListener("error", onError)
-      this.removeEventListener(event, future.ok)
-    }
-  }
-}
-
-export class SecretSmuxReader {
-
-  readonly overt = new SmuxReader(this)
+export class SecretSmuxReader extends AsyncEventTarget<"close" | "error"> {
 
   readonly pair: StreamPair<Opaque, Opaque>
 
@@ -59,6 +13,8 @@ export class SecretSmuxReader {
   constructor(
     readonly stream: SecretSmuxStream
   ) {
+    super()
+
     this.pair = new StreamPair({}, {
       write: this.#onRead.bind(this)
     })
