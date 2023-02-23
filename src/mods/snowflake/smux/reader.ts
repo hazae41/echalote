@@ -90,6 +90,9 @@ export class SecretSmuxReader extends AsyncEventTarget<"close" | "error"> {
   }
 
   async #onUpdSegment(segment: SmuxSegment<Opaque>) {
+    if (segment.stream !== this.stream.streamID)
+      throw new Error(`Invalid SMUX stream ID ${segment.stream}`)
+
     const update = segment.fragment.into(SmuxUpdate)
     this.stream.peerConsumed = update.consumed
     this.stream.peerWindow = update.window
