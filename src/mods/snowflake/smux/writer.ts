@@ -1,51 +1,50 @@
 import { Empty, Writable } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
-import { StreamPair } from "libs/streams/pair.js";
+import { SuperTransformStream } from "libs/streams/transform.js";
 import { SmuxSegment, SmuxUpdate } from "mods/snowflake/smux/segment.js";
 import { SecretSmuxStream } from "./stream.js";
 
 export class SecretSmuxWriter extends AsyncEventTarget<"close" | "error">{
 
-  readonly pair: StreamPair<Writable, Writable>
+  readonly stream: SuperTransformStream<Writable, Writable>
 
   constructor(
-    readonly stream: SecretSmuxStream
+    readonly parent: SecretSmuxStream
   ) {
     super()
 
-    this.pair = new StreamPair({
+    this.stream = new SuperTransformStream({
       start: this.#onStart.bind(this),
-    }, {
-      write: this.#onWrite.bind(this)
+      transform: this.#onWrite.bind(this)
     })
   }
 
-  async #onStart(controller: ReadableStreamDefaultController<Writable>) {
-    await this.#sendSYN(controller)
-    await this.#sendUPD(controller)
+  async #onStart() {
+    await this.#sendSYN()
+    await this.#sendUPD()
   }
 
-  async #sendSYN(controller: ReadableStreamDefaultController<Writable>) {
-    const segment = new SmuxSegment(2, SmuxSegment.commands.syn, this.stream.streamID, new Empty())
-    controller.enqueue(segment.prepare())
+  async #sendSYN() {
+    const segment = new SmuxSegment(2, SmuxSegment.commands.syn, this.parent.streamID, new Empty())
+    this.stream.enqueue(segment.prepare())
   }
 
-  async #sendUPD(controller: ReadableStreamDefaultController<Writable>) {
-    const update = new SmuxUpdate(0, this.stream.selfWindow)
-    const segment = new SmuxSegment(2, SmuxSegment.commands.upd, this.stream.streamID, update)
-    controller.enqueue(segment.prepare())
+  async #sendUPD() {
+    const update = new SmuxUpdate(0, this.parent.selfWindow)
+    const segment = new SmuxSegment(2, SmuxSegment.commands.upd, this.parent.streamID, update)
+    this.stream.enqueue(segment.prepare())
   }
 
   async #onWrite(chunk: Writable) {
-    const inflight = this.stream.selfWrite - this.stream.peerConsumed
+    const inflight = this.parent.selfWrite - this.parent.peerConsumed
 
-    if (inflight >= this.stream.peerWindow)
+    if (inflight >= this.parent.peerWindow)
       throw new Error(`Peer window reached`)
 
-    const segment = new SmuxSegment(2, SmuxSegment.commands.psh, this.stream.streamID, chunk)
-    this.pair.enqueue(segment.prepare())
+    const segment = new SmuxSegment(2, SmuxSegment.commands.psh, this.parent.streamID, chunk)
+    this.stream.enqueue(segment.prepare())
 
-    this.stream.selfWrite += chunk.size()
+    this.parent.selfWrite += chunk.size()
   }
 
 }

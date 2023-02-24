@@ -13,7 +13,7 @@ import { ErrorEvent } from "libs/events/error.js";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { Mutex } from "libs/mutex/mutex.js";
-import { StreamPair } from "libs/streams/pair.js";
+import { SuperTransformStream } from "libs/streams/transform.js";
 import { kdftor } from "mods/tor/algos/kdftor.js";
 import { TypedAddress } from "mods/tor/binary/address.js";
 import { Cell, NewCell, OldCell } from "mods/tor/binary/cells/cell.js";
@@ -91,13 +91,11 @@ export class Tor extends AsyncEventTarget {
   readonly read = new AsyncEventTarget()
   readonly write = new AsyncEventTarget()
 
-  readonly reader: StreamPair<Opaque, Opaque>
-  readonly writer: StreamPair<Writable, Writable>
+  readonly reader: SuperTransformStream<Opaque, Opaque>
+  readonly writer: SuperTransformStream<Writable, Writable>
 
   readonly authorities = new Array<Authority>()
   readonly circuits = new Map<number, Circuit>()
-
-  readonly #tls: TlsStream
 
   readonly #buffer = Cursor.allocUnsafe(65535)
 
@@ -121,28 +119,31 @@ export class Tor extends AsyncEventTarget {
     const ciphers = Object.values(TorCiphers)
     const tls = new TlsStream(tcp, { signal, ciphers })
 
-    this.#tls = tls
-
-    this.reader = new StreamPair({}, {
-      write: this.#onRead.bind(this)
+    this.reader = new SuperTransformStream({
+      transform: this.#onRead.bind(this)
     })
 
-    this.writer = new StreamPair({
+    this.writer = new SuperTransformStream({
       start: this.#onWriteStart.bind(this)
-    }, {})
+    })
 
-    const readers = this.reader.pipe()
-    const writers = this.writer.pipe()
+    const read = this.reader.create()
+    const write = this.writer.create()
 
     tls.readable
-      .pipeTo(readers.writable, { signal })
+      .pipeTo(read.writable, { signal })
       .then(this.#onReadClose.bind(this))
       .catch(this.#onReadError.bind(this))
 
-    writers.readable
+    write.readable
       .pipeTo(tls.writable, { signal })
       .then(this.#onWriteClose.bind(this))
       .catch(this.#onWriteError.bind(this))
+
+    read.readable
+      .pipeTo(new WritableStream())
+      .then(() => { })
+      .catch(() => { })
   }
 
   async #init() {
@@ -202,36 +203,50 @@ export class Tor extends AsyncEventTarget {
   async #onReadClose() {
     console.debug(`${this.#class.name}.onReadClose`)
 
+    this.reader.close()
+    this.writer.error()
+
     const closeEvent = new CloseEvent("close", {})
-    if (!await this.read.dispatchEvent(closeEvent)) return
+    await this.read.dispatchEvent(closeEvent)
+  }
+
+  async #onReadError(reason?: unknown) {
+    console.debug(`${this.#class.name}.onReadError`, reason)
+
+    this.reader.close(reason)
+    this.writer.error(reason)
+
+    const error = new Error(`Errored`, { cause: reason })
+    const errorEvent = new ErrorEvent("error", { error })
+    await this.read.dispatchEvent(errorEvent)
   }
 
   async #onWriteClose() {
     console.debug(`${this.#class.name}.onWriteClose`)
 
+    this.writer.close()
+    this.reader.error()
+
     const closeEvent = new CloseEvent("close", {})
-    if (!await this.write.dispatchEvent(closeEvent)) return
+    await this.write.dispatchEvent(closeEvent)
   }
 
-  async #onReadError(error?: unknown) {
-    console.debug(`${this.#class.name}.onReadError`, error)
+  async #onWriteError(reason?: unknown) {
+    console.debug(`${this.#class.name}.onWriteError`, reason)
 
+    this.writer.close(reason)
+    this.reader.error(reason)
+
+    const error = new Error(`Errored`, { cause: reason })
     const errorEvent = new ErrorEvent("error", { error })
-    if (!await this.read.dispatchEvent(errorEvent)) return
+    await this.write.dispatchEvent(errorEvent)
   }
 
-  async #onWriteError(error?: unknown) {
-    console.debug(`${this.#class.name}.onWriteError`, error)
-
-    const errorEvent = new ErrorEvent("error", { error })
-    if (!await this.write.dispatchEvent(errorEvent)) return
-  }
-
-  async #onWriteStart(controller: ReadableStreamDefaultController<Writable>) {
+  async #onWriteStart() {
     await this.#init()
 
     const version = new VersionsCell(undefined, [5])
-    controller.enqueue(new Opaque(version.pack()))
+    this.writer.enqueue(new Opaque(version.pack()))
 
     await this.#wait("handshake")
   }

@@ -1,20 +1,20 @@
 import { Opaque, Readable } from "@hazae41/binary"
 import { AsyncEventTarget } from "libs/events/target.js"
-import { StreamPair } from "libs/streams/pair.js"
+import { SuperTransformStream } from "libs/streams/transform.js"
 import { TurboFrame } from "./frame.js"
 import { SecretTurboStream } from "./stream.js"
 
 export class SecretTurboReader extends AsyncEventTarget<"close" | "error"> {
 
-  readonly pair: StreamPair<Opaque, Uint8Array>
+  readonly stream: SuperTransformStream<Uint8Array, Opaque>
 
   constructor(
-    readonly stream: SecretTurboStream
+    readonly parent: SecretTurboStream
   ) {
     super()
 
-    this.pair = new StreamPair({}, {
-      write: this.#onRead.bind(this)
+    this.stream = new SuperTransformStream({
+      transform: this.#onRead.bind(this)
     })
   }
 
@@ -23,6 +23,6 @@ export class SecretTurboReader extends AsyncEventTarget<"close" | "error"> {
 
     if (frame.padding) return
 
-    this.pair.enqueue(frame.fragment)
+    this.stream.enqueue(frame.fragment)
   }
 }

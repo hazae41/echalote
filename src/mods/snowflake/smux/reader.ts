@@ -1,37 +1,37 @@
 import { Cursor, Empty, Opaque } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
-import { StreamPair } from "libs/streams/pair.js";
+import { SuperTransformStream } from "libs/streams/transform.js";
 import { SmuxSegment, SmuxUpdate } from "mods/snowflake/smux/segment.js";
 import { SecretSmuxStream } from "./stream.js";
 
 export class SecretSmuxReader extends AsyncEventTarget<"close" | "error"> {
 
-  readonly pair: StreamPair<Opaque, Opaque>
+  readonly stream: SuperTransformStream<Opaque, Opaque>
 
   constructor(
-    readonly stream: SecretSmuxStream
+    readonly parent: SecretSmuxStream
   ) {
     super()
 
-    this.pair = new StreamPair({}, {
-      write: this.#onRead.bind(this)
+    this.stream = new SuperTransformStream({
+      transform: this.#onRead.bind(this)
     })
   }
 
   async #onRead(chunk: Opaque) {
     // console.debug("<-", chunk)
 
-    if (this.stream.buffer.offset)
+    if (this.parent.buffer.offset)
       await this.#onReadBuffered(chunk.bytes)
     else
       await this.#onReadDirect(chunk.bytes)
   }
 
   async #onReadBuffered(chunk: Uint8Array) {
-    this.stream.buffer.write(chunk)
-    const full = new Uint8Array(this.stream.buffer.before)
+    this.parent.buffer.write(chunk)
+    const full = new Uint8Array(this.parent.buffer.before)
 
-    this.stream.buffer.offset = 0
+    this.parent.buffer.offset = 0
     await this.#onReadDirect(full)
   }
 
@@ -42,7 +42,7 @@ export class SecretSmuxReader extends AsyncEventTarget<"close" | "error"> {
       const segment = SmuxSegment.tryRead(cursor)
 
       if (!segment) {
-        this.stream.buffer.write(cursor.after)
+        this.parent.buffer.write(cursor.after)
         break
       }
 
@@ -68,41 +68,41 @@ export class SecretSmuxReader extends AsyncEventTarget<"close" | "error"> {
   }
 
   async #onPshSegment(segment: SmuxSegment<Opaque>) {
-    if (segment.stream !== this.stream.streamID)
+    if (segment.stream !== this.parent.streamID)
       throw new Error(`Invalid SMUX stream ID ${segment.stream}`)
 
-    this.stream.selfRead += segment.fragment.bytes.length
-    this.stream.selfIncrement += segment.fragment.bytes.length
+    this.parent.selfRead += segment.fragment.bytes.length
+    this.parent.selfIncrement += segment.fragment.bytes.length
 
-    this.pair.enqueue(segment.fragment)
+    this.stream.enqueue(segment.fragment)
 
-    if (this.stream.selfIncrement >= (this.stream.selfWindow / 2)) {
-      const update = new SmuxUpdate(this.stream.selfRead, this.stream.selfWindow)
-      const segment = new SmuxSegment(2, SmuxSegment.commands.upd, this.stream.streamID, update)
-      this.stream.writer.pair.enqueue(segment.prepare())
-      this.stream.selfIncrement = 0
+    if (this.parent.selfIncrement >= (this.parent.selfWindow / 2)) {
+      const update = new SmuxUpdate(this.parent.selfRead, this.parent.selfWindow)
+      const segment = new SmuxSegment(2, SmuxSegment.commands.upd, this.parent.streamID, update)
+      this.parent.writer.stream.enqueue(segment.prepare())
+      this.parent.selfIncrement = 0
     }
   }
 
   async #onNopSegment(ping: SmuxSegment<Opaque>) {
     const pong = new SmuxSegment(2, SmuxSegment.commands.nop, ping.stream, new Empty())
-    this.stream.writer.pair.enqueue(pong.prepare())
+    this.parent.writer.stream.enqueue(pong.prepare())
   }
 
   async #onUpdSegment(segment: SmuxSegment<Opaque>) {
-    if (segment.stream !== this.stream.streamID)
+    if (segment.stream !== this.parent.streamID)
       throw new Error(`Invalid SMUX stream ID ${segment.stream}`)
 
     const update = segment.fragment.into(SmuxUpdate)
-    this.stream.peerConsumed = update.consumed
-    this.stream.peerWindow = update.window
+    this.parent.peerConsumed = update.consumed
+    this.parent.peerWindow = update.window
   }
 
   async #onFinSegment(segment: SmuxSegment<Opaque>) {
-    if (segment.stream !== this.stream.streamID)
+    if (segment.stream !== this.parent.streamID)
       throw new Error(`Invalid SMUX stream ID ${segment.stream}`)
 
-    this.pair.terminate()
+    this.stream.terminate()
   }
 
 }
