@@ -204,7 +204,6 @@ export class Tor extends AsyncEventTarget {
     console.debug(`${this.#class.name}.onReadClose`)
 
     this.reader.close()
-    this.writer.error()
 
     const closeEvent = new CloseEvent("close", {})
     await this.read.dispatchEvent(closeEvent)
@@ -225,7 +224,6 @@ export class Tor extends AsyncEventTarget {
     console.debug(`${this.#class.name}.onWriteClose`)
 
     this.writer.close()
-    this.reader.error()
 
     const closeEvent = new CloseEvent("close", {})
     await this.write.dispatchEvent(closeEvent)

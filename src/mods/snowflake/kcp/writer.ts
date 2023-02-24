@@ -41,7 +41,7 @@ export class SecretKcpWriter extends AsyncEventTarget<"close" | "error"> {
       }
 
       const delay = Date.now() - start
-      console.warn(`Retrying KCP after`, delay, `milliseconds`)
+      console.debug(`Retrying KCP after`, delay, `milliseconds`)
       this.stream.enqueue(writable)
     }, 1000)
 

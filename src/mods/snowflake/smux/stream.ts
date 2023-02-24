@@ -73,7 +73,6 @@ export class SecretSmuxStream {
     console.debug(`${this.#class.name}.onReadClose`)
 
     this.reader.stream.close()
-    this.writer.stream.error()
 
     const closeEvent = new CloseEvent("close", {})
     await this.reader.dispatchEvent(closeEvent)
@@ -94,7 +93,6 @@ export class SecretSmuxStream {
     console.debug(`${this.#class.name}.onWriteClose`)
 
     this.writer.stream.close()
-    this.reader.stream.error()
 
     const closeEvent = new CloseEvent("close", {})
     await this.writer.dispatchEvent(closeEvent)
