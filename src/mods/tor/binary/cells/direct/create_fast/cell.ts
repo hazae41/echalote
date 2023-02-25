@@ -29,16 +29,21 @@ export class CreateFastCell {
     cursor.write(this.material)
   }
 
+  static read(cursor: Cursor) {
+    const material = new Uint8Array(cursor.read(20))
+
+    cursor.offset += cursor.remaining
+
+    return { material }
+  }
+
   static uncell(cell: Cell<Opaque>) {
     if (cell.command !== this.command)
       throw new InvalidCommand(this.name, cell.command)
     if (!cell.circuit)
       throw new InvalidCircuit(this.name, cell.circuit)
 
-    const cursor = new Cursor(cell.payload.bytes)
-
-    const material = cursor.read(20)
-
+    const { material } = cell.payload.into(this)
     return new this(cell.circuit, material)
   }
 }

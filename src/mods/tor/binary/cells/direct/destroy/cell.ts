@@ -41,16 +41,21 @@ export class DestroyCell {
     cursor.writeUint8(this.reason)
   }
 
+  static read(cursor: Cursor) {
+    const code = cursor.readUint8()
+
+    cursor.offset += cursor.remaining
+
+    return { code }
+  }
+
   static uncell(cell: Cell<Opaque>) {
     if (cell.command !== this.command)
       throw new InvalidCommand(this.name, cell.command)
     if (!cell.circuit)
       throw new InvalidCircuit(this.name, cell.circuit)
 
-    const cursor = new Cursor(cell.payload.bytes)
-
-    const code = cursor.readUint8()
-
+    const { code } = cell.payload.into(this)
     return new this(cell.circuit, code)
   }
 }

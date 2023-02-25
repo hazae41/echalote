@@ -39,19 +39,24 @@ export class PaddingNegociateCell {
     cursor.writeUint16(this.ito_high_ms)
   }
 
+  static read(cursor: Cursor) {
+    const version = cursor.readUint8()
+    const pcommand = cursor.readUint8()
+    const ito_low_ms = cursor.readUint16()
+    const ito_high_ms = cursor.readUint16()
+
+    cursor.offset += cursor.remaining
+
+    return { version, pcommand, ito_low_ms, ito_high_ms }
+  }
+
   static uncell(cell: Cell<Opaque>) {
     if (cell.command !== this.command)
       throw new InvalidCommand(this.name, cell.command)
     if (cell.circuit)
       throw new InvalidCircuit(this.name, cell.circuit)
 
-    const cursor = new Cursor(cell.payload.bytes)
-
-    const version = cursor.readUint8()
-    const pcommand = cursor.readUint8()
-    const ito_low_ms = cursor.readUint16()
-    const ito_high_ms = cursor.readUint16()
-
+    const { version, pcommand, ito_low_ms, ito_high_ms } = cell.payload.into(this)
     return new this(cell.circuit, version, pcommand, ito_low_ms, ito_high_ms)
   }
 }

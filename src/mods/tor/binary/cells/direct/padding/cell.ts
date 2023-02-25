@@ -1,4 +1,4 @@
-import { Opaque } from "@hazae41/binary"
+import { Cursor, Opaque } from "@hazae41/binary"
 import { Cell } from "mods/tor/binary/cells/cell.js"
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
 
@@ -16,12 +16,19 @@ export class PaddingCell {
     return this.#class.command
   }
 
+  static read(cursor: Cursor) {
+    const data = cursor.read(cursor.remaining)
+
+    return { data }
+  }
+
   static uncell(cell: Cell<Opaque>) {
     if (cell.command !== this.command)
       throw new InvalidCommand(this.name, cell.command)
     if (cell.circuit)
       throw new InvalidCircuit(this.name, cell.circuit)
 
-    return new this(cell.circuit, cell.payload.bytes)
+    const { data } = cell.payload.into(this)
+    return new this(cell.circuit, data)
   }
 }

@@ -32,22 +32,26 @@ export class NetinfoCell {
       owned.write(cursor)
   }
 
+  static read(cursor: Cursor) {
+    const time = cursor.readUint32()
+    const other = TypedAddress.read(cursor)
+    const owneds = new Array<TypedAddress>(cursor.readUint8())
+
+    for (let i = 0; i < owneds.length; i++)
+      owneds[i] = TypedAddress.read(cursor)
+
+    cursor.offset += cursor.remaining
+
+    return { time, other, owneds }
+  }
+
   static uncell(cell: Cell<Opaque>) {
     if (cell.command !== this.command)
       throw new InvalidCommand(this.name, cell.command)
     if (cell.circuit)
       throw new InvalidCircuit(this.name, cell.circuit)
 
-    const cursor = new Cursor(cell.payload.bytes)
-
-    const time = cursor.readUint32()
-    const other = TypedAddress.read(cursor)
-    const nowneds = cursor.readUint8()
-    const owneds = new Array<TypedAddress>(nowneds)
-
-    for (let i = 0; i < nowneds; i++)
-      owneds[i] = TypedAddress.read(cursor)
-
+    const { time, other, owneds } = cell.payload.into(this)
     return new this(cell.circuit, time, other, owneds)
   }
 }

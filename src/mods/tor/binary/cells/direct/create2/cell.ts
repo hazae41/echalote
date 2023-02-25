@@ -40,18 +40,23 @@ export class Create2Cell {
     cursor.write(this.data)
   }
 
+  static read(cursor: Cursor) {
+    const type = cursor.readUint16()
+    const length = cursor.readUint16()
+    const data = cursor.read(length)
+
+    cursor.offset += cursor.remaining
+
+    return { type, data }
+  }
+
   static uncell(cell: Cell<Opaque>) {
     if (cell.command !== this.command)
       throw new InvalidCommand(this.name, cell.command)
     if (!cell.circuit)
       throw new InvalidCircuit(this.name, cell.circuit)
 
-    const cursor = new Cursor(cell.payload.bytes)
-
-    const type = cursor.readUint16()
-    const length = cursor.readUint16()
-    const data = cursor.read(length)
-
+    const { type, data } = cell.payload.into(this)
     return new this(cell.circuit, type, data)
   }
 }
