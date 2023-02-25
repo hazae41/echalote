@@ -46,11 +46,10 @@ export class RawOldCell<T extends Writable> {
       cursor.writeUint16(this.circuit)
       cursor.writeUint8(this.command)
 
-      const start = cursor.offset
-      this.payload.write(cursor)
-      const end = start + PAYLOAD_LEN
-      cursor.bytes.fill(0, cursor.offset, end)
-      cursor.offset = end
+      const payload = cursor.read(PAYLOAD_LEN)
+      const subcursor = new Cursor(payload)
+      this.payload.write(subcursor)
+      subcursor.fill(0, subcursor.remaining)
     }
   }
 
@@ -139,11 +138,10 @@ export class RawCell<T extends Writable> {
       cursor.writeUint32(this.circuit)
       cursor.writeUint8(this.command)
 
-      const start = cursor.offset
-      this.payload.write(cursor)
-      const end = start + PAYLOAD_LEN
-      cursor.bytes.fill(0, cursor.offset, end)
-      cursor.offset = end
+      const payload = cursor.read(PAYLOAD_LEN)
+      const subcursor = new Cursor(payload)
+      this.payload.write(subcursor)
+      subcursor.fill(0, subcursor.remaining)
     }
   }
 

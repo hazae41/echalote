@@ -33,7 +33,7 @@ export class RelayCell<T extends Writable>  {
     return this.#class.command
   }
 
-  async cell() {
+  cell() {
     const cursor = Cursor.allocUnsafe(PAYLOAD_LEN)
 
     cursor.writeUint8(this.rcommand)
@@ -64,7 +64,7 @@ export class RelayCell<T extends Writable>  {
     return new Cell(this.circuit, this.command, new Opaque(cursor.bytes))
   }
 
-  static async uncell(cell: Cell<Opaque>) {
+  static uncell(cell: Cell<Opaque>) {
     if (cell.command !== this.command)
       throw new InvalidCommand(this.name, cell.command)
     if (!cell.circuit)
