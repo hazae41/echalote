@@ -5,7 +5,8 @@ export class RelayEarlyCell extends RelayCell {
 
   static command = 9
 
-  protected get class() {
-    return this.#class
+  get command() {
+    return this.#class.command
   }
+
 }

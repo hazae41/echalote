@@ -1,7 +1,7 @@
-import { Cursor } from "@hazae41/binary";
+import { Cursor, Opaque } from "@hazae41/binary";
 import { Bytes } from "@hazae41/bytes";
 import { Arrays } from "libs/arrays/arrays.js";
-import { NewCell } from "mods/tor/binary/cells/cell.js";
+import { Cell } from "mods/tor/binary/cells/cell.js";
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js";
 import { Circuit } from "mods/tor/circuit.js";
 import { PAYLOAD_LEN } from "mods/tor/constants.js";
@@ -19,12 +19,8 @@ export class RelayCell {
     readonly data: Uint8Array
   ) { }
 
-  protected get class() {
-    return this.#class
-  }
-
-  async pack() {
-    return (await this.cell()).pack()
+  get command() {
+    return this.#class.command
   }
 
   async cell() {
@@ -57,10 +53,10 @@ export class RelayCell {
     for (let i = this.circuit.targets.length - 1; i >= 0; i--)
       this.circuit.targets[i].forwardKey.apply_keystream(cursor.bytes)
 
-    return new NewCell(this.circuit, this.class.command, cursor.bytes)
+    return new Cell(this.circuit, this.command, new Opaque(cursor.bytes))
   }
 
-  static async uncell(cell: NewCell) {
+  static async uncell(cell: Cell<Opaque>) {
     if (cell.command !== this.command)
       throw new InvalidCommand(this.name, cell.command)
     if (!cell.circuit)
@@ -69,9 +65,9 @@ export class RelayCell {
     for (let i = 0; i < cell.circuit.targets.length; i++) {
       const target = cell.circuit.targets[i]
 
-      target.backwardKey.apply_keystream(cell.payload)
+      target.backwardKey.apply_keystream(cell.payload.bytes)
 
-      const cursor = new Cursor(cell.payload)
+      const cursor = new Cursor(cell.payload.bytes)
 
       const rcommand = cursor.readUint8()
       const recognised = cursor.readUint16()

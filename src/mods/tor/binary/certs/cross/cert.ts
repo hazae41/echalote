@@ -16,15 +16,15 @@ export class Cert implements ICert {
     readonly signature: Uint8Array
   ) { }
 
-  write(cursor: Cursor) {
-    throw new Error(`Unimplemented`)
-  }
-
   check() {
     const now = new Date()
 
     if (now > this.expiration)
       throw new Error(`Late certificate`)
+  }
+
+  write(cursor: Cursor) {
+    throw new Error(`Unimplemented`)
   }
 
   static read(cursor: Cursor, type: number, length: number) {

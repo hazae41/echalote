@@ -14,10 +14,6 @@ export class RelayExtended2Cell {
     readonly data: Uint8Array
   ) { }
 
-  async pack() {
-    return await this.cell().pack()
-  }
-
   cell(): RelayCell {
     throw new Error(`Unimplemented`)
   }

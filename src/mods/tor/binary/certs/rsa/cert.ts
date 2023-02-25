@@ -17,12 +17,6 @@ export class Cert implements ICert {
     readonly x509: Certificate
   ) { }
 
-  write(cursor: Cursor) {
-    cursor.writeUint8(this.type)
-    cursor.writeUint16(this.data.length)
-    cursor.write(this.data)
-  }
-
   check() {
     const now = new Date()
 
@@ -30,6 +24,12 @@ export class Cert implements ICert {
       throw new Error(`Late certificate`)
     if (now < this.x509.tbsCertificate.validity.notBefore.value)
       throw new Error(`Early certificate`)
+  }
+
+  write(cursor: Cursor) {
+    cursor.writeUint8(this.type)
+    cursor.writeUint16(this.data.length)
+    cursor.write(this.data)
   }
 
   static read(cursor: Cursor, type: number, length: number) {

@@ -14,10 +14,6 @@ export class RelayDataCell {
     readonly data: Uint8Array
   ) { }
 
-  async pack() {
-    return await this.cell().pack()
-  }
-
   cell() {
     return new RelayCell(this.circuit, this.stream, this.#class.rcommand, this.data)
   }

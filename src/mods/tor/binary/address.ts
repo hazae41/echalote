@@ -11,6 +11,10 @@ export class TypedAddress {
     readonly value: Uint8Array
   ) { }
 
+  size() {
+    return 1 + 1 + this.value.length
+  }
+
   write(cursor: Cursor) {
     cursor.writeUint8(this.type)
     cursor.writeUint8(this.value.length)
@@ -36,6 +40,10 @@ export class Address4 {
   constructor(
     readonly address: string
   ) { }
+
+  size() {
+    return 1 * 4
+  }
 
   write(cursor: Cursor) {
     const parts = this.address.split(".")
@@ -64,6 +72,10 @@ export class Address6 {
   constructor(
     readonly address: string
   ) { }
+
+  size() {
+    return 2 * 8
+  }
 
   write(cursor: Cursor) {
     const parts = this.address.slice(1, -1).split(":")

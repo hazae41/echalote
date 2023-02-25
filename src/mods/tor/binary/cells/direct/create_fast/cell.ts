@@ -1,8 +1,7 @@
-import { Cursor } from "@hazae41/binary";
-import { NewCell } from "mods/tor/binary/cells/cell.js";
+import { Cursor, Opaque } from "@hazae41/binary";
+import { Cell } from "mods/tor/binary/cells/cell.js";
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js";
 import { Circuit } from "mods/tor/circuit.js";
-import { PAYLOAD_LEN } from "mods/tor/constants.js";
 
 export class CreateFastCell {
   readonly #class = CreateFastCell
@@ -18,28 +17,25 @@ export class CreateFastCell {
     readonly material: Uint8Array
   ) { }
 
-  pack() {
-    return this.cell().pack()
+  get command() {
+    return this.#class.command
   }
 
-  cell() {
-    const cursor = Cursor.allocUnsafe(PAYLOAD_LEN)
+  size() {
+    return this.material.length
+  }
 
-    if (this.material.length !== 20)
-      throw new Error(`Invalid ${this.#class.name} material length`)
+  write(cursor: Cursor) {
     cursor.write(this.material)
-    cursor.fill()
-
-    return new NewCell(this.circuit, this.#class.command, cursor.bytes)
   }
 
-  static uncell(cell: NewCell) {
+  static uncell(cell: Cell<Opaque>) {
     if (cell.command !== this.command)
       throw new InvalidCommand(this.name, cell.command)
     if (!cell.circuit)
       throw new InvalidCircuit(this.name, cell.circuit)
 
-    const cursor = new Cursor(cell.payload)
+    const cursor = new Cursor(cell.payload.bytes)
 
     const material = cursor.read(20)
 

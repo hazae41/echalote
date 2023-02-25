@@ -1,5 +1,5 @@
 import { Berith } from "@hazae41/berith";
-import { Cursor, Opaque, Writable } from "@hazae41/binary";
+import { Cursor, Opaque, Readable, Writable } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Bytes } from "@hazae41/bytes";
 import { TlsStream } from "@hazae41/cadenas";
@@ -16,7 +16,7 @@ import { Mutex } from "libs/mutex/mutex.js";
 import { SuperTransformStream } from "libs/streams/transform.js";
 import { kdftor } from "mods/tor/algos/kdftor.js";
 import { TypedAddress } from "mods/tor/binary/address.js";
-import { Cell, NewCell, OldCell } from "mods/tor/binary/cells/cell.js";
+import { Cell, OldCell, RawCell, RawOldCell } from "mods/tor/binary/cells/cell.js";
 import { AuthChallengeCell } from "mods/tor/binary/cells/direct/auth_challenge/cell.js";
 import { Certs, CertsCell } from "mods/tor/binary/cells/direct/certs/cell.js";
 import { CreatedFastCell } from "mods/tor/binary/cells/direct/created_fast/cell.js";
@@ -244,7 +244,7 @@ export class Tor extends AsyncEventTarget {
     await this.#init()
 
     const version = new VersionsCell(undefined, [5])
-    this.writer.enqueue(new Opaque(version.pack()))
+    this.writer.enqueue(OldCell.from(version))
 
     await this.#wait("handshake")
   }
@@ -280,24 +280,21 @@ export class Tor extends AsyncEventTarget {
     const cursor = new Cursor(chunk)
 
     while (cursor.remaining) {
-      const rawCell = this.#state.type === "none"
-        ? OldCell.tryRead(cursor)
-        : NewCell.tryRead(cursor)
+      const raw = this.#state.type === "none"
+        ? Readable.tryRead(RawOldCell, cursor)
+        : Readable.tryRead(RawCell, cursor)
 
-      if (!rawCell) {
+      if (!raw) {
         this.#buffer.write(cursor.after)
         break
       }
 
-      const cell = rawCell.type === "old"
-        ? OldCell.unpack(this, rawCell)
-        : NewCell.unpack(this, rawCell)
-
+      const cell = raw.unpack(this)
       await this.#onCell(cell)
     }
   }
 
-  async #onCell(cell: Cell) {
+  async #onCell(cell: Cell<Opaque> | OldCell<Opaque>) {
     if (cell.command === PaddingCell.command)
       return console.debug(`PADDING`, cell)
     if (cell.command === VariablePaddingCell.command)
@@ -318,10 +315,10 @@ export class Tor extends AsyncEventTarget {
     throw new Error(`Unknown state`)
   }
 
-  async #onNoneStateCell(cell: Cell) {
+  async #onNoneStateCell(cell: Cell<Opaque> | OldCell<Opaque>) {
     if (this.#state.type !== "none")
       throw new Error(`State is not none`)
-    if (cell instanceof NewCell)
+    if (cell instanceof Cell)
       throw new Error(`Can't uncell pre-version cell from new cell`)
 
     if (cell.command === VersionsCell.command)
@@ -330,7 +327,7 @@ export class Tor extends AsyncEventTarget {
     console.debug(`Unknown pre-version cell ${cell.command}`)
   }
 
-  async #onVersionedStateCell(cell: NewCell) {
+  async #onVersionedStateCell(cell: Cell<Opaque>) {
     if (this.#state.type !== "versioned")
       throw new Error(`State is not versioned`)
 
@@ -340,7 +337,7 @@ export class Tor extends AsyncEventTarget {
     console.debug(`Unknown versioned-state cell ${cell.command}`)
   }
 
-  async #onHandshakingStateCell(cell: NewCell) {
+  async #onHandshakingStateCell(cell: Cell<Opaque>) {
     if (this.#state.type !== "handshaking")
       throw new Error(`State is not handshaking`)
 
@@ -352,7 +349,7 @@ export class Tor extends AsyncEventTarget {
     console.debug(`Unknown handshaking-state cell ${cell.command}`)
   }
 
-  async #onHandshakedStateCell(cell: NewCell) {
+  async #onHandshakedStateCell(cell: Cell<Opaque>) {
     if (cell.command === CreatedFastCell.command)
       return await this.#onCreatedFastCell(cell)
     if (cell.command === DestroyCell.command)
@@ -363,7 +360,7 @@ export class Tor extends AsyncEventTarget {
     console.debug(`Unknown handshaked-state cell ${cell.command}`)
   }
 
-  async #onVersionsCell(cell: OldCell) {
+  async #onVersionsCell(cell: OldCell<Opaque>) {
     if (this.#state.type !== "none")
       throw new Error(`State is not none`)
 
@@ -383,7 +380,7 @@ export class Tor extends AsyncEventTarget {
     if (!await this.dispatchEvent(stateEvent)) return
   }
 
-  async #onCertsCell(cell: NewCell) {
+  async #onCertsCell(cell: Cell<Opaque>) {
     if (this.#state.type !== "versioned")
       throw new Error(`State is not versioned`)
 
@@ -412,7 +409,7 @@ export class Tor extends AsyncEventTarget {
     if (!await this.dispatchEvent(stateEvent)) return
   }
 
-  async #onAuthChallengeCell(cell: NewCell) {
+  async #onAuthChallengeCell(cell: Cell<Opaque>) {
     if (this.#state.type !== "handshaking")
       throw new Error(`State is not handshaking`)
 
@@ -424,7 +421,7 @@ export class Tor extends AsyncEventTarget {
     if (!await this.dispatchEvent(cellEvent)) return
   }
 
-  async #onNetinfoCell(cell: NewCell) {
+  async #onNetinfoCell(cell: Cell<Opaque>) {
     if (this.#state.type !== "handshaking")
       throw new Error(`State is not handshaking`)
 
@@ -437,12 +434,12 @@ export class Tor extends AsyncEventTarget {
 
     const address = new TypedAddress(4, new Uint8Array([127, 0, 0, 1]))
     const netinfo = new NetinfoCell(undefined, 0, address, [])
-    this.writer.enqueue(new Opaque(netinfo.pack()))
+    this.writer.enqueue(Cell.from(netinfo))
 
     const pversion = PaddingNegociateCell.versions.ZERO
     const pcommand = PaddingNegociateCell.commands.STOP
-    const padding = new PaddingNegociateCell(undefined, pversion, pcommand, 0, 0)
-    this.writer.enqueue(new Opaque(padding.pack()))
+    const padding_negociate = new PaddingNegociateCell(undefined, pversion, pcommand, 0, 0)
+    this.writer.enqueue(Cell.from(padding_negociate))
 
     const { version, guard } = this.#state
     this.#state = { type: "handshaked", version, guard }
@@ -451,7 +448,7 @@ export class Tor extends AsyncEventTarget {
     if (!await this.dispatchEvent(stateEvent)) return
   }
 
-  async #onCreatedFastCell(cell: NewCell) {
+  async #onCreatedFastCell(cell: Cell<Opaque>) {
     const data = CreatedFastCell.uncell(cell)
 
     console.debug(`CREATED_FAST`, data)
@@ -460,7 +457,7 @@ export class Tor extends AsyncEventTarget {
     if (!await this.dispatchEvent(cellEvent)) return
   }
 
-  async #onDestroyCell(cell: NewCell) {
+  async #onDestroyCell(cell: Cell<Opaque>) {
     const data = DestroyCell.uncell(cell)
 
     console.debug(`DESTROY`, data)
@@ -471,7 +468,7 @@ export class Tor extends AsyncEventTarget {
     this.circuits.delete(data.circuit.id)
   }
 
-  async #onRelayCell(parent: NewCell) {
+  async #onRelayCell(parent: Cell<Opaque>) {
     const cell = await RelayCell.uncell(parent)
 
     if (cell.rcommand === RelayExtended2Cell.rcommand)
@@ -622,7 +619,7 @@ export class Tor extends AsyncEventTarget {
     const material = Bytes.random(20)
 
     const create_fast = new CreateFastCell(circuit, material)
-    this.writer.enqueue(new Opaque(create_fast.pack()))
+    this.writer.enqueue(Cell.from(create_fast))
 
     const created_fast = await this.#waitCreatedFast(circuit, signal)
 

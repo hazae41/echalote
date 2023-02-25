@@ -1,4 +1,4 @@
-import { Cursor } from "@hazae41/binary"
+import { Cursor, Opaque } from "@hazae41/binary"
 import { OldCell } from "mods/tor/binary/cells/cell.js"
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
 
@@ -12,28 +12,28 @@ export class VersionsCell {
     readonly versions: number[]
   ) { }
 
-  pack() {
-    return this.cell().pack()
+  get command() {
+    return this.#class.command
   }
 
-  cell() {
-    const cursor = Cursor.allocUnsafe(this.versions.length * 2)
+  size() {
+    return 2 * this.versions.length
+  }
 
+  write(cursor: Cursor) {
     for (const version of this.versions)
       cursor.writeUint16(version)
-
-    return new OldCell(this.circuit, this.#class.command, cursor.bytes)
   }
 
-  static uncell(cell: OldCell) {
+  static uncell(cell: OldCell<Opaque>) {
     if (cell.command !== this.command)
       throw new InvalidCommand(this.name, cell.command)
     if (cell.circuit)
       throw new InvalidCircuit(this.name, cell.circuit)
 
-    const cursor = new Cursor(cell.payload)
+    const cursor = new Cursor(cell.payload.bytes)
 
-    const nversions = cell.payload.length / 2
+    const nversions = cell.payload.bytes.length / 2
     const versions = new Array<number>(nversions)
 
     for (let i = 0; i < nversions; i++)

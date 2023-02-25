@@ -1,8 +1,7 @@
-import { Cursor } from "@hazae41/binary";
+import { Cursor, Opaque } from "@hazae41/binary";
 import { TypedAddress } from "mods/tor/binary/address.js";
-import { NewCell } from "mods/tor/binary/cells/cell.js";
+import { Cell } from "mods/tor/binary/cells/cell.js";
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js";
-import { PAYLOAD_LEN } from "mods/tor/constants.js";
 
 export class NetinfoCell {
   readonly #class = NetinfoCell
@@ -16,32 +15,30 @@ export class NetinfoCell {
     readonly owneds: TypedAddress[]
   ) { }
 
-  pack() {
-    return this.cell().pack()
+  get command() {
+    return this.#class.command
   }
 
-  cell() {
-    const cursor = Cursor.allocUnsafe(PAYLOAD_LEN)
+  size() {
+    return 4 + this.other.size() + 1 + this.owneds.reduce((p, c) => p + c.size(), 0)
+  }
 
+  write(cursor: Cursor) {
     cursor.writeUint32(this.time)
     this.other.write(cursor)
     cursor.writeUint8(this.owneds.length)
 
     for (const owned of this.owneds)
       owned.write(cursor)
-
-    cursor.fill()
-
-    return new NewCell(this.circuit, this.#class.command, cursor.bytes)
   }
 
-  static uncell(cell: NewCell) {
+  static uncell(cell: Cell<Opaque>) {
     if (cell.command !== this.command)
       throw new InvalidCommand(this.name, cell.command)
     if (cell.circuit)
       throw new InvalidCircuit(this.name, cell.circuit)
 
-    const cursor = new Cursor(cell.payload)
+    const cursor = new Cursor(cell.payload.bytes)
 
     const time = cursor.readUint32()
     const other = TypedAddress.read(cursor)

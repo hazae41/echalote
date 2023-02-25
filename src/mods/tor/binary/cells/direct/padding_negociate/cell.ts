@@ -1,7 +1,6 @@
-import { Cursor } from "@hazae41/binary"
-import { NewCell } from "mods/tor/binary/cells/cell.js"
+import { Cursor, Opaque } from "@hazae41/binary"
+import { Cell } from "mods/tor/binary/cells/cell.js"
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
-import { PAYLOAD_LEN } from "mods/tor/constants.js"
 
 export class PaddingNegociateCell {
   readonly #class = PaddingNegociateCell
@@ -25,29 +24,28 @@ export class PaddingNegociateCell {
     readonly ito_high_ms: number
   ) { }
 
-  pack() {
-    return this.cell().pack()
+  get command() {
+    return this.#class.command
   }
 
-  cell() {
-    const cursor = Cursor.allocUnsafe(PAYLOAD_LEN)
+  size() {
+    return 1 + 1 + 2 + 2
+  }
 
+  write(cursor: Cursor) {
     cursor.writeUint8(this.version)
     cursor.writeUint8(this.pcommand)
     cursor.writeUint16(this.ito_low_ms)
     cursor.writeUint16(this.ito_high_ms)
-    cursor.fill()
-
-    return new NewCell(this.circuit, this.#class.command, cursor.bytes)
   }
 
-  static uncell(cell: NewCell) {
+  static uncell(cell: Cell<Opaque>) {
     if (cell.command !== this.command)
       throw new InvalidCommand(this.name, cell.command)
     if (cell.circuit)
       throw new InvalidCircuit(this.name, cell.circuit)
 
-    const cursor = new Cursor(cell.payload)
+    const cursor = new Cursor(cell.payload.bytes)
 
     const version = cursor.readUint8()
     const pcommand = cursor.readUint8()

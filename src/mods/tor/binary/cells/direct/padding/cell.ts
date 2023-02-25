@@ -1,7 +1,6 @@
-import { Bytes } from "@hazae41/bytes"
-import { NewCell } from "mods/tor/binary/cells/cell.js"
+import { Opaque } from "@hazae41/binary"
+import { Cell } from "mods/tor/binary/cells/cell.js"
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
-import { PAYLOAD_LEN } from "mods/tor/constants.js"
 
 export class PaddingCell {
   readonly #class = PaddingCell
@@ -10,23 +9,19 @@ export class PaddingCell {
 
   constructor(
     readonly circuit: undefined,
-    readonly data = Bytes.alloc(PAYLOAD_LEN)
+    readonly data: Uint8Array
   ) { }
 
-  pack() {
-    return this.cell().pack()
+  get command() {
+    return this.#class.command
   }
 
-  cell() {
-    return new NewCell(this.circuit, this.#class.command, this.data)
-  }
-
-  static uncell(cell: NewCell) {
+  static uncell(cell: Cell<Opaque>) {
     if (cell.command !== this.command)
       throw new InvalidCommand(this.name, cell.command)
     if (cell.circuit)
       throw new InvalidCircuit(this.name, cell.circuit)
 
-    return new this(cell.circuit, cell.payload)
+    return new this(cell.circuit, cell.payload.bytes)
   }
 }

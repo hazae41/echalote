@@ -1,12 +1,11 @@
 import { Ed25519PublicKey, Ed25519Signature } from "@hazae41/berith"
-import { Cursor } from "@hazae41/binary"
+import { Cursor, Opaque } from "@hazae41/binary"
 import { Bytes } from "@hazae41/bytes"
 import { RsaPublicKey } from "@hazae41/paimon"
-import { NewCell } from "mods/tor/binary/cells/cell.js"
+import { Cell } from "mods/tor/binary/cells/cell.js"
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
 import { Duplicated } from "mods/tor/binary/certs/errors.js"
 import { Cross, Ed25519, RSA } from "mods/tor/binary/certs/index.js"
-import { Unimplemented } from "mods/tor/errors.js"
 
 export interface Certs {
   id?: RSA.Cert,
@@ -28,8 +27,8 @@ export class CertsCell {
     readonly certs: Certs
   ) { }
 
-  pack() {
-    return this.cell().pack()
+  get command() {
+    return this.#class.command
   }
 
   async getIdHash() {
@@ -122,17 +121,13 @@ export class CertsCell {
     console.warn("Could not verify SIGNING_TO_TLS cert key")
   }
 
-  cell(): NewCell {
-    throw new Unimplemented()
-  }
-
-  static uncell(cell: NewCell) {
+  static uncell(cell: Cell<Opaque>) {
     if (cell.command !== this.command)
       throw new InvalidCommand(this.name, cell.command)
     if (cell.circuit)
       throw new InvalidCircuit(this.name, cell.circuit)
 
-    const cursor = new Cursor(cell.payload)
+    const cursor = new Cursor(cell.payload.bytes)
 
     const ncerts = cursor.readUint8()
     const certs: Certs = {}

@@ -17,10 +17,6 @@ export class RelayTruncateCell {
     readonly reason: number
   ) { }
 
-  async pack() {
-    return await this.cell().pack()
-  }
-
   cell() {
     const cursor = Cursor.allocUnsafe(1)
 

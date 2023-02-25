@@ -1,7 +1,5 @@
-import { Cursor } from "@hazae41/binary"
-import { NewCell } from "mods/tor/binary/cells/cell.js"
-import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
-import { Unimplemented } from "mods/tor/errors.js"
+import { Cursor, Opaque } from "@hazae41/binary"
+import { Cell } from "mods/tor/binary/cells/cell.js"
 
 export class AuthChallengeCell {
   readonly #class = AuthChallengeCell
@@ -14,22 +12,19 @@ export class AuthChallengeCell {
     readonly methods: number[]
   ) { }
 
-  pack() {
-    return this.cell().pack()
+  get command() {
+    return this.#class.command
   }
 
-  cell(): NewCell {
-    throw new Unimplemented()
+  size(): number {
+    throw new Error(`Unimplemented`)
   }
 
-  static uncell(cell: NewCell) {
-    if (cell.command !== this.command)
-      throw new InvalidCommand(this.name, cell.command)
-    if (cell.circuit)
-      throw new InvalidCircuit(this.name, cell.circuit)
+  write(cursor: Cursor) {
+    throw new Error(`Unimplemented`)
+  }
 
-    const cursor = new Cursor(cell.payload)
-
+  static read(cursor: Cursor) {
     const challenge = cursor.read(32)
     const nmethods = cursor.readUint16()
     const methods = new Array<number>(nmethods)
@@ -37,6 +32,17 @@ export class AuthChallengeCell {
     for (let i = 0; i < nmethods; i++)
       methods[i] = cursor.readUint16()
 
+    return { challenge, methods }
+  }
+
+  static uncell(cell: Cell<Opaque>) {
+    if (cell.command !== this.command)
+      throw new Error(`Invalid ${this.name} cell command ${cell.command}`)
+    if (cell.circuit)
+      throw new Error(`Unexpected circuit for ${this.name} cell`)
+
+    const { challenge, methods } = cell.payload.into(this)
     return new this(cell.circuit, challenge, methods)
   }
+
 }

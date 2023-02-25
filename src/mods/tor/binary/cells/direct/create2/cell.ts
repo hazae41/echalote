@@ -1,8 +1,7 @@
-import { Cursor } from "@hazae41/binary";
-import { NewCell } from "mods/tor/binary/cells/cell.js";
+import { Cursor, Opaque } from "@hazae41/binary";
+import { Cell } from "mods/tor/binary/cells/cell.js";
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js";
 import { Circuit } from "mods/tor/circuit.js";
-import { PAYLOAD_LEN } from "mods/tor/constants.js";
 
 export class Create2Cell {
   readonly #class = Create2Cell
@@ -27,28 +26,27 @@ export class Create2Cell {
     readonly data: Uint8Array
   ) { }
 
-  pack() {
-    return this.cell().pack()
+  get command() {
+    return this.#class.command
   }
 
-  cell() {
-    const cursor = Cursor.allocUnsafe(PAYLOAD_LEN)
+  size() {
+    return 2 + 2 + this.data.length
+  }
 
+  write(cursor: Cursor) {
     cursor.writeUint16(this.type)
     cursor.writeUint16(this.data.length)
     cursor.write(this.data)
-    cursor.fill()
-
-    return new NewCell(this.circuit, this.#class.command, cursor.bytes)
   }
 
-  static uncell(cell: NewCell) {
+  static uncell(cell: Cell<Opaque>) {
     if (cell.command !== this.command)
       throw new InvalidCommand(this.name, cell.command)
     if (!cell.circuit)
       throw new InvalidCircuit(this.name, cell.circuit)
 
-    const cursor = new Cursor(cell.payload)
+    const cursor = new Cursor(cell.payload.bytes)
 
     const type = cursor.readUint16()
     const length = cursor.readUint16()

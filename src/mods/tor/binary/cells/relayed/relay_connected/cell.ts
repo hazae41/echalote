@@ -18,14 +18,6 @@ export class RelayConnectedCell {
     readonly ttl: Date
   ) { }
 
-  async pack() {
-    return await this.cell().pack()
-  }
-
-  cell(): RelayCell {
-    throw new Error(`Unimplemented`)
-  }
-
   static uncell(cell: RelayCell) {
     if (cell.rcommand !== this.rcommand)
       throw new InvalidRelayCommand(this.name, cell.rcommand)

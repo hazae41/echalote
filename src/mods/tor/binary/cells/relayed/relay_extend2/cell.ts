@@ -29,10 +29,6 @@ export class RelayExtend2Cell {
     readonly data: Uint8Array
   ) { }
 
-  async pack() {
-    return await this.cell().pack()
-  }
-
   cell() {
     const cursor = Cursor.allocUnsafe(PAYLOAD_LEN)
 

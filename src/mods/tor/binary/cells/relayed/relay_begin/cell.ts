@@ -23,10 +23,6 @@ export class RelayBeginCell {
     readonly flags: number
   ) { }
 
-  async pack() {
-    return await this.cell().pack()
-  }
-
   cell() {
     const cursor = Cursor.allocUnsafe(PAYLOAD_LEN)
 

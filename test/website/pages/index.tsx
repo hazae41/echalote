@@ -22,12 +22,22 @@ async function createCircuit(tor: Tor) {
     }
 }
 
+async function fetchWs(ws: Fleche.WebSocket) {
+  const start = Date.now()
+
+  ws.send(JSON.stringify({ "jsonrpc": "2.0", "method": "web3_clientVersion", "params": [], "id": 67 }))
+
+  const event = await new Promise((ok, err) => {
+    ws.addEventListener("message", ok)
+    ws.addEventListener("error", err)
+  })
+
+  const delay = Date.now() - start
+  const msgEvent = event as MessageEvent
+  console.log(msgEvent.data, delay)
+}
+
 async function fetchCircuit(circuit: Circuit) {
-  const aborter = new AbortController()
-  const { signal } = aborter
-
-  setTimeout(() => aborter.abort(), 15 * 1000)
-
   // const body = JSON.stringify({ "jsonrpc": "2.0", "method": "web3_clientVersion", "params": [], "id": 67 })
   // const headers = { "content-type": "application/json" }
   // const res = await circuit.fetch("https://virginia.rpc.blxrbdn.com", { method: "POST", headers, body, signal })
@@ -46,31 +56,14 @@ async function fetchCircuit(circuit: Circuit) {
     ws.addEventListener("error", err)
   })
 
-  async function send() {
-    const start = Date.now()
-
-    ws.send(JSON.stringify({ "jsonrpc": "2.0", "method": "web3_clientVersion", "params": [], "id": 67 }))
-
-    const event = await new Promise((ok, err) => {
-      ws.addEventListener("message", ok)
-      ws.addEventListener("error", err)
-    })
-
-    const delay = Date.now() - start
-    const msgEvent = event as MessageEvent
-    console.log(msgEvent.data, delay)
-  }
-
-  console.log(send)
+  return ws
 }
 
 async function fetchTor(tor: Tor) {
   while (true)
     try {
       const circuit = await createCircuit(tor)
-      await fetchCircuit(circuit)
-
-      return
+      return await fetchCircuit(circuit)
     } catch (e: unknown) {
       console.warn("Fetch failed", e)
       await new Promise(ok => setTimeout(ok, 1000))
@@ -99,11 +92,17 @@ export default function Page() {
     return new Tor(tcp, { fallbacks })
   }, [])
 
-  const onClick = useCallback(async () => {
+  const ws = useAsyncMemo(async () => {
     if (!tor) return
 
-    await fetchTor(tor)
+    return await fetchTor(tor)
   }, [tor])
+
+  const onClick = useCallback(async () => {
+    if (!ws) return
+
+    await fetchWs(ws)
+  }, [ws])
 
   return <>
     <button onClick={onClick}>
