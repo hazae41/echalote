@@ -27,6 +27,7 @@ import { Target } from "mods/tor/target.js";
 import { Fallback, Tor } from "mods/tor/tor.js";
 import { LoopParams } from "mods/tor/types/loop.js";
 import { RelayCell } from "./binary/cells/direct/relay/cell.js";
+import { RelayEarlyCell } from "./binary/cells/direct/relay_early/cell.js";
 
 export class Circuit extends AsyncEventTarget {
   readonly #class = Circuit
@@ -281,7 +282,7 @@ export class Circuit extends AsyncEventTarget {
 
     const pextended2 = this.#waitExtended(signal)
     const relay_extend2 = new RelayExtend2Cell(this, undefined, RelayExtend2Cell.types.NTOR, links, request)
-    this.tor.writer.enqueue(await RelayCell.from(relay_extend2).cell())
+    this.tor.writer.enqueue(await RelayEarlyCell.from(relay_extend2).cell())
     const extended2 = await pextended2
 
     const response = Ntor.response(extended2.data.data)
