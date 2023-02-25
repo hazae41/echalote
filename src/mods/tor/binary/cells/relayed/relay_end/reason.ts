@@ -13,7 +13,16 @@ export class RelayEndReasonOther {
     readonly id: number
   ) { }
 
-  write(cursor: Cursor) { }
+  size() {
+    return 0
+  }
+
+  write(cursor: Cursor) {
+    /**
+     * NOOP
+     */
+  }
+
 }
 
 export class RelayEndReasonExitPolicy {
@@ -28,6 +37,10 @@ export class RelayEndReasonExitPolicy {
 
   get id() {
     return this.#class.id
+  }
+
+  size() {
+    return this.address.size() + 4
   }
 
   write(cursor: Cursor) {

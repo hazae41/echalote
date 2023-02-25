@@ -1,4 +1,4 @@
-import { Cursor } from "@hazae41/binary"
+import { Cursor, Opaque } from "@hazae41/binary"
 import { ttlToDate } from "libs/time.js"
 import { Address4, Address6 } from "mods/tor/binary/address.js"
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js"
@@ -18,13 +18,17 @@ export class RelayConnectedCell {
     readonly ttl: Date
   ) { }
 
-  static uncell(cell: RelayCell) {
+  get rcommand() {
+    return this.#class.rcommand
+  }
+
+  static uncell(cell: RelayCell<Opaque>) {
     if (cell.rcommand !== this.rcommand)
       throw new InvalidRelayCommand(this.name, cell.rcommand)
     if (!cell.stream)
       throw new InvalidStream(this.name, cell.stream)
 
-    const cursor = new Cursor(cell.data)
+    const cursor = new Cursor(cell.data.bytes)
 
     const ipv4 = Address4.read(cursor)
 

@@ -99,10 +99,10 @@ export default function Page() {
   }, [tor])
 
   const onClick = useCallback(async () => {
-    if (!ws) return
+    if (!tor) return
 
-    await fetchWs(ws)
-  }, [ws])
+    return await fetchTor(tor)
+  }, [tor])
 
   return <>
     <button onClick={onClick}>

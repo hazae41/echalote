@@ -16,6 +16,10 @@ export class RelayExtend2LinkIPv4 {
     readonly port: number,
   ) { }
 
+  size() {
+    return 1 + 1 + (4 * 1) + 2
+  }
+
   write(cursor: Cursor) {
     cursor.writeUint8(this.#class.type)
     cursor.writeUint8(4 + 2)
@@ -44,6 +48,10 @@ export class RelayExtend2LinkIPv6 {
     readonly hostname: string,
     readonly port: number,
   ) { }
+
+  size() {
+    return 1 + 1 + (8 * 2) + 2
+  }
 
   write(cursor: Cursor) {
     cursor.writeUint8(this.#class.type)
@@ -77,6 +85,10 @@ export class RelayExtend2LinkLegacyID {
     readonly fingerprint: Uint8Array
   ) { }
 
+  size() {
+    return 1 + 1 + this.fingerprint.length
+  }
+
   write(cursor: Cursor) {
     cursor.writeUint8(this.#class.type)
     cursor.writeUint8(20)
@@ -92,6 +104,10 @@ export class RelayExtend2LinkModernID {
   constructor(
     readonly fingerprint: Uint8Array
   ) { }
+
+  size() {
+    return 1 + 1 + this.fingerprint.length
+  }
 
   write(cursor: Cursor) {
     cursor.writeUint8(this.#class.type)

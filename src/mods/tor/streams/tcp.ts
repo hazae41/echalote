@@ -2,6 +2,7 @@ import { Cursor, Opaque, Writable } from "@hazae41/binary";
 import { ErrorEvent } from "libs/events/error.js";
 import { Events } from "libs/events/events.js";
 import { AsyncEventTarget } from "libs/events/target.js";
+import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { Circuit } from "mods/tor/circuit.js";
@@ -129,15 +130,14 @@ export class TcpStream extends AsyncEventTarget {
 
     if (bytes.length <= DATA_LEN) {
       const cell = new RelayDataCell(this.circuit, this, bytes)
-      return this.circuit.tor.writer.enqueue(await cell.cell().cell())
+      return this.circuit.tor.writer.enqueue(await RelayCell.from(cell).cell())
     }
 
-    const cursor = new Cursor(bytes)
-    const chunks = cursor.split(DATA_LEN)
+    const chunks = new Cursor(bytes).split(DATA_LEN)
 
     for (const chunk of chunks) {
       const cell = new RelayDataCell(this.circuit, this, chunk)
-      this.circuit.tor.writer.enqueue(await cell.cell().cell())
+      this.circuit.tor.writer.enqueue(await RelayCell.from(cell).cell())
     }
   }
 }

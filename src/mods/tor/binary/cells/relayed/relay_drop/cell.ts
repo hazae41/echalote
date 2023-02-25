@@ -1,3 +1,4 @@
+import { Cursor, Opaque } from "@hazae41/binary";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { InvalidRelayCommand } from "mods/tor/binary/cells/errors.js";
 import { Circuit } from "mods/tor/circuit.js";
@@ -14,14 +15,22 @@ export class RelayDropCell {
     readonly data: Uint8Array
   ) { }
 
-  cell() {
-    return new RelayCell(this.circuit, this.stream, this.#class.rcommand, this.data)
+  get rcommand() {
+    return this.#class.rcommand
   }
 
-  static uncell(cell: RelayCell) {
+  size() {
+    return this.data.length
+  }
+
+  write(cursor: Cursor) {
+    cursor.write(this.data)
+  }
+
+  static uncell(cell: RelayCell<Opaque>) {
     if (cell.rcommand !== this.rcommand)
       throw new InvalidRelayCommand(this.name, cell.rcommand)
 
-    return new this(cell.circuit, cell.stream, cell.data)
+    return new this(cell.circuit, cell.stream, cell.data.bytes)
   }
 }

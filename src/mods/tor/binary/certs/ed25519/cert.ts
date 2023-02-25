@@ -75,7 +75,10 @@ export class Cert implements ICert {
         cursor.read(length)
     }
 
-    const payload = cursor.reread(start)
+    const content = cursor.offset - start
+    cursor.offset = start
+    const payload = cursor.read(content)
+
     const signature = cursor.read(64)
 
     if (cursor.offset - start !== length)

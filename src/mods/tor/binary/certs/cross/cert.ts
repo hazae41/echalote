@@ -35,7 +35,9 @@ export class Cert implements ICert {
     const expDateHours = cursor.readUint32()
     const expiration = new Date(expDateHours * 60 * 60 * 1000)
 
-    const payload = cursor.reread(start)
+    const content = cursor.offset - start
+    cursor.offset = start
+    const payload = cursor.read(content)
 
     const sigLength = cursor.readUint8()
     const signature = cursor.read(sigLength)

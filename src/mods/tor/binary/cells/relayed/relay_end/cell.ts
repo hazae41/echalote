@@ -1,9 +1,8 @@
-import { Cursor } from "@hazae41/binary";
+import { Cursor, Opaque } from "@hazae41/binary";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { InvalidRelayCommand, InvalidStream } from "mods/tor/binary/cells/errors.js";
 import { RelayEndReason, RelayEndReasonExitPolicy, RelayEndReasonOther } from "mods/tor/binary/cells/relayed/relay_end/reason.js";
 import { Circuit } from "mods/tor/circuit.js";
-import { PAYLOAD_LEN } from "mods/tor/constants.js";
 import { TcpStream } from "mods/tor/streams/tcp.js";
 
 export class RelayEndCell {
@@ -35,22 +34,26 @@ export class RelayEndCell {
     readonly reason: RelayEndReason
   ) { }
 
-  cell() {
-    const cursor = Cursor.allocUnsafe(PAYLOAD_LEN)
-
-    cursor.writeUint8(this.reason.id)
-    this.reason.write(cursor)
-
-    return new RelayCell(this.circuit, this.stream, this.#class.rcommand, cursor.before)
+  get rcommand() {
+    return this.#class.rcommand
   }
 
-  static uncell(cell: RelayCell) {
+  size() {
+    return 1 + this.reason.size()
+  }
+
+  write(cursor: Cursor) {
+    cursor.writeUint8(this.reason.id)
+    this.reason.write(cursor)
+  }
+
+  static uncell(cell: RelayCell<Opaque>) {
     if (cell.rcommand !== this.rcommand)
       throw new InvalidRelayCommand(this.name, cell.rcommand)
     if (!cell.stream)
       throw new InvalidStream(this.name, cell.stream)
 
-    const cursor = new Cursor(cell.data)
+    const cursor = new Cursor(cell.data.bytes)
 
     const reasonId = cursor.readUint8()
 

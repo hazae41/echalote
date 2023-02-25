@@ -26,6 +26,7 @@ import { TcpStream } from "mods/tor/streams/tcp.js";
 import { Target } from "mods/tor/target.js";
 import { Fallback, Tor } from "mods/tor/tor.js";
 import { LoopParams } from "mods/tor/types/loop.js";
+import { RelayCell } from "./binary/cells/direct/relay/cell.js";
 
 export class Circuit extends AsyncEventTarget {
   readonly #class = Circuit
@@ -280,7 +281,7 @@ export class Circuit extends AsyncEventTarget {
 
     const pextended2 = this.#waitExtended(signal)
     const relay_extend2 = new RelayExtend2Cell(this, undefined, RelayExtend2Cell.types.NTOR, links, request)
-    this.tor.writer.enqueue(await relay_extend2.cell().cell())
+    this.tor.writer.enqueue(await RelayCell.from(relay_extend2).cell())
     const extended2 = await pextended2
 
     const response = Ntor.response(extended2.data.data)
@@ -356,7 +357,7 @@ export class Circuit extends AsyncEventTarget {
   async truncate(reason = RelayTruncateCell.reasons.NONE) {
     const ptruncated = this.#waitTruncated()
     const relay_truncate = new RelayTruncateCell(this, undefined, reason)
-    this.tor.writer.enqueue(await relay_truncate.cell().cell())
+    this.tor.writer.enqueue(await RelayCell.from(relay_truncate).cell())
     await ptruncated
   }
 
@@ -376,7 +377,7 @@ export class Circuit extends AsyncEventTarget {
       .unsign()
       .value
     const begin = new RelayBeginCell(this, stream, `${hostname}:${port}`, flags)
-    this.tor.writer.enqueue(await begin.cell().cell())
+    this.tor.writer.enqueue(await RelayCell.from(begin).cell())
 
     return stream
   }

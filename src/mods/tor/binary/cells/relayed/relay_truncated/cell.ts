@@ -1,4 +1,4 @@
-import { Cursor } from "@hazae41/binary";
+import { Cursor, Opaque } from "@hazae41/binary";
 import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { InvalidRelayCommand, InvalidStream } from "mods/tor/binary/cells/errors.js";
@@ -17,21 +17,25 @@ export class RelayTruncatedCell {
     readonly reason: number
   ) { }
 
-  cell() {
-    const cursor = Cursor.allocUnsafe(1)
-
-    cursor.writeUint8(this.reason)
-
-    return new RelayCell(this.circuit, this.stream, this.#class.rcommand, cursor.bytes)
+  get rcommand() {
+    return this.#class.rcommand
   }
 
-  static uncell(cell: RelayCell) {
+  size() {
+    return 1
+  }
+
+  write(cursor: Cursor) {
+    cursor.writeUint8(this.reason)
+  }
+
+  static uncell(cell: RelayCell<Opaque>) {
     if (cell.rcommand !== this.rcommand)
       throw new InvalidRelayCommand(this.name, cell.rcommand)
     if (cell.stream)
       throw new InvalidStream(this.name, cell.stream)
 
-    const cursor = new Cursor(cell.data)
+    const cursor = new Cursor(cell.data.bytes)
 
     const reason = cursor.readUint8()
 

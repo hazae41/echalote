@@ -487,7 +487,7 @@ export class Tor extends AsyncEventTarget {
     console.debug(`Unknown relay cell ${cell.rcommand}`)
   }
 
-  async #onRelayExtended2Cell(cell: RelayCell) {
+  async #onRelayExtended2Cell(cell: RelayCell<Opaque>) {
     const data = RelayExtended2Cell.uncell(cell)
 
     console.debug(`RELAY_EXTENDED2`, data)
@@ -496,7 +496,7 @@ export class Tor extends AsyncEventTarget {
     if (!await this.dispatchEvent(cellEvent)) return
   }
 
-  async #onRelayConnectedCell(cell: RelayCell) {
+  async #onRelayConnectedCell(cell: RelayCell<Opaque>) {
     const data = RelayConnectedCell.uncell(cell)
 
     console.debug(`RELAY_CONNECTED`, data)
@@ -505,7 +505,7 @@ export class Tor extends AsyncEventTarget {
     if (!await this.dispatchEvent(cellEvent)) return
   }
 
-  async #onRelayDataCell(cell: RelayCell) {
+  async #onRelayDataCell(cell: RelayCell<Opaque>) {
     const data = RelayDataCell.uncell(cell)
 
     console.debug(`RELAY_DATA`, data)
@@ -514,7 +514,7 @@ export class Tor extends AsyncEventTarget {
     if (!await this.dispatchEvent(cellEvent)) return
   }
 
-  async #onRelayEndCell(cell: RelayCell) {
+  async #onRelayEndCell(cell: RelayCell<Opaque>) {
     const data = RelayEndCell.uncell(cell)
 
     console.debug(`RELAY_END`, data)
@@ -523,7 +523,7 @@ export class Tor extends AsyncEventTarget {
     if (!await this.dispatchEvent(cellEvent)) return
   }
 
-  async #onRelayDropCell(cell: RelayCell) {
+  async #onRelayDropCell(cell: RelayCell<Opaque>) {
     const data = RelayDropCell.uncell(cell)
 
     console.debug(`RELAY_DROP`, data)
@@ -532,7 +532,7 @@ export class Tor extends AsyncEventTarget {
     if (!await this.dispatchEvent(cellEvent)) return
   }
 
-  async #onRelayTruncatedCell(cell: RelayCell) {
+  async #onRelayTruncatedCell(cell: RelayCell<Opaque>) {
     const data = RelayTruncatedCell.uncell(cell)
 
     console.debug(`RELAY_TRUNCATED`, data)

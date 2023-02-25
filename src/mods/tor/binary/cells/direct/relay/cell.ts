@@ -1,4 +1,4 @@
-import { Cursor, Opaque } from "@hazae41/binary";
+import { Cursor, Opaque, Writable } from "@hazae41/binary";
 import { Bytes } from "@hazae41/bytes";
 import { Arrays } from "libs/arrays/arrays.js";
 import { Cell } from "mods/tor/binary/cells/cell.js";
@@ -7,7 +7,13 @@ import { Circuit } from "mods/tor/circuit.js";
 import { PAYLOAD_LEN } from "mods/tor/constants.js";
 import { TcpStream } from "mods/tor/streams/tcp.js";
 
-export class RelayCell {
+export interface RelayCellable extends Writable {
+  rcommand: number,
+  circuit: Circuit,
+  stream?: TcpStream
+}
+
+export class RelayCell<T extends Writable>  {
   readonly #class = RelayCell
 
   static command = 3
@@ -16,8 +22,12 @@ export class RelayCell {
     readonly circuit: Circuit,
     readonly stream: TcpStream | undefined,
     readonly rcommand: number,
-    readonly data: Uint8Array
+    readonly data: T
   ) { }
+
+  static from<T extends RelayCellable>(cellable: T) {
+    return new this(cellable.circuit, cellable.stream, cellable.rcommand, cellable)
+  }
 
   get command() {
     return this.#class.command
@@ -34,12 +44,10 @@ export class RelayCell {
 
     cursor.writeUint32(0)
 
-    cursor.writeUint16(this.data.length)
-    cursor.write(this.data)
-    cursor.fill(Math.min(cursor.remaining, 4))
-
-    if (cursor.remaining > 0)
-      cursor.write(Bytes.random(cursor.remaining))
+    cursor.writeUint16(this.data.size())
+    this.data.write(cursor)
+    cursor.fill(0, Math.min(cursor.remaining, 4))
+    cursor.write(Bytes.random(cursor.remaining))
 
     const exit = Arrays.lastOf(this.circuit.targets)
 
@@ -95,9 +103,9 @@ export class RelayCell {
         throw new Error(`Invalid ${this.name} digest`)
 
       const length = cursor.readUint16()
-      const data = cursor.read(length)
+      const data = new Opaque(cursor.read(length))
 
-      return new this(cell.circuit, stream, rcommand, data)
+      return new this<Opaque>(cell.circuit, stream, rcommand, data)
     }
 
     throw new Error(`Unrecognised ${this.name}`)
