@@ -1,4 +1,5 @@
 import { X25519PublicKey, X25519StaticSecret } from "@hazae41/berith";
+import { Opaque } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Bytes } from "@hazae41/bytes";
 import { Ciphers, TlsStream } from "@hazae41/cadenas";
@@ -155,7 +156,7 @@ export class Circuit extends AsyncEventTarget {
   }
 
   async #onRelayDataCell(event: Event) {
-    const msgEvent = event as MessageEvent<RelayDataCell>
+    const msgEvent = event as MessageEvent<RelayDataCell<Opaque>>
     if (msgEvent.data.circuit !== this) return
 
     console.debug(`${this.#class.name}.onRelayDataCell`, event)

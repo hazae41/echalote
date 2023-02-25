@@ -1,26 +1,11 @@
 import { Ciphers, TlsStream } from "@hazae41/cadenas";
-import { Circuit, createWebSocketStream, Tor } from "@hazae41/echalote";
+import { Circuit, createWebSocketSnowflakeStream, Tor } from "@hazae41/echalote";
 import { Fleche } from "@hazae41/fleche";
 import fallbacks from "assets/fallbacks.json";
 import lorem from "assets/lorem.json";
 import { DependencyList, useCallback, useEffect, useState } from "react";
 
 lorem;
-
-async function createCircuit(tor: Tor) {
-  while (true)
-    try {
-      const circuit = await tor.create()
-
-      await circuit.extend(false)
-      await circuit.extend(true)
-
-      return circuit
-    } catch (e: unknown) {
-      console.warn("Create failed", e)
-      await new Promise(ok => setTimeout(ok, 1000))
-    }
-}
 
 async function fetchWs(ws: Fleche.WebSocket) {
   const start = Date.now()
@@ -62,7 +47,7 @@ async function fetchCircuit(circuit: Circuit) {
 async function fetchTor(tor: Tor) {
   while (true)
     try {
-      const circuit = await createCircuit(tor)
+      const circuit = await tor.tryCreateAndExtend()
       return await fetchCircuit(circuit)
     } catch (e: unknown) {
       console.warn("Fetch failed", e)
@@ -84,10 +69,10 @@ function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
 export default function Page() {
 
   const tor = useAsyncMemo(async () => {
-    // const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
+    const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
     // const tcp = await createWebSocketSnowflakeStream("ws://localhost:12345/")
     // const tcp = await createMeekStream("https://meek.bamsoftware.com/")
-    const tcp = await createWebSocketStream("ws://localhost:8080")
+    // const tcp = await createWebSocketStream("ws://localhost:8080")
 
     return new Tor(tcp, { fallbacks })
   }, [])

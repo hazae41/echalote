@@ -103,7 +103,8 @@ export class RelayCell<T extends Writable>  {
         throw new Error(`Invalid ${this.name} digest`)
 
       const length = cursor.readUint16()
-      const data = new Opaque(cursor.read(length))
+      const bytes = cursor.read(length)
+      const data = new Opaque(bytes)
 
       return new this<Opaque>(cell.circuit, stream, rcommand, data)
     }

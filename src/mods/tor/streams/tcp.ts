@@ -93,13 +93,13 @@ export class TcpStream extends AsyncEventTarget {
   }
 
   async #onRelayDataCell(event: Event) {
-    const msgEvent = event as MessageEvent<RelayDataCell>
+    const msgEvent = event as MessageEvent<RelayDataCell<Opaque>>
     if (msgEvent.data.stream !== this) return
 
     console.debug(`${this.#class.name}.onRelayDataCell`, event)
 
     try {
-      this.#input!.enqueue(new Opaque(msgEvent.data.data))
+      this.#input!.enqueue(msgEvent.data.data)
     } catch (e: unknown) { }
 
     const msgEventClone = Events.clone(msgEvent)
@@ -123,21 +123,24 @@ export class TcpStream extends AsyncEventTarget {
     if (!await this.dispatchEvent(msgEventClone)) return
   }
 
-  async #onWrite(chunk: Writable) {
-    const bytes = chunk instanceof Opaque
-      ? chunk.bytes
-      : Writable.toBytes(chunk)
+  async #onWrite(writable: Writable) {
+    if (writable.size() <= DATA_LEN)
+      return this.#onWriteDirect(writable)
+    else
+      return this.#onWriteChunked(writable)
+  }
 
-    if (bytes.length <= DATA_LEN) {
-      const cell = new RelayDataCell(this.circuit, this, bytes)
-      return this.circuit.tor.writer.enqueue(RelayCell.from(cell).cell())
-    }
+  async #onWriteDirect(writable: Writable) {
+    const cell = new RelayDataCell(this.circuit, this, writable)
+    return this.circuit.tor.writer.enqueue(RelayCell.from(cell).cell())
+  }
 
-    const chunks = new Cursor(bytes).split(DATA_LEN)
+  async #onWriteChunked(writable: Writable) {
+    const bytes = Writable.toBytes(writable)
+    const cursor = new Cursor(bytes)
 
-    for (const chunk of chunks) {
-      const cell = new RelayDataCell(this.circuit, this, chunk)
-      this.circuit.tor.writer.enqueue(RelayCell.from(cell).cell())
+    for (const chunk of cursor.split(DATA_LEN)) {
+      this.#onWriteDirect(new Opaque(chunk))
     }
   }
 }
