@@ -1,4 +1,4 @@
-import { Writable } from "@hazae41/binary";
+import { Opaque, Writable } from "@hazae41/binary";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { SuperTransformStream } from "libs/streams/transform.js";
 import { TurboFrame } from "./frame.js";
@@ -6,7 +6,7 @@ import { SecretTurboStream } from "./stream.js";
 
 export class SecretTurboWriter extends AsyncEventTarget<"close" | "error"> {
 
-  readonly stream: SuperTransformStream<Writable, Uint8Array>
+  readonly stream: SuperTransformStream<Writable, Writable>
 
   constructor(
     readonly parent: SecretTurboStream
@@ -21,15 +21,15 @@ export class SecretTurboWriter extends AsyncEventTarget<"close" | "error"> {
 
   async #onStart() {
     const token = this.parent.class.token
-    this.stream.enqueue(token)
+    this.stream.enqueue(new Opaque(token))
 
     const clientID = this.parent.clientID
-    this.stream.enqueue(clientID)
+    this.stream.enqueue(new Opaque(clientID))
   }
 
   async #onWrite(chunk: Writable) {
     const frame = new TurboFrame(false, chunk)
-    this.stream.enqueue(Writable.toBytes(frame.prepare()))
+    this.stream.enqueue(frame.prepare())
   }
 
 }

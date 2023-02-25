@@ -1,4 +1,4 @@
-import { Opaque, Readable } from "@hazae41/binary"
+import { Opaque } from "@hazae41/binary"
 import { AsyncEventTarget } from "libs/events/target.js"
 import { SuperTransformStream } from "libs/streams/transform.js"
 import { TurboFrame } from "./frame.js"
@@ -6,7 +6,7 @@ import { SecretTurboStream } from "./stream.js"
 
 export class SecretTurboReader extends AsyncEventTarget<"close" | "error"> {
 
-  readonly stream: SuperTransformStream<Uint8Array, Opaque>
+  readonly stream: SuperTransformStream<Opaque, Opaque>
 
   constructor(
     readonly parent: SecretTurboStream
@@ -18,8 +18,8 @@ export class SecretTurboReader extends AsyncEventTarget<"close" | "error"> {
     })
   }
 
-  async #onRead(chunk: Uint8Array) {
-    const frame = Readable.fromBytes(TurboFrame, chunk)
+  async #onRead(chunk: Opaque) {
+    const frame = chunk.into(TurboFrame)
 
     if (frame.padding) return
 

@@ -12,7 +12,7 @@ export class TurboStream {
   readonly #secret: SecretTurboStream
 
   constructor(
-    readonly stream: ReadableWritablePair<Uint8Array, Uint8Array>,
+    readonly stream: ReadableWritablePair<Opaque, Writable>,
     readonly params: TurboStreamParams = {}
   ) {
     this.#secret = new SecretTurboStream(stream, params)
@@ -42,7 +42,7 @@ export class SecretTurboStream {
   readonly clientID: Uint8Array
 
   constructor(
-    readonly stream: ReadableWritablePair<Uint8Array, Uint8Array>,
+    readonly stream: ReadableWritablePair<Opaque, Writable>,
     readonly params: TurboStreamParams = {}
   ) {
     const { clientID } = params

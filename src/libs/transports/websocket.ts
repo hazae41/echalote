@@ -1,3 +1,4 @@
+import { Opaque, Writable } from "@hazae41/binary"
 import { Future } from "libs/futures/future.js"
 
 export async function createWebSocketStream(url: string) {
@@ -37,8 +38,8 @@ export type WebSocketStreamParams =
   & WebSocketSinkParams
 
 export class WebSocketStream {
-  readonly readable: ReadableStream<Uint8Array>
-  readonly writable: WritableStream<Uint8Array>
+  readonly readable: ReadableStream<Opaque>
+  readonly writable: WritableStream<Writable>
 
   /**
    * A WebSocket stream
@@ -66,24 +67,24 @@ export interface WebSocketSourceParams {
   shouldCloseOnCancel?: boolean
 }
 
-export class WebSocketSource implements UnderlyingSource<Uint8Array> {
+export class WebSocketSource implements UnderlyingDefaultSource<Opaque> {
 
   constructor(
     readonly websocket: WebSocket,
     readonly params: WebSocketSourceParams = {}
   ) { }
 
-  async start(controller: ReadableStreamController<Uint8Array>) {
+  async start(controller: ReadableStreamDefaultController<Opaque>) {
 
     const onMessage = (msgEvent: MessageEvent<ArrayBuffer>) => {
-      const chunk = new Uint8Array(msgEvent.data)
+      const bytes = new Uint8Array(msgEvent.data)
       // console.debug("ws <-", chunk)
-      try { controller.enqueue(chunk) } catch (e: unknown) { }
+      controller.enqueue(new Opaque(bytes))
     }
 
     const onError = (event: Event) => {
       const error = new Error(`Errored`, { cause: event })
-      try { controller.error(error) } catch (e: unknown) { }
+      controller.error(error)
 
       this.websocket.removeEventListener("message", onMessage)
       this.websocket.removeEventListener("close", onClose)
@@ -91,7 +92,7 @@ export class WebSocketSource implements UnderlyingSource<Uint8Array> {
     }
 
     const onClose = (closeEvent: CloseEvent) => {
-      try { controller.close() } catch (e: unknown) { }
+      controller.close()
 
       this.websocket.removeEventListener("message", onMessage)
       this.websocket.removeEventListener("close", onClose)
@@ -125,7 +126,7 @@ export interface WebSocketSinkParams {
   shouldCloseOnAbort?: boolean
 }
 
-export class WebSocketSink implements UnderlyingSink<Uint8Array> {
+export class WebSocketSink implements UnderlyingSink<Writable> {
 
   constructor(
     readonly websocket: WebSocket,
@@ -136,7 +137,7 @@ export class WebSocketSink implements UnderlyingSink<Uint8Array> {
 
     const onClose = (closeEvent: CloseEvent) => {
       const error = new Error(`Closed`, { cause: closeEvent })
-      try { controller.error(error) } catch (e: unknown) { }
+      controller.error(error)
 
       this.websocket.removeEventListener("close", onClose)
       this.websocket.removeEventListener("error", onError)
@@ -144,7 +145,7 @@ export class WebSocketSink implements UnderlyingSink<Uint8Array> {
 
     const onError = (event: Event) => {
       const error = new Error(`Errored`, { cause: event })
-      try { controller.error(error) } catch (e: unknown) { }
+      controller.error(error)
 
       this.websocket.removeEventListener("close", onClose)
       this.websocket.removeEventListener("error", onError)
@@ -154,9 +155,10 @@ export class WebSocketSink implements UnderlyingSink<Uint8Array> {
     this.websocket.addEventListener("close", onClose, { passive: true })
   }
 
-  async write(chunk: Uint8Array) {
+  async write(chunk: Writable) {
+    const bytes = Writable.toBytes(chunk)
     // console.debug("ws ->", chunk)
-    this.websocket.send(chunk)
+    this.websocket.send(bytes)
   }
 
   async abort() {
