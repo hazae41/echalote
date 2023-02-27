@@ -51,14 +51,6 @@ export class SuperTransformer<I, O> implements Transformer<I, O> {
     return this.#controller!
   }
 
-  get readableType() {
-    return this.subtransformer.readableType
-  }
-
-  get writableType() {
-    return this.subtransformer.writableType
-  }
-
   start(controller: TransformStreamDefaultController<O>) {
     this.#controller = controller
 
