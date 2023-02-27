@@ -1,1 +1,1 @@
-export * from "./algos/index.test.js";
+export * from "./algorithms/index.test.js";

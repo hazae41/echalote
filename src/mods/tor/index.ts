@@ -1,4 +1,4 @@
-export * from "./algos/index.js";
+export * from "./algorithms/index.js";
 export * from "./binary/index.js";
 export * from "./ciphers.js";
 export * from "./circuit.js";
@@ -10,3 +10,4 @@ export * from "./streams/index.js";
 export * from "./target.js";
 export * from "./tor.js";
 export * from "./types/index.js";
+

@@ -14,7 +14,7 @@ import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { Mutex } from "libs/mutex/mutex.js";
 import { SuperTransformStream } from "libs/streams/transform.js";
-import { kdftor } from "mods/tor/algos/kdftor.js";
+import { kdftor } from "mods/tor/algorithms/kdftor.js";
 import { TypedAddress } from "mods/tor/binary/address.js";
 import { Cell, OldCell, RawCell, RawOldCell } from "mods/tor/binary/cells/cell.js";
 import { AuthChallengeCell } from "mods/tor/binary/cells/direct/auth_challenge/cell.js";

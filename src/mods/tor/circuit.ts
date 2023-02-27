@@ -12,7 +12,7 @@ import { ErrorEvent } from "libs/events/error.js";
 import { Events } from "libs/events/events.js";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
-import { Ntor } from "mods/tor/algos/ntor/index.js";
+import { Ntor } from "mods/tor/algorithms/ntor/index.js";
 import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
 import { RelayBeginCell } from "mods/tor/binary/cells/relayed/relay_begin/cell.js";
 import { RelayConnectedCell } from "mods/tor/binary/cells/relayed/relay_connected/cell.js";
