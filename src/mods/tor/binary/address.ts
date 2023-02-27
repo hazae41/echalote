@@ -1,7 +1,6 @@
 import { Cursor } from "@hazae41/binary";
 
 export class TypedAddress {
-  readonly #class = TypedAddress
 
   static IPv4 = 4
   static IPv6 = 6
@@ -28,10 +27,10 @@ export class TypedAddress {
 
     return new this(type, value)
   }
+
 }
 
 export class Address4 {
-  readonly #class = Address4
 
   /**
    * IPv4 address
@@ -60,10 +59,10 @@ export class Address4 {
 
     return new this(parts.join("."))
   }
+
 }
 
 export class Address6 {
-  readonly #class = Address6
 
   /**
    * IPv6 address
@@ -92,4 +91,5 @@ export class Address6 {
 
     return new this(`[${parts.join(":")}]`)
   }
+
 }

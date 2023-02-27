@@ -8,10 +8,10 @@ export type RelayExtend2Link =
 
 export namespace RelayExtend2Link {
 
-  export function fromString(link: string) {
-    return link.startsWith("[")
-      ? RelayExtend2LinkIPv6.from(link)
-      : RelayExtend2LinkIPv4.from(link)
+  export function fromAddressString(address: string) {
+    return address.startsWith("[")
+      ? RelayExtend2LinkIPv6.from(address)
+      : RelayExtend2LinkIPv4.from(address)
   }
 
 }

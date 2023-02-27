@@ -10,9 +10,9 @@ export class Cert implements ICert {
   readonly #class = Cert
 
   static types = {
-    EID_TO_SIGNING: 4,
-    SIGNING_TO_TLS: 5,
-    SIGNING_TO_AUTH: 6,
+    ED_TO_SIGN: 4,
+    SIGN_TO_TLS: 5,
+    SIGN_TO_AUTH: 6,
   }
 
   static flags = {

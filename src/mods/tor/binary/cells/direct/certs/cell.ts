@@ -8,13 +8,13 @@ import { Duplicated } from "mods/tor/binary/certs/errors.js"
 import { Cross, Ed25519, RSA } from "mods/tor/binary/certs/index.js"
 
 export interface CertsObject {
-  id?: RSA.Cert,
-  id_to_tls?: RSA.Cert,
-  id_to_auth?: RSA.Cert,
-  id_to_eid?: Cross.Cert
-  eid_to_signing?: Ed25519.Cert,
-  signing_to_tls?: Ed25519.Cert,
-  signing_to_auth?: Ed25519.Cert,
+  rsa_self?: RSA.Cert,
+  rsa_to_tls?: RSA.Cert,
+  rsa_to_auth?: RSA.Cert,
+  rsa_to_ed?: Cross.Cert
+  ed_to_sign?: Ed25519.Cert,
+  sign_to_tls?: Ed25519.Cert,
+  sign_to_auth?: Ed25519.Cert,
 }
 
 export class CertsCell {
@@ -32,24 +32,24 @@ export class CertsCell {
   }
 
   async getIdHash() {
-    if (!this.certs.id)
+    if (!this.certs.rsa_self)
       throw new Error(`Undefined ID cert`)
 
-    const key = this.certs.id.x509.tbsCertificate.subjectPublicKeyInfo.toBytes()
+    const key = this.certs.rsa_self.x509.tbsCertificate.subjectPublicKeyInfo.toBytes()
     const hash = new Uint8Array(await crypto.subtle.digest("SHA-1", key))
 
     return hash
   }
 
   async checkId() {
-    if (!this.certs.id)
+    if (!this.certs.rsa_self)
       throw new Error(`Undefined ID cert`)
-    this.certs.id.check()
+    this.certs.rsa_self.check()
 
-    const signed = this.certs.id.x509.tbsCertificate.toBytes()
-    const publicKey = this.certs.id.x509.tbsCertificate.subjectPublicKeyInfo.toBytes()
+    const signed = this.certs.rsa_self.x509.tbsCertificate.toBytes()
+    const publicKey = this.certs.rsa_self.x509.tbsCertificate.subjectPublicKeyInfo.toBytes()
     const signatureAlgorithm = { name: "RSASSA-PKCS1-v1_5", hash: { name: "SHA-256" } }
-    const signature = this.certs.id.x509.signatureValue.bytes
+    const signature = this.certs.rsa_self.x509.signatureValue.bytes
 
     const key = await crypto.subtle.importKey("spki", publicKey, signatureAlgorithm, true, ["verify"]);
     const verified = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, signature, signed)
@@ -57,16 +57,16 @@ export class CertsCell {
   }
 
   async checkIdToTls() {
-    if (!this.certs.id)
+    if (!this.certs.rsa_self)
       throw new Error(`Undefined ID cert`)
-    if (!this.certs.id_to_tls)
+    if (!this.certs.rsa_to_tls)
       throw new Error(`Undefined ID_TO_TLS cert`)
-    this.certs.id_to_tls.check()
+    this.certs.rsa_to_tls.check()
 
-    const signed = this.certs.id_to_tls.x509.tbsCertificate.toBytes()
-    const publicKey = this.certs.id.x509.tbsCertificate.subjectPublicKeyInfo.toBytes()
+    const signed = this.certs.rsa_to_tls.x509.tbsCertificate.toBytes()
+    const publicKey = this.certs.rsa_self.x509.tbsCertificate.subjectPublicKeyInfo.toBytes()
     const signatureAlgorithm = { name: "RSASSA-PKCS1-v1_5", hash: { name: "SHA-256" } }
-    const signature = this.certs.id_to_tls.x509.signatureValue.bytes
+    const signature = this.certs.rsa_to_tls.x509.signatureValue.bytes
 
     const key = await crypto.subtle.importKey("spki", publicKey, signatureAlgorithm, true, ["verify"]);
     const verified = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, signature, signed)
@@ -76,46 +76,46 @@ export class CertsCell {
   }
 
   async checkIdToEid() {
-    if (!this.certs.id)
+    if (!this.certs.rsa_self)
       throw new Error(`Undefined ID cert`)
-    if (!this.certs.id_to_eid)
+    if (!this.certs.rsa_to_ed)
       throw new Error(`Undefined ID_TO_EID cert`)
-    this.certs.id_to_eid.check()
+    this.certs.rsa_to_ed.check()
 
-    const publicKey = this.certs.id.x509.tbsCertificate.subjectPublicKeyInfo.toBytes()
+    const publicKey = this.certs.rsa_self.x509.tbsCertificate.subjectPublicKeyInfo.toBytes()
     const identity = RsaPublicKey.from_public_key_der(publicKey)
 
     const prefix = Bytes.fromUtf8("Tor TLS RSA/Ed25519 cross-certificate")
-    const prefixed = Bytes.concat([prefix, this.certs.id_to_eid.payload])
+    const prefixed = Bytes.concat([prefix, this.certs.rsa_to_ed.payload])
     const hashed = new Uint8Array(await crypto.subtle.digest("SHA-256", prefixed))
 
-    const verified = identity.verify_pkcs1v15_raw(hashed, this.certs.id_to_eid.signature)
+    const verified = identity.verify_pkcs1v15_raw(hashed, this.certs.rsa_to_ed.signature)
     if (!verified) throw new Error(`Invalid signature for ID_TO_EID cert`)
   }
 
   checkEidToSigning() {
-    if (!this.certs.id_to_eid)
+    if (!this.certs.rsa_to_ed)
       throw new Error(`Undefined ID_TO_EID cert`)
-    if (!this.certs.eid_to_signing)
+    if (!this.certs.ed_to_sign)
       throw new Error(`Undefined EID_TO_SIGNING cert`)
-    this.certs.eid_to_signing.check()
+    this.certs.ed_to_sign.check()
 
-    const identity = new Ed25519PublicKey(this.certs.id_to_eid.key)
-    const signature = new Ed25519Signature(this.certs.eid_to_signing.signature)
-    const verified = identity.verify(this.certs.eid_to_signing.payload, signature)
+    const identity = new Ed25519PublicKey(this.certs.rsa_to_ed.key)
+    const signature = new Ed25519Signature(this.certs.ed_to_sign.signature)
+    const verified = identity.verify(this.certs.ed_to_sign.payload, signature)
     if (!verified) throw new Error(`Invalid signature for EID_TO_SIGNING cert`)
   }
 
   checkSigningToTls() {
-    if (!this.certs.eid_to_signing)
+    if (!this.certs.ed_to_sign)
       throw new Error(`Undefined EID_TO_SIGNING cert`)
-    if (!this.certs.signing_to_tls)
+    if (!this.certs.sign_to_tls)
       throw new Error(`Undefined SIGNING_TO_TLS cert`)
-    this.certs.signing_to_tls.check()
+    this.certs.sign_to_tls.check()
 
-    const identity = new Ed25519PublicKey(this.certs.eid_to_signing.certKey)
-    const signature = new Ed25519Signature(this.certs.signing_to_tls.signature)
-    const verified = identity.verify(this.certs.signing_to_tls.payload, signature)
+    const identity = new Ed25519PublicKey(this.certs.ed_to_sign.certKey)
+    const signature = new Ed25519Signature(this.certs.sign_to_tls.signature)
+    const verified = identity.verify(this.certs.sign_to_tls.payload, signature)
     if (!verified) throw new Error(`Invalid signature for SIGNING_TO_TLS cert`)
 
     console.warn("Could not verify SIGNING_TO_TLS cert key")
@@ -129,45 +129,45 @@ export class CertsCell {
       const type = cursor.readUint8()
       const length = cursor.readUint16()
 
-      if (type === RSA.Cert.types.ID) {
-        if (certs.id) throw new Duplicated(type)
-        certs.id = RSA.Cert.read(cursor, type, length)
+      if (type === RSA.Cert.types.RSA_SELF) {
+        if (certs.rsa_self) throw new Duplicated(type)
+        certs.rsa_self = RSA.Cert.read(cursor, type, length)
         continue
       }
 
-      if (type === RSA.Cert.types.ID_TO_AUTH) {
-        if (certs.id_to_auth) throw new Duplicated(type)
-        certs.id_to_auth = RSA.Cert.read(cursor, type, length)
+      if (type === RSA.Cert.types.RSA_TO_AUTH) {
+        if (certs.rsa_to_auth) throw new Duplicated(type)
+        certs.rsa_to_auth = RSA.Cert.read(cursor, type, length)
         continue
       }
 
-      if (type === RSA.Cert.types.ID_TO_TLS) {
-        if (certs.id_to_tls) throw new Duplicated(type)
-        certs.id_to_tls = RSA.Cert.read(cursor, type, length)
+      if (type === RSA.Cert.types.RSA_TO_TLS) {
+        if (certs.rsa_to_tls) throw new Duplicated(type)
+        certs.rsa_to_tls = RSA.Cert.read(cursor, type, length)
         continue
       }
 
-      if (type === Cross.Cert.types.ID_TO_EID) {
-        if (certs.id_to_eid) throw new Duplicated(type)
-        certs.id_to_eid = Cross.Cert.read(cursor, type, length)
+      if (type === Cross.Cert.types.RSA_TO_ED) {
+        if (certs.rsa_to_ed) throw new Duplicated(type)
+        certs.rsa_to_ed = Cross.Cert.read(cursor, type, length)
         continue
       }
 
-      if (type === Ed25519.Cert.types.EID_TO_SIGNING) {
-        if (certs.eid_to_signing) throw new Duplicated(type)
-        certs.eid_to_signing = Ed25519.Cert.read(cursor, type, length)
+      if (type === Ed25519.Cert.types.ED_TO_SIGN) {
+        if (certs.ed_to_sign) throw new Duplicated(type)
+        certs.ed_to_sign = Ed25519.Cert.read(cursor, type, length)
         continue
       }
 
-      if (type === Ed25519.Cert.types.SIGNING_TO_TLS) {
-        if (certs.signing_to_tls) throw new Duplicated(type)
-        certs.signing_to_tls = Ed25519.Cert.read(cursor, type, length)
+      if (type === Ed25519.Cert.types.SIGN_TO_TLS) {
+        if (certs.sign_to_tls) throw new Duplicated(type)
+        certs.sign_to_tls = Ed25519.Cert.read(cursor, type, length)
         continue
       }
 
-      if (type === Ed25519.Cert.types.SIGNING_TO_AUTH) {
-        if (certs.signing_to_auth) throw new Duplicated(type)
-        certs.signing_to_auth = Ed25519.Cert.read(cursor, type, length)
+      if (type === Ed25519.Cert.types.SIGN_TO_AUTH) {
+        if (certs.sign_to_auth) throw new Duplicated(type)
+        certs.sign_to_auth = Ed25519.Cert.read(cursor, type, length)
         continue
       }
 

@@ -5,7 +5,7 @@ export class Cert implements ICert {
   readonly #class = Cert
 
   static types = {
-    ID_TO_EID: 7
+    RSA_TO_ED: 7
   }
 
   constructor(

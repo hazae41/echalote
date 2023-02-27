@@ -262,27 +262,28 @@ export class Circuit extends AsyncEventTarget {
     if (this.closed)
       throw new Error(`Circuit is closed`)
 
-    const rsa_id_hash = Bytes.fromHex(fallback.id)
+    const relayid_rsa = Bytes.fromHex(fallback.id)
 
-    const onion_id = fallback.eid
+    const relayid_ed = fallback.eid
       ? Bytes.fromBase64(fallback.eid)
       : undefined
 
-    const links: RelayExtend2Link[] = fallback.hosts.map(RelayExtend2Link.fromString)
-    links.push(new RelayExtend2LinkLegacyID(rsa_id_hash))
-    if (onion_id) links.push(new RelayExtend2LinkModernID(onion_id))
+    const links: RelayExtend2Link[] = fallback.hosts.map(RelayExtend2Link.fromAddressString)
+    links.push(new RelayExtend2LinkLegacyID(relayid_rsa))
+    if (relayid_ed) links.push(new RelayExtend2LinkModernID(relayid_ed))
 
     const wasm_secret_x = new X25519StaticSecret()
 
     const public_x = wasm_secret_x.to_public().to_bytes()
     const public_b = new Uint8Array(fallback.onion)
 
-    const ntor_request = new Ntor.Request(public_x, rsa_id_hash, public_b)
+    const ntor_request = new Ntor.Request(public_x, relayid_rsa, public_b)
     const relay_extend2 = new RelayExtend2Cell(this, undefined, RelayExtend2Cell.types.NTOR, links, ntor_request)
     this.tor.writer.enqueue(RelayEarlyCell.from(relay_extend2).cell())
 
     const msg_extended2 = await this.#waitExtended(signal)
-    const { public_y, auth } = msg_extended2.data.data.into(Ntor.Response)
+    const response = msg_extended2.data.data.into(Ntor.Response)
+    const { public_y } = response
 
     const wasm_public_y = new X25519PublicKey(public_y)
     const wasm_public_b = new X25519PublicKey(public_b)
@@ -290,7 +291,10 @@ export class Circuit extends AsyncEventTarget {
     const shared_xy = wasm_secret_x.diffie_hellman(wasm_public_y).to_bytes()
     const shared_xb = wasm_secret_x.diffie_hellman(wasm_public_b).to_bytes()
 
-    const result = await Ntor.finalize(shared_xy, shared_xb, rsa_id_hash, public_b, public_x, public_y)
+    const result = await Ntor.finalize(shared_xy, shared_xb, relayid_rsa, public_b, public_x, public_y)
+
+    if (!Bytes.equals(response.auth, result.auth))
+      throw new Error(`Invalid Ntor auth`)
 
     const forward_digest = new Sha1Hasher()
     const backward_digest = new Sha1Hasher()
@@ -301,7 +305,7 @@ export class Circuit extends AsyncEventTarget {
     const forward_key = new Aes128Ctr128BEKey(result.forwardKey, Bytes.alloc(16))
     const backward_key = new Aes128Ctr128BEKey(result.backwardKey, Bytes.alloc(16))
 
-    const target = new Target(rsa_id_hash, this, forward_digest, backward_digest, forward_key, backward_key)
+    const target = new Target(relayid_rsa, this, forward_digest, backward_digest, forward_key, backward_key)
 
     this.targets.push(target)
   }

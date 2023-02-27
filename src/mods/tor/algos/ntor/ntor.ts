@@ -22,8 +22,8 @@ export class Request {
 
   constructor(
     readonly public_x: Uint8Array,
-    readonly rsa_id_hash: Uint8Array,
-    readonly onion_id: Uint8Array
+    readonly relayid_rsa: Uint8Array,
+    readonly ntor_onion_key: Uint8Array
   ) { }
 
   size() {
@@ -31,8 +31,8 @@ export class Request {
   }
 
   write(cursor: Cursor) {
-    cursor.write(this.rsa_id_hash)
-    cursor.write(this.onion_id)
+    cursor.write(this.relayid_rsa)
+    cursor.write(this.ntor_onion_key)
     cursor.write(this.public_x)
   }
 
@@ -50,57 +50,55 @@ export interface Result {
 export async function finalize(
   shared_xy: Uint8Array,
   shared_xb: Uint8Array,
-  rsa_id_hash: Uint8Array,
+  relayid_rsa: Uint8Array,
   public_b: Uint8Array,
   public_x: Uint8Array,
   public_y: Uint8Array
 ): Promise<Result> {
   const protoid = "ntor-curve25519-sha256-1"
 
-  const secreti = Cursor.allocUnsafe(32 + 32 + 20 + 32 + 32 + 32 + protoid.length)
-  secreti.write(shared_xy)
-  secreti.write(shared_xb)
-  secreti.write(rsa_id_hash)
-  secreti.write(public_b)
-  secreti.write(public_x)
-  secreti.write(public_y)
-  secreti.writeString(protoid)
+  const secret_input = Cursor.allocUnsafe(32 + 32 + 20 + 32 + 32 + 32 + protoid.length)
+  secret_input.write(shared_xy)
+  secret_input.write(shared_xb)
+  secret_input.write(relayid_rsa)
+  secret_input.write(public_b)
+  secret_input.write(public_x)
+  secret_input.write(public_y)
+  secret_input.writeString(protoid)
 
   const t_mac = Bytes.fromUtf8(`${protoid}:mac`)
   const t_key = Bytes.fromUtf8(`${protoid}:key_extract`)
   const t_verify = Bytes.fromUtf8(`${protoid}:verify`)
 
-  const hmac = { name: "HMAC", hash: "SHA-256" }
-
-  const kt_verify = await crypto.subtle.importKey("raw", t_verify, hmac, false, ["sign"])
-  const verify = new Uint8Array(await crypto.subtle.sign("HMAC", kt_verify, secreti.bytes))
+  const kt_verify = await crypto.subtle.importKey("raw", t_verify, { name: "HMAC", hash: "SHA-256" }, false, ["sign"])
+  const verify = new Uint8Array(await crypto.subtle.sign("HMAC", kt_verify, secret_input.bytes))
 
   const server = "Server"
 
-  const authi = Cursor.allocUnsafe(32 + 20 + 32 + 32 + 32 + protoid.length + server.length)
-  authi.write(verify)
-  authi.write(rsa_id_hash)
-  authi.write(public_b)
-  authi.write(public_y)
-  authi.write(public_x)
-  authi.writeString(protoid)
-  authi.writeString(server)
+  const auth_input = Cursor.allocUnsafe(32 + 20 + 32 + 32 + 32 + protoid.length + server.length)
+  auth_input.write(verify)
+  auth_input.write(relayid_rsa)
+  auth_input.write(public_b)
+  auth_input.write(public_y)
+  auth_input.write(public_x)
+  auth_input.writeString(protoid)
+  auth_input.writeString(server)
 
-  const kt_mac = await crypto.subtle.importKey("raw", t_mac, hmac, false, ["sign"])
-  const auth = new Uint8Array(await crypto.subtle.sign("HMAC", kt_mac, authi.bytes))
+  const t_mac_key = await crypto.subtle.importKey("raw", t_mac, { name: "HMAC", hash: "SHA-256" }, false, ["sign"])
+  const auth = new Uint8Array(await crypto.subtle.sign("HMAC", t_mac_key, auth_input.bytes))
 
   const m_expand = Bytes.fromUtf8(`${protoid}:key_expand`)
 
-  const hkdf = { name: "HKDF", hash: "SHA-256", info: m_expand, salt: t_key }
-  const ksecret = await crypto.subtle.importKey("raw", secreti.bytes, "HKDF", false, ["deriveBits"])
-  const key = new Uint8Array(await crypto.subtle.deriveBits(hkdf, ksecret, 8 * ((HASH_LEN * 3) + (KEY_LEN * 2))))
+  const secret_input_key = await crypto.subtle.importKey("raw", secret_input.bytes, "HKDF", false, ["deriveBits"])
+  const key_params = { name: "HKDF", hash: "SHA-256", info: m_expand, salt: t_key }
+  const key_bytes = new Uint8Array(await crypto.subtle.deriveBits(key_params, secret_input_key, 8 * ((HASH_LEN * 3) + (KEY_LEN * 2))))
 
-  const k = new Cursor(key)
-  const forwardDigest = k.read(HASH_LEN)
-  const backwardDigest = k.read(HASH_LEN)
-  const forwardKey = k.read(KEY_LEN)
-  const backwardKey = k.read(KEY_LEN)
-  const nonce = k.read(HASH_LEN)
+  const key = new Cursor(key_bytes)
+  const forwardDigest = key.read(HASH_LEN)
+  const backwardDigest = key.read(HASH_LEN)
+  const forwardKey = key.read(KEY_LEN)
+  const backwardKey = key.read(KEY_LEN)
+  const nonce = key.read(HASH_LEN)
 
   return { forwardDigest, backwardDigest, forwardKey, backwardKey, auth, nonce }
 }

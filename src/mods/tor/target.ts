@@ -6,7 +6,7 @@ export class Target {
   readonly #class = Target
 
   constructor(
-    readonly rsa_id_hash: Uint8Array,
+    readonly relayid_rsa: Uint8Array,
     readonly circuit: Circuit,
     readonly forward_digest: Sha1Hasher,
     readonly backward_digest: Sha1Hasher,
