@@ -389,7 +389,7 @@ export class Circuit extends AsyncEventTarget {
    * @param init Fetch init
    * @returns Response promise
    */
-  async fetch(input: RequestInfo, init: RequestInit = {}) {
+  async fetch(input: RequestInfo | URL, init: RequestInit = {}) {
     if (this.closed)
       throw new Error(`Circuit is closed`)
 
