@@ -18,7 +18,7 @@ import { kdftor } from "mods/tor/algos/kdftor.js";
 import { TypedAddress } from "mods/tor/binary/address.js";
 import { Cell, OldCell, RawCell, RawOldCell } from "mods/tor/binary/cells/cell.js";
 import { AuthChallengeCell } from "mods/tor/binary/cells/direct/auth_challenge/cell.js";
-import { Certs, CertsCell } from "mods/tor/binary/cells/direct/certs/cell.js";
+import { CertsCell, CertsObject } from "mods/tor/binary/cells/direct/certs/cell.js";
 import { CreatedFastCell } from "mods/tor/binary/cells/direct/created_fast/cell.js";
 import { CreateFastCell } from "mods/tor/binary/cells/direct/create_fast/cell.js";
 import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
@@ -69,7 +69,7 @@ export interface TorHandshakedState {
 
 export interface Guard {
   readonly idh: Uint8Array
-  readonly certs: Certs
+  readonly certs: CertsObject
 }
 
 export interface Fallback {

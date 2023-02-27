@@ -22,19 +22,12 @@ export class RelayConnectedCell {
     return this.#class.rcommand
   }
 
-  static uncell(cell: RelayCell<Opaque>) {
-    if (cell.rcommand !== this.rcommand)
-      throw new InvalidRelayCommand(this.name, cell.rcommand)
-    if (!cell.stream)
-      throw new InvalidStream(this.name, cell.stream)
-
-    const cursor = new Cursor(cell.data.bytes)
-
+  static read(cursor: Cursor) {
     const ipv4 = Address4.read(cursor)
 
     if (ipv4.address !== "...") {
       const ttl = ttlToDate(cursor.readUint32())
-      return new this(cell.circuit, cell.stream, ipv4, ttl)
+      return { address: ipv4, ttl }
     }
 
     const type = cursor.readUint8()
@@ -44,6 +37,17 @@ export class RelayConnectedCell {
 
     const ipv6 = Address6.read(cursor)
     const ttl = ttlToDate(cursor.readUint32())
-    return new this(cell.circuit, cell.stream, ipv6, ttl)
+
+    return { address: ipv6, ttl }
+  }
+
+  static uncell(cell: RelayCell<Opaque>) {
+    if (cell.rcommand !== this.rcommand)
+      throw new InvalidRelayCommand(this.name, cell.rcommand)
+    if (!cell.stream)
+      throw new InvalidStream(this.name, cell.stream)
+
+    const { address, ttl } = cell.data.into(this)
+    return new this(cell.circuit, cell.stream, address, ttl)
   }
 }

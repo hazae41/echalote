@@ -1,5 +1,5 @@
 import { Ciphers, TlsStream } from "@hazae41/cadenas";
-import { Circuit, createWebSocketSnowflakeStream, Tor } from "@hazae41/echalote";
+import { Circuit, createWebSocketStream, Tor } from "@hazae41/echalote";
 import { Fleche } from "@hazae41/fleche";
 import fallbacks from "assets/fallbacks.json";
 import lorem from "assets/lorem.json";
@@ -69,10 +69,10 @@ function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
 export default function Page() {
 
   const tor = useAsyncMemo(async () => {
-    const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
+    // const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
     // const tcp = await createWebSocketSnowflakeStream("ws://localhost:12345/")
     // const tcp = await createMeekStream("https://meek.bamsoftware.com/")
-    // const tcp = await createWebSocketStream("ws://localhost:8080")
+    const tcp = await createWebSocketStream("ws://localhost:8080")
 
     return new Tor(tcp, { fallbacks })
   }, [])

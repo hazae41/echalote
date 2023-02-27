@@ -29,16 +29,19 @@ export class RelayTruncateCell {
     cursor.writeUint8(this.reason)
   }
 
+  static read(cursor: Cursor) {
+    const reason = cursor.readUint8()
+
+    return { reason }
+  }
+
   static uncell(cell: RelayCell<Opaque>) {
     if (cell.rcommand !== this.rcommand)
       throw new InvalidRelayCommand(this.name, cell.rcommand)
     if (cell.stream)
       throw new InvalidStream(this.name, cell.stream)
 
-    const cursor = new Cursor(cell.data.bytes)
-
-    const reason = cursor.readUint8()
-
+    const { reason } = cell.data.into(this)
     return new this(cell.circuit, cell.stream, reason)
   }
 }

@@ -2,30 +2,43 @@ import { Cursor } from "@hazae41/binary"
 import { Bytes } from "@hazae41/bytes"
 import { HASH_LEN, KEY_LEN } from "mods/tor/constants.js"
 
-export function request(
-  publicx: Uint8Array,
-  idh: Uint8Array,
-  oid: Uint8Array
-) {
-  const cursor = Cursor.allocUnsafe(20 + 32 + 32)
+export class Response {
 
-  cursor.write(idh)
-  cursor.write(oid)
-  cursor.write(publicx)
+  constructor(
+    readonly public_y: Uint8Array,
+    readonly auth: Uint8Array
+  ) { }
 
-  return cursor.bytes
+  static read(cursor: Cursor) {
+    const publicY = cursor.read(32)
+    const auth = cursor.read(32)
+
+    return new this(publicY, auth)
+  }
+
 }
 
-export function response(data: Uint8Array) {
-  const cursor = new Cursor(data)
+export class Request {
 
-  const publicy = cursor.read(32)
-  const auth = cursor.read(32)
+  constructor(
+    readonly public_x: Uint8Array,
+    readonly rsa_id_hash: Uint8Array,
+    readonly onion_id: Uint8Array
+  ) { }
 
-  return { publicy, auth }
+  size() {
+    return 20 + 32 + 32
+  }
+
+  write(cursor: Cursor) {
+    cursor.write(this.rsa_id_hash)
+    cursor.write(this.onion_id)
+    cursor.write(this.public_x)
+  }
+
 }
 
-export interface NtorResult {
+export interface Result {
   auth: Uint8Array,
   nonce: Uint8Array,
   forwardDigest: Uint8Array,
@@ -35,22 +48,22 @@ export interface NtorResult {
 }
 
 export async function finalize(
-  sharedxy: Uint8Array,
-  sharedxb: Uint8Array,
-  publici: Uint8Array,
-  publicb: Uint8Array,
-  publicx: Uint8Array,
-  publicy: Uint8Array
-): Promise<NtorResult> {
+  shared_xy: Uint8Array,
+  shared_xb: Uint8Array,
+  rsa_id_hash: Uint8Array,
+  public_b: Uint8Array,
+  public_x: Uint8Array,
+  public_y: Uint8Array
+): Promise<Result> {
   const protoid = "ntor-curve25519-sha256-1"
 
   const secreti = Cursor.allocUnsafe(32 + 32 + 20 + 32 + 32 + 32 + protoid.length)
-  secreti.write(sharedxy)
-  secreti.write(sharedxb)
-  secreti.write(publici)
-  secreti.write(publicb)
-  secreti.write(publicx)
-  secreti.write(publicy)
+  secreti.write(shared_xy)
+  secreti.write(shared_xb)
+  secreti.write(rsa_id_hash)
+  secreti.write(public_b)
+  secreti.write(public_x)
+  secreti.write(public_y)
   secreti.writeString(protoid)
 
   const t_mac = Bytes.fromUtf8(`${protoid}:mac`)
@@ -66,10 +79,10 @@ export async function finalize(
 
   const authi = Cursor.allocUnsafe(32 + 20 + 32 + 32 + 32 + protoid.length + server.length)
   authi.write(verify)
-  authi.write(publici)
-  authi.write(publicb)
-  authi.write(publicy)
-  authi.write(publicx)
+  authi.write(rsa_id_hash)
+  authi.write(public_b)
+  authi.write(public_y)
+  authi.write(public_x)
   authi.writeString(protoid)
   authi.writeString(server)
 

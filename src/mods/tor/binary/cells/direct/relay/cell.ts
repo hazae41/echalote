@@ -51,15 +51,15 @@ export class RelayCell<T extends Writable>  {
 
     const exit = Arrays.lastOf(this.circuit.targets)
 
-    exit.forwardDigest.update(cursor.bytes)
+    exit.forward_digest.update(cursor.bytes)
 
-    const digest = exit.forwardDigest.finalize().subarray(0, 4)
+    const digest = exit.forward_digest.finalize().subarray(0, 4)
 
     cursor.offset = digestOffset
     cursor.write(digest)
 
     for (let i = this.circuit.targets.length - 1; i >= 0; i--)
-      this.circuit.targets[i].forwardKey.apply_keystream(cursor.bytes)
+      this.circuit.targets[i].forward_key.apply_keystream(cursor.bytes)
 
     return new Cell(this.circuit, this.command, new Opaque(cursor.bytes))
   }
@@ -73,7 +73,7 @@ export class RelayCell<T extends Writable>  {
     for (let i = 0; i < cell.circuit.targets.length; i++) {
       const target = cell.circuit.targets[i]
 
-      target.backwardKey.apply_keystream(cell.payload.bytes)
+      target.backward_key.apply_keystream(cell.payload.bytes)
 
       const cursor = new Cursor(cell.payload.bytes)
 
@@ -95,9 +95,9 @@ export class RelayCell<T extends Writable>  {
       const digest = new Uint8Array(cursor.get(4))
       cursor.writeUint32(0)
 
-      target.backwardDigest.update(cursor.bytes)
+      target.backward_digest.update(cursor.bytes)
 
-      const digest2 = target.backwardDigest.finalize().subarray(0, 4)
+      const digest2 = target.backward_digest.finalize().subarray(0, 4)
 
       if (!Bytes.equals(digest, digest2))
         throw new Error(`Invalid ${this.name} digest`)

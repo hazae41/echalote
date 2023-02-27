@@ -6,6 +6,16 @@ export type RelayExtend2Link =
   | RelayExtend2LinkLegacyID
   | RelayExtend2LinkModernID
 
+export namespace RelayExtend2Link {
+
+  export function fromString(link: string) {
+    return link.startsWith("[")
+      ? RelayExtend2LinkIPv6.from(link)
+      : RelayExtend2LinkIPv4.from(link)
+  }
+
+}
+
 export class RelayExtend2LinkIPv4 {
   readonly #class = RelayExtend2LinkIPv4
 

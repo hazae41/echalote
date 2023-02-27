@@ -7,7 +7,7 @@ import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
 import { Duplicated } from "mods/tor/binary/certs/errors.js"
 import { Cross, Ed25519, RSA } from "mods/tor/binary/certs/index.js"
 
-export interface Certs {
+export interface CertsObject {
   id?: RSA.Cert,
   id_to_tls?: RSA.Cert,
   id_to_auth?: RSA.Cert,
@@ -24,7 +24,7 @@ export class CertsCell {
 
   constructor(
     readonly circuit: undefined,
-    readonly certs: Certs
+    readonly certs: CertsObject
   ) { }
 
   get command() {
@@ -121,16 +121,9 @@ export class CertsCell {
     console.warn("Could not verify SIGNING_TO_TLS cert key")
   }
 
-  static uncell(cell: Cell<Opaque>) {
-    if (cell.command !== this.command)
-      throw new InvalidCommand(this.name, cell.command)
-    if (cell.circuit)
-      throw new InvalidCircuit(this.name, cell.circuit)
-
-    const cursor = new Cursor(cell.payload.bytes)
-
+  static read(cursor: Cursor) {
     const ncerts = cursor.readUint8()
-    const certs: Certs = {}
+    const certs: CertsObject = {}
 
     for (let i = 0; i < ncerts; i++) {
       const type = cursor.readUint8()
@@ -181,6 +174,16 @@ export class CertsCell {
       throw new Error(`Unknown CERTS cell cert type ${type}`)
     }
 
+    return { certs }
+  }
+
+  static uncell(cell: Cell<Opaque>) {
+    if (cell.command !== this.command)
+      throw new InvalidCommand(this.name, cell.command)
+    if (cell.circuit)
+      throw new InvalidCircuit(this.name, cell.circuit)
+
+    const { certs } = cell.payload.into(this)
     return new this(cell.circuit, certs)
   }
 

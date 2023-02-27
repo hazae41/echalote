@@ -6,12 +6,12 @@ export class Target {
   readonly #class = Target
 
   constructor(
-    readonly idHash: Uint8Array,
+    readonly rsa_id_hash: Uint8Array,
     readonly circuit: Circuit,
-    readonly forwardDigest: Sha1Hasher,
-    readonly backwardDigest: Sha1Hasher,
-    readonly forwardKey: Aes128Ctr128BEKey,
-    readonly backwardKey: Aes128Ctr128BEKey
+    readonly forward_digest: Sha1Hasher,
+    readonly backward_digest: Sha1Hasher,
+    readonly forward_key: Aes128Ctr128BEKey,
+    readonly backward_key: Aes128Ctr128BEKey
   ) { }
 
 }

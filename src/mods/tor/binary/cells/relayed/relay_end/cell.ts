@@ -47,20 +47,23 @@ export class RelayEndCell {
     this.reason.write(cursor)
   }
 
-  static uncell(cell: RelayCell<Opaque>) {
-    if (cell.rcommand !== this.rcommand)
-      throw new InvalidRelayCommand(this.name, cell.rcommand)
-    if (!cell.stream)
-      throw new InvalidStream(this.name, cell.stream)
-
-    const cursor = new Cursor(cell.data.bytes)
-
+  static read(cursor: Cursor) {
     const reasonId = cursor.readUint8()
 
     const reason = reasonId === this.reasons.REASON_EXITPOLICY
       ? RelayEndReasonExitPolicy.read(cursor)
       : new RelayEndReasonOther(reasonId)
 
+    return { reason }
+  }
+
+  static uncell(cell: RelayCell<Opaque>) {
+    if (cell.rcommand !== this.rcommand)
+      throw new InvalidRelayCommand(this.name, cell.rcommand)
+    if (!cell.stream)
+      throw new InvalidStream(this.name, cell.stream)
+
+    const { reason } = cell.data.into(this)
     return new this(cell.circuit, cell.stream, reason)
   }
 }

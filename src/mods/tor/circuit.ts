@@ -19,7 +19,7 @@ import { RelayConnectedCell } from "mods/tor/binary/cells/relayed/relay_connecte
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { RelayExtend2Cell } from "mods/tor/binary/cells/relayed/relay_extend2/cell.js";
-import { RelayExtend2Link, RelayExtend2LinkIPv4, RelayExtend2LinkIPv6, RelayExtend2LinkLegacyID, RelayExtend2LinkModernID } from "mods/tor/binary/cells/relayed/relay_extend2/link.js";
+import { RelayExtend2Link, RelayExtend2LinkLegacyID, RelayExtend2LinkModernID } from "mods/tor/binary/cells/relayed/relay_extend2/link.js";
 import { RelayExtended2Cell } from "mods/tor/binary/cells/relayed/relay_extended2/cell.js";
 import { RelayTruncateCell } from "mods/tor/binary/cells/relayed/relay_truncate/cell.js";
 import { RelayTruncatedCell } from "mods/tor/binary/cells/relayed/relay_truncated/cell.js";
@@ -119,7 +119,7 @@ export class Circuit extends AsyncEventTarget {
   }
 
   async #onRelayExtended2Cell(event: Event) {
-    const msgEvent = event as MessageEvent<RelayExtended2Cell>
+    const msgEvent = event as MessageEvent<RelayExtended2Cell<Opaque>>
     if (msgEvent.data.circuit !== this) return
 
     console.debug(`${this.#class.name}.onRelayExtended2Cell`, event)
@@ -204,7 +204,7 @@ export class Circuit extends AsyncEventTarget {
       this.addEventListener("error", onError, { passive: true })
       this.addEventListener("RELAY_EXTENDED2", future.ok, { passive: true })
 
-      return await future.promise as MessageEvent<RelayExtended2Cell>
+      return await future.promise as MessageEvent<RelayExtended2Cell<Opaque>>
     } finally {
       signal?.removeEventListener("abort", onAbort)
       this.removeEventListener("close", onClose)
@@ -262,51 +262,46 @@ export class Circuit extends AsyncEventTarget {
     if (this.closed)
       throw new Error(`Circuit is closed`)
 
-    const idh = Bytes.fromHex(fallback.id)
+    const rsa_id_hash = Bytes.fromHex(fallback.id)
 
-    const eid = fallback.eid
+    const onion_id = fallback.eid
       ? Bytes.fromBase64(fallback.eid)
       : undefined
 
-    const links: RelayExtend2Link[] = fallback.hosts
-      .map(it => it.startsWith("[")
-        ? RelayExtend2LinkIPv6.from(it)
-        : RelayExtend2LinkIPv4.from(it))
-    links.push(new RelayExtend2LinkLegacyID(idh))
-    if (eid) links.push(new RelayExtend2LinkModernID(eid))
+    const links: RelayExtend2Link[] = fallback.hosts.map(RelayExtend2Link.fromString)
+    links.push(new RelayExtend2LinkLegacyID(rsa_id_hash))
+    if (onion_id) links.push(new RelayExtend2LinkModernID(onion_id))
 
-    const xsecretx = new X25519StaticSecret()
-    const publicx = xsecretx.to_public().to_bytes()
-    const publicb = new Uint8Array(fallback.onion)
+    const wasm_secret_x = new X25519StaticSecret()
 
-    const request = Ntor.request(publicx, idh, publicb)
+    const public_x = wasm_secret_x.to_public().to_bytes()
+    const public_b = new Uint8Array(fallback.onion)
 
-    const pextended2 = this.#waitExtended(signal)
-    const relay_extend2 = new RelayExtend2Cell(this, undefined, RelayExtend2Cell.types.NTOR, links, request)
+    const ntor_request = new Ntor.Request(public_x, rsa_id_hash, public_b)
+    const relay_extend2 = new RelayExtend2Cell(this, undefined, RelayExtend2Cell.types.NTOR, links, ntor_request)
     this.tor.writer.enqueue(RelayEarlyCell.from(relay_extend2).cell())
-    const extended2 = await pextended2
 
-    const response = Ntor.response(extended2.data.data)
+    const msg_extended2 = await this.#waitExtended(signal)
+    const { public_y, auth } = msg_extended2.data.data.into(Ntor.Response)
 
-    const { publicy } = response
-    const xpublicy = new X25519PublicKey(publicy)
-    const xpublicb = new X25519PublicKey(publicb)
+    const wasm_public_y = new X25519PublicKey(public_y)
+    const wasm_public_b = new X25519PublicKey(public_b)
 
-    const sharedxy = xsecretx.diffie_hellman(xpublicy).to_bytes()
-    const sharedxb = xsecretx.diffie_hellman(xpublicb).to_bytes()
+    const shared_xy = wasm_secret_x.diffie_hellman(wasm_public_y).to_bytes()
+    const shared_xb = wasm_secret_x.diffie_hellman(wasm_public_b).to_bytes()
 
-    const result = await Ntor.finalize(sharedxy, sharedxb, idh, publicb, publicx, publicy)
+    const result = await Ntor.finalize(shared_xy, shared_xb, rsa_id_hash, public_b, public_x, public_y)
 
-    const forwardDigest = new Sha1Hasher()
-    const backwardDigest = new Sha1Hasher()
+    const forward_digest = new Sha1Hasher()
+    const backward_digest = new Sha1Hasher()
 
-    forwardDigest.update(result.forwardDigest)
-    backwardDigest.update(result.backwardDigest)
+    forward_digest.update(result.forwardDigest)
+    backward_digest.update(result.backwardDigest)
 
-    const forwardKey = new Aes128Ctr128BEKey(result.forwardKey, Bytes.alloc(16))
-    const backwardKey = new Aes128Ctr128BEKey(result.backwardKey, Bytes.alloc(16))
+    const forward_key = new Aes128Ctr128BEKey(result.forwardKey, Bytes.alloc(16))
+    const backward_key = new Aes128Ctr128BEKey(result.backwardKey, Bytes.alloc(16))
 
-    const target = new Target(idh, this, forwardDigest, backwardDigest, forwardKey, backwardKey)
+    const target = new Target(rsa_id_hash, this, forward_digest, backward_digest, forward_key, backward_key)
 
     this.targets.push(target)
   }

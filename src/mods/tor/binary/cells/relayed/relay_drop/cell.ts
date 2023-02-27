@@ -1,10 +1,10 @@
-import { Cursor, Opaque } from "@hazae41/binary";
+import { Cursor, Opaque, Writable } from "@hazae41/binary";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { InvalidRelayCommand } from "mods/tor/binary/cells/errors.js";
 import { Circuit } from "mods/tor/circuit.js";
 import { TcpStream } from "mods/tor/streams/tcp.js";
 
-export class RelayDropCell {
+export class RelayDropCell<T extends Writable> {
   readonly #class = RelayDropCell
 
   static rcommand = 10
@@ -12,7 +12,7 @@ export class RelayDropCell {
   constructor(
     readonly circuit: Circuit,
     readonly stream: TcpStream | undefined,
-    readonly data: Uint8Array
+    readonly data: T
   ) { }
 
   get rcommand() {
@@ -20,17 +20,17 @@ export class RelayDropCell {
   }
 
   size() {
-    return this.data.length
+    return this.data.size()
   }
 
   write(cursor: Cursor) {
-    cursor.write(this.data)
+    this.data.write(cursor)
   }
 
   static uncell(cell: RelayCell<Opaque>) {
     if (cell.rcommand !== this.rcommand)
       throw new InvalidRelayCommand(this.name, cell.rcommand)
 
-    return new this(cell.circuit, cell.stream, cell.data.bytes)
+    return new this(cell.circuit, cell.stream, cell.data)
   }
 }

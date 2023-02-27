@@ -1,8 +1,8 @@
-import { Cursor } from "@hazae41/binary"
+import { Cursor, Writable } from "@hazae41/binary"
 import { RelayExtend2Link } from "mods/tor/binary/cells/relayed/relay_extend2/link.js"
 import { Circuit } from "mods/tor/circuit.js"
 
-export class RelayExtend2Cell {
+export class RelayExtend2Cell<T extends Writable> {
   readonly #class = RelayExtend2Cell
 
   static rcommand = 14
@@ -24,7 +24,7 @@ export class RelayExtend2Cell {
     readonly stream: undefined,
     readonly type: number,
     readonly links: RelayExtend2Link[],
-    readonly data: Uint8Array
+    readonly data: T
   ) { }
 
   get rcommand() {
@@ -37,7 +37,7 @@ export class RelayExtend2Cell {
       + this.links.reduce((p, c) => p + c.size(), 0)
       + 2
       + 2
-      + this.data.length
+      + this.data.size()
   }
 
   write(cursor: Cursor) {
@@ -47,8 +47,8 @@ export class RelayExtend2Cell {
       link.write(cursor)
 
     cursor.writeUint16(this.type)
-    cursor.writeUint16(this.data.length)
-    cursor.write(this.data)
+    cursor.writeUint16(this.data.size())
+    this.data.write(cursor)
   }
 
 }
