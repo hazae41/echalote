@@ -4,7 +4,6 @@ export * from "./ciphers.js";
 export * from "./circuit.js";
 export * from "./consensus/index.js";
 export * from "./constants.js";
-export * from "./errors.js";
 export * from "./pool.js";
 export * from "./streams/index.js";
 export * from "./target.js";

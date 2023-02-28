@@ -48,8 +48,8 @@ export class SecretSmuxStream {
     this.reader = new SecretSmuxReader(this)
     this.writer = new SecretSmuxWriter(this)
 
-    const read = this.reader.stream.create()
-    const write = this.writer.stream.create()
+    const read = this.reader.stream.start()
+    const write = this.writer.stream.start()
 
     this.readable = read.readable
     this.writable = write.writable
@@ -72,7 +72,7 @@ export class SecretSmuxStream {
   async #onReadClose() {
     console.debug(`${this.#class.name}.onReadClose`)
 
-    this.reader.stream.close()
+    this.reader.stream.closed = {}
 
     const closeEvent = new CloseEvent("close", {})
     await this.reader.dispatchEvent(closeEvent)
@@ -81,7 +81,7 @@ export class SecretSmuxStream {
   async #onReadError(reason?: unknown) {
     console.debug(`${this.#class.name}.onReadError`, reason)
 
-    this.reader.stream.close(reason)
+    this.reader.stream.closed = { reason }
     this.writer.stream.error(reason)
 
     const error = new Error(`Errored`, { cause: reason })
@@ -92,7 +92,7 @@ export class SecretSmuxStream {
   async #onWriteClose() {
     console.debug(`${this.#class.name}.onWriteClose`)
 
-    this.writer.stream.close()
+    this.writer.stream.closed = {}
 
     const closeEvent = new CloseEvent("close", {})
     await this.writer.dispatchEvent(closeEvent)
@@ -101,7 +101,7 @@ export class SecretSmuxStream {
   async #onWriteError(reason?: unknown) {
     console.debug(`${this.#class.name}.onWriteError`, reason)
 
-    this.writer.stream.close(reason)
+    this.writer.stream.closed = { reason }
     this.reader.stream.error(reason)
 
     const error = new Error(`Errored`, { cause: reason })
