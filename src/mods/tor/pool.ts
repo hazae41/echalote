@@ -45,14 +45,18 @@ export class CircuitPool {
     if (signal?.aborted)
       throw new Error(`Aborted`)
 
-    const onError = () => {
+    const onTorError = () => {
+
+    }
+
+    const onCircuitError = () => {
       delete this.#circuits[index]
       delete this.#promises[index]
       this.#start(index)
     }
 
     const circuit = await this.tor.tryCreateAndExtend({ signal })
-    circuit.addEventListener("error", onError)
+    circuit.addEventListener("error", onCircuitError)
     this.#circuits[index] = circuit
   }
 

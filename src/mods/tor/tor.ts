@@ -127,8 +127,8 @@ export class Tor extends AsyncEventTarget {
       start: this.#onWriteStart.bind(this)
     })
 
-    const read = this.reader.create()
-    const write = this.writer.create()
+    const read = this.reader.start()
+    const write = this.writer.start()
 
     tls.readable
       .pipeTo(read.writable, { signal })
@@ -203,7 +203,7 @@ export class Tor extends AsyncEventTarget {
   async #onReadClose() {
     console.debug(`${this.#class.name}.onReadClose`)
 
-    this.reader.close()
+    this.reader.closed = {}
 
     const closeEvent = new CloseEvent("close", {})
     await this.read.dispatchEvent(closeEvent)
@@ -212,7 +212,7 @@ export class Tor extends AsyncEventTarget {
   async #onReadError(reason?: unknown) {
     console.debug(`${this.#class.name}.onReadError`, reason)
 
-    this.reader.close(reason)
+    this.reader.closed = { reason }
     this.writer.error(reason)
 
     const error = new Error(`Errored`, { cause: reason })
@@ -223,7 +223,7 @@ export class Tor extends AsyncEventTarget {
   async #onWriteClose() {
     console.debug(`${this.#class.name}.onWriteClose`)
 
-    this.writer.close()
+    this.writer.closed = {}
 
     const closeEvent = new CloseEvent("close", {})
     await this.write.dispatchEvent(closeEvent)
@@ -232,7 +232,7 @@ export class Tor extends AsyncEventTarget {
   async #onWriteError(reason?: unknown) {
     console.debug(`${this.#class.name}.onWriteError`, reason)
 
-    this.writer.close(reason)
+    this.writer.closed = { reason }
     this.reader.error(reason)
 
     const error = new Error(`Errored`, { cause: reason })
@@ -578,7 +578,7 @@ export class Tor extends AsyncEventTarget {
   }
 
   async tryCreateAndExtend(params: LoopParams = {}) {
-    const { signal, timeout = 5000, delay = 1000 } = params
+    const { signal, delay = 1000 } = params
 
     while (true) {
       try {

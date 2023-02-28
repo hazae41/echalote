@@ -2,7 +2,7 @@ export class SuperTransformStream<I, O>  {
 
   readonly transformer: SuperTransformer<I, O>
 
-  #closed?: { reason?: any }
+  closed?: { reason?: any }
 
   constructor(
     readonly subtransformer: Transformer<I, O>,
@@ -12,7 +12,7 @@ export class SuperTransformStream<I, O>  {
     this.transformer = new SuperTransformer(subtransformer)
   }
 
-  create() {
+  start() {
     const { transformer, writableStrategy, readableStrategy } = this
     return new TransformStream(transformer, writableStrategy, readableStrategy)
   }
@@ -29,23 +29,15 @@ export class SuperTransformStream<I, O>  {
     return this.transformer.controller.terminate()
   }
 
-  get closed() {
-    return this.#closed
-  }
-
-  close(reason?: any) {
-    this.#closed = { reason }
-  }
-
 }
 
 export class SuperTransformer<I, O> implements Transformer<I, O> {
 
+  #controller?: TransformStreamDefaultController<O>
+
   constructor(
     readonly subtransformer: Transformer<I, O>
   ) { }
-
-  #controller?: TransformStreamDefaultController<O>
 
   get controller() {
     return this.#controller!

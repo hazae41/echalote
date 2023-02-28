@@ -2,6 +2,8 @@ import { Cursor, Opaque, Writable } from "@hazae41/binary";
 import { ErrorEvent } from "libs/events/error.js";
 import { Events } from "libs/events/events.js";
 import { AsyncEventTarget } from "libs/events/target.js";
+import { SuperReadableStream } from "libs/streams/readable.js";
+import { SuperWritableStream } from "libs/streams/writable.js";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
@@ -10,16 +12,14 @@ import { PAYLOAD_LEN } from "mods/tor/constants.js";
 
 const DATA_LEN = PAYLOAD_LEN - (1 + 2 + 2 + 4 + 2)
 
-export class TcpStream extends AsyncEventTarget {
+export class TcpStream extends AsyncEventTarget<"close" | "error"> {
   readonly #class = TcpStream
+
+  readonly #reader: SuperReadableStream<Opaque>
+  readonly #writer: SuperWritableStream<Writable>
 
   readonly readable: ReadableStream<Opaque>
   readonly writable: WritableStream<Writable>
-
-  #input?: ReadableStreamDefaultController<Opaque>
-  #output?: WritableStreamDefaultController
-
-  #closed = false
 
   constructor(
     readonly circuit: Circuit,
@@ -40,26 +40,22 @@ export class TcpStream extends AsyncEventTarget {
     const onRelayEndCell = this.#onRelayEndCell.bind(this)
     this.circuit.addEventListener("RELAY_END", onRelayEndCell, { passive: true })
 
-    this.readable = new ReadableStream({
-      start: this.#onReadStart.bind(this)
+    this.#reader = new SuperReadableStream({})
+
+    this.#writer = new SuperWritableStream({
+      write: this.#onWrite.bind(this)
     })
 
-    this.writable = new WritableStream({
-      start: this.#onWriteStart.bind(this),
-      write: this.#onWrite.bind(this),
-    })
+    this.readable = this.#reader.start()
+    this.writable = this.#writer.start()
   }
 
-  get closed() {
-    return this.#closed
-  }
+  #close(reason?: any) {
+    this.#reader.close()
+    this.#writer.error(reason)
 
-  async #onReadStart(controller: ReadableStreamDefaultController<Opaque>) {
-    this.#input = controller
-  }
-
-  async #onWriteStart(controller: WritableStreamDefaultController) {
-    this.#output = controller
+    this.#reader.closed = { reason }
+    this.#writer.closed = { reason }
   }
 
   async #onCircuitClose(event: Event) {
@@ -67,12 +63,7 @@ export class TcpStream extends AsyncEventTarget {
 
     console.debug(`${this.#class.name}.onCircuitClose`, event)
 
-    this.#closed = true
-
-    const error = new Error(`Circuit closed`, { cause: closeEvent })
-
-    try { this.#input!.close() } catch (e: unknown) { }
-    try { this.#output!.error(error) } catch (e: unknown) { }
+    this.#close(new Error(`Closed`, { cause: closeEvent }))
 
     const closeEventClone = Events.clone(closeEvent)
     if (!await this.dispatchEvent(closeEventClone)) return
@@ -83,10 +74,7 @@ export class TcpStream extends AsyncEventTarget {
 
     console.debug(`${this.#class.name}.onCircuitError`, event)
 
-    this.#closed = true
-
-    try { this.#input!.error(errorEvent.error) } catch (e: unknown) { }
-    try { this.#output!.error(errorEvent.error) } catch (e: unknown) { }
+    this.#close(new Error(`Errored`, { cause: errorEvent.error }))
 
     const errorEventClone = Events.clone(event)
     if (!await this.dispatchEvent(errorEventClone)) return
@@ -98,9 +86,7 @@ export class TcpStream extends AsyncEventTarget {
 
     console.debug(`${this.#class.name}.onRelayDataCell`, event)
 
-    try {
-      this.#input!.enqueue(msgEvent.data.data)
-    } catch (e: unknown) { }
+    this.#reader.enqueue(msgEvent.data.data)
 
     const msgEventClone = Events.clone(msgEvent)
     if (!await this.dispatchEvent(msgEventClone)) return
@@ -112,12 +98,7 @@ export class TcpStream extends AsyncEventTarget {
 
     console.debug(`${this.#class.name}.onRelayEndCell`, event)
 
-    this.#closed = true
-
-    const error = new Error(`Relay closed`, { cause: msgEvent })
-
-    try { this.#input!.close() } catch (e: unknown) { }
-    try { this.#output!.error(error) } catch (e: unknown) { }
+    this.#close(new Error(`Closed`, { cause: msgEvent.data.reason }))
 
     const msgEventClone = Events.clone(msgEvent)
     if (!await this.dispatchEvent(msgEventClone)) return
