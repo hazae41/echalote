@@ -200,6 +200,10 @@ export class Tor extends AsyncEventTarget {
     }
   }
 
+  get closed() {
+    return this.reader.closed
+  }
+
   async #onReadClose() {
     console.debug(`${this.#class.name}.onReadClose`)
 
@@ -580,7 +584,7 @@ export class Tor extends AsyncEventTarget {
   async tryCreateAndExtend(params: LoopParams = {}) {
     const { signal, delay = 1000 } = params
 
-    while (true) {
+    while (!this.closed) {
       try {
         const circuit = await this.tryCreate(params)
         await circuit.tryExtend(false, params)
@@ -593,12 +597,14 @@ export class Tor extends AsyncEventTarget {
         await new Promise(ok => setTimeout(ok, delay))
       }
     }
+
+    throw new Error(`Closed`, { cause: this.closed.reason })
   }
 
   async tryCreate(params: LoopParams = {}) {
     const { signal, timeout = 5000, delay = 1000 } = params
 
-    while (true) {
+    while (!this.closed) {
       try {
         const signal = AbortSignal.timeout(timeout)
         return await this.create(signal)
@@ -609,6 +615,8 @@ export class Tor extends AsyncEventTarget {
         await new Promise(ok => setTimeout(ok, delay))
       }
     }
+
+    throw new Error(`Closed`, { cause: this.closed.reason })
   }
 
   async create(signal?: AbortSignal) {

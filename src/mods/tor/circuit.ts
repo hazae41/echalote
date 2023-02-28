@@ -36,8 +36,9 @@ export class Circuit extends AsyncEventTarget {
   readonly targets = new Array<Target>()
   readonly streams = new Map<number, TcpStream>()
 
-  #nonce = 1
-  #closed = false
+  #streamId = 1
+
+  #closed?: { reason?: any }
 
   constructor(
     readonly tor: Tor,
@@ -79,7 +80,7 @@ export class Circuit extends AsyncEventTarget {
 
     console.debug(`${this.#class.name}.onReadClose`, event)
 
-    this.#closed = true
+    this.#closed = {}
 
     const closeEventClone = Events.clone(closeEvent)
     if (!await this.dispatchEvent(closeEventClone)) return
@@ -95,7 +96,7 @@ export class Circuit extends AsyncEventTarget {
 
     console.debug(`${this.#class.name}.onReadError`, event)
 
-    this.#closed = true
+    this.#closed = { reason: errorEvent.error }
 
     const errorEventClone = Events.clone(errorEvent)
     if (!await this.dispatchEvent(errorEventClone)) return
@@ -107,7 +108,7 @@ export class Circuit extends AsyncEventTarget {
 
     console.debug(`${this.#class.name}.onDestroyCell`, event)
 
-    this.#closed = true
+    this.#closed = {}
 
     const msgEventClone = Events.clone(msgEvent)
     if (!await this.dispatchEvent(msgEventClone)) return
@@ -134,7 +135,7 @@ export class Circuit extends AsyncEventTarget {
 
     console.debug(`${this.#class.name}.onRelayTruncatedCell`, event)
 
-    this.#closed = true
+    this.#closed = {}
 
     const msgEventClone = Events.clone(event)
     if (!await this.dispatchEvent(msgEventClone)) return
@@ -229,7 +230,7 @@ export class Circuit extends AsyncEventTarget {
   async tryExtend(exit: boolean, params: LoopParams = {}) {
     const { signal, timeout = 5000, delay = 1000 } = params
 
-    while (true) {
+    while (!this.closed) {
       try {
         const signal = AbortSignal.timeout(timeout)
         return await this.extend(exit, signal)
@@ -241,6 +242,8 @@ export class Circuit extends AsyncEventTarget {
         await new Promise(ok => setTimeout(ok, delay))
       }
     }
+
+    throw new Error(`Closed`, { cause: this.closed.reason })
   }
 
   async extend(exit: boolean, signal?: AbortSignal) {
@@ -347,7 +350,7 @@ export class Circuit extends AsyncEventTarget {
   }
 
   async destroy() {
-    this.#closed = true
+    this.#closed = {}
 
     const error = new Error(`Circuit destroyed`)
 
@@ -366,7 +369,7 @@ export class Circuit extends AsyncEventTarget {
     if (this.closed)
       throw new Error(`Circuit is closed`)
 
-    const streamId = this.#nonce++
+    const streamId = this.#streamId++
 
     const stream = new TcpStream(this, streamId, signal)
     this.streams.set(streamId, stream)

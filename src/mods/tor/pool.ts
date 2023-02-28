@@ -1,4 +1,5 @@
 import { Arrays } from "libs/arrays/arrays.js";
+import { AsyncEventTarget } from "libs/events/target.js";
 import { Circuit } from "mods/tor/circuit.js";
 import { Tor } from "mods/tor/tor.js";
 
@@ -7,7 +8,7 @@ export interface CircuitPoolParams {
   readonly signal?: AbortSignal
 }
 
-export class CircuitPool {
+export class CircuitPool extends AsyncEventTarget<"ready"> {
 
   #circuits: Circuit[]
   #promises: Promise<void>[]
@@ -16,6 +17,8 @@ export class CircuitPool {
     readonly tor: Tor,
     readonly params: CircuitPoolParams
   ) {
+    super()
+
     const { count = 3, signal } = this.params
 
     this.#circuits = new Array<Circuit>(count)
@@ -45,10 +48,6 @@ export class CircuitPool {
     if (signal?.aborted)
       throw new Error(`Aborted`)
 
-    const onTorError = () => {
-
-    }
-
     const onCircuitError = () => {
       delete this.#circuits[index]
       delete this.#promises[index]
@@ -58,6 +57,9 @@ export class CircuitPool {
     const circuit = await this.tor.tryCreateAndExtend({ signal })
     circuit.addEventListener("error", onCircuitError)
     this.#circuits[index] = circuit
+
+    if (this.#circuits.length !== this.params.count) return
+    this.dispatchEvent(new Event("ready")).catch(console.warn)
   }
 
   /**
