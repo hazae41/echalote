@@ -10,17 +10,20 @@ export interface CircuitPoolParams {
 
 export class CircuitPool extends AsyncEventTarget<"ready"> {
 
+  readonly count: number
+
   #circuits: Circuit[]
   #promises: Promise<void>[]
 
   constructor(
     readonly tor: Tor,
-    readonly params: CircuitPoolParams
+    readonly params: CircuitPoolParams = {}
   ) {
     super()
 
     const { count = 3, signal } = this.params
 
+    this.count = count
     this.#circuits = new Array<Circuit>(count)
     this.#promises = new Array<Promise<void>>(count)
 
@@ -58,7 +61,7 @@ export class CircuitPool extends AsyncEventTarget<"ready"> {
     circuit.addEventListener("error", onCircuitError)
     this.#circuits[index] = circuit
 
-    if (this.#circuits.length !== this.params.count) return
+    if (this.#circuits.filter(Boolean).length !== this.count) return
     this.dispatchEvent(new Event("ready")).catch(console.warn)
   }
 

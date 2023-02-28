@@ -85,7 +85,7 @@ export interface TorParams {
   fallbacks: Fallback[]
 }
 
-export class Tor extends AsyncEventTarget {
+export class Tor extends AsyncEventTarget<"close" | "error" | "handshake" | "CREATED_FAST" | "DESTROY" | "RELAY_CONNECTED" | "RELAY_DATA" | "RELAY_EXTENDED2" | "RELAY_TRUNCATED" | "RELAY_END"> {
   readonly #class = Tor
 
   readonly read = new AsyncEventTarget()
@@ -154,13 +154,13 @@ export class Tor extends AsyncEventTarget {
     await Foras.initBundledOnce()
   }
 
-  async #wait(type: string, signal?: AbortSignal) {
+  async #wait(type: "handshake" | "CREATED_FAST", signal?: AbortSignal) {
     const future = new Future<Event, Error>()
     const onEvent = (event: Event) => future.ok(event)
     return await this.#waitFor(type, { future, onEvent, signal })
   }
 
-  async #waitFor<T>(type: string, params: {
+  async #waitFor<T>(type: "handshake" | "CREATED_FAST", params: {
     future: Future<T, Error>,
     onEvent: (event: Event) => void,
     signal?: AbortSignal
