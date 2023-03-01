@@ -85,7 +85,8 @@ export default function Page() {
   const onClick = useCallback(async () => {
     if (!ws) return
 
-    await fetchWs(ws)
+    for (let i = 0; i < 10; i++)
+      fetchWs(ws)
   }, [ws])
 
   return <>
