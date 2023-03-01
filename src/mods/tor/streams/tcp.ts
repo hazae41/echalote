@@ -45,7 +45,10 @@ export class TcpStream {
   }
 
   #close(reason?: any) {
-    this.#reader.close()
+    try {
+      this.#reader.close()
+    } catch (e: unknown) { }
+
     this.#writer.error(reason)
 
     this.#reader.closed = { reason }
@@ -69,7 +72,9 @@ export class TcpStream {
 
     console.debug(`${this.#class.name}.onRelayDataCell`, event)
 
-    this.#reader.enqueue(event.data.data)
+    try {
+      this.#reader.enqueue(event.data.data)
+    } catch (e: unknown) { }
   }
 
   async #onRelayEndCell(event: MessageEvent<RelayEndCell>) {

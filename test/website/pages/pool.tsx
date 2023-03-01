@@ -19,8 +19,6 @@ async function fetch(socket: WebSocket) {
 
   const delay = Date.now() - start
   console.log(event.data, delay)
-
-  socket.close()
 }
 
 async function createWebSocket(url: URL, circuit: Circuit, signal?: AbortSignal) {
@@ -179,11 +177,15 @@ export default function Page() {
 
   const onClick = useCallback(async () => {
     if (!sockets) return
+    if (!circuits) return
 
     const socket = await sockets.random()
 
     await fetch(socket)
-  }, [sockets])
+
+    for (const circuit of circuits)
+      circuit.destroy()
+  }, [sockets, circuits])
 
   return <>
     <button onClick={onClick}>
