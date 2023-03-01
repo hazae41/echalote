@@ -28,6 +28,11 @@ export class CircuitPool {
 
   readonly #openCircuits = new Set<Circuit>()
 
+  /**
+   * A pool of circuits
+   * @param tor 
+   * @param params 
+   */
   constructor(
     readonly tor: Tor,
     readonly params: CircuitPoolParams = {}
@@ -44,8 +49,6 @@ export class CircuitPool {
   }
 
   #start(index: number) {
-    if (this.#allCircuits.at(index))
-      return
     const promise = this.#create(index)
     this.#allPromises[index] = promise
     promise.catch(console.warn)
@@ -86,7 +89,7 @@ export class CircuitPool {
   }
 
   /**
-   * Get the circuit (or undefined) at index
+   * Get the circuit promise at index
    * @param index 
    * @returns 
    */
@@ -94,6 +97,11 @@ export class CircuitPool {
     return this.#allPromises[index]
   }
 
+  /**
+   * Get the circuit (or undefined) at index
+   * @param index 
+   * @returns 
+   */
   getSync(index: number) {
     return this.#allCircuits.at(index)
   }
@@ -117,7 +125,7 @@ export class CircuitPool {
   }
 
   /**
-   * Get a random circuit from the pool
+   * Get a random circuit from the pool, throws if none available
    * @returns 
    */
   randomSync() {
