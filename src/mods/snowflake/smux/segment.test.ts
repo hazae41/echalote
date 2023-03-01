@@ -13,7 +13,7 @@ globalThis.crypto = webcrypto as any
 
 test("kcp segment", async ({ test }) => {
   const frame = new SmuxSegment(2, SmuxSegment.commands.psh, 12345, Opaque.random(130))
-  const bytes = Writable.toBytes(frame)
+  const bytes = Writable.toBytes(frame.prepare())
   const frame2 = Readable.fromBytes(SmuxSegment, bytes)
 
   assert(Bytes.equals(frame.fragment.bytes, frame2.fragment.bytes))

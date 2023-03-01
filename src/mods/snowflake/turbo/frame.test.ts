@@ -13,7 +13,7 @@ globalThis.crypto = webcrypto as any
 
 test("turbo frame", async ({ test }) => {
   const frame = new TurboFrame(false, Opaque.random(130))
-  const bytes = Writable.toBytes(frame)
+  const bytes = Writable.toBytes(frame.prepare())
   const frame2 = Readable.fromBytes(TurboFrame, bytes)
 
   assert(Bytes.equals(frame.fragment.bytes, frame2.fragment.bytes))

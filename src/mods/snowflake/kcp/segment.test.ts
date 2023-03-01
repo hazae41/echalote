@@ -13,7 +13,7 @@ globalThis.crypto = webcrypto as any
 
 test("kcp segment", async ({ test }) => {
   const frame = new KcpSegment(12345, KcpSegment.commands.push, 0, 65535, Date.now() / 1000, 0, 0, Opaque.random(130))
-  const bytes = Writable.toBytes(frame)
+  const bytes = Writable.toBytes(frame.prepare())
   const frame2 = Readable.fromBytes(KcpSegment, bytes)
 
   assert(Bytes.equals(frame.fragment.bytes, frame2.fragment.bytes))
