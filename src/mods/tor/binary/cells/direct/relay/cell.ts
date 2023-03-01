@@ -4,7 +4,6 @@ import { Arrays } from "libs/arrays/arrays.js";
 import { Cell } from "mods/tor/binary/cells/cell.js";
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js";
 import { Circuit } from "mods/tor/circuit.js";
-import { PAYLOAD_LEN } from "mods/tor/constants.js";
 import { TcpStream } from "mods/tor/streams/tcp.js";
 
 export interface RelayCellable extends Writable {
@@ -15,6 +14,9 @@ export interface RelayCellable extends Writable {
 
 export class RelayCell<T extends Writable>  {
   readonly #class = RelayCell
+
+  static HEAD_LEN = 1 + 2 + 2 + 4 + 2
+  static DATA_LEN = Cell.PAYLOAD_LEN - this.HEAD_LEN
 
   static command = 3
 
@@ -34,7 +36,7 @@ export class RelayCell<T extends Writable>  {
   }
 
   cell() {
-    const cursor = Cursor.allocUnsafe(PAYLOAD_LEN)
+    const cursor = Cursor.allocUnsafe(Cell.PAYLOAD_LEN)
 
     cursor.writeUint8(this.rcommand)
     cursor.writeUint16(0)

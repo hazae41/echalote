@@ -40,7 +40,6 @@ import { Circuit } from "mods/tor/circuit.js";
 import { Authority, parseAuthorities } from "mods/tor/consensus/authorities.js";
 import { Target } from "mods/tor/target.js";
 import { LoopParams } from "mods/tor/types/loop.js";
-;
 
 export type TorState =
   | TorNoneState

@@ -7,9 +7,6 @@ import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { Circuit } from "mods/tor/circuit.js";
-import { PAYLOAD_LEN } from "mods/tor/constants.js";
-
-const DATA_LEN = PAYLOAD_LEN - (1 + 2 + 2 + 4 + 2)
 
 export class TcpStream {
   readonly #class = TcpStream
@@ -84,7 +81,7 @@ export class TcpStream {
   }
 
   async #onWrite(writable: Writable) {
-    if (writable.size() <= DATA_LEN)
+    if (writable.size() <= RelayCell.DATA_LEN)
       return this.#onWriteDirect(writable)
     else
       return this.#onWriteChunked(writable)
@@ -99,7 +96,7 @@ export class TcpStream {
     const bytes = Writable.toBytes(writable)
     const cursor = new Cursor(bytes)
 
-    for (const chunk of cursor.split(DATA_LEN)) {
+    for (const chunk of cursor.split(RelayCell.DATA_LEN)) {
       this.#onWriteDirect(new Opaque(chunk))
     }
   }

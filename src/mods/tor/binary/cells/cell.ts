@@ -1,6 +1,5 @@
 import { Cursor, Opaque, Writable } from "@hazae41/binary";
 import { Circuit } from "mods/tor/circuit.js";
-import { PAYLOAD_LEN } from "mods/tor/constants.js";
 import { Tor } from "mods/tor/tor.js";
 
 export interface Cellable extends Writable {
@@ -32,7 +31,7 @@ export class RawOldCell<T extends Writable> {
     if (this.command === 7) {
       return 2 + 1 + 2 + this.payload.size()
     } else {
-      return 2 + 1 + PAYLOAD_LEN
+      return 2 + 1 + Cell.PAYLOAD_LEN
     }
   }
 
@@ -46,7 +45,7 @@ export class RawOldCell<T extends Writable> {
       cursor.writeUint16(this.circuit)
       cursor.writeUint8(this.command)
 
-      const payload = cursor.read(PAYLOAD_LEN)
+      const payload = cursor.read(Cell.PAYLOAD_LEN)
       const subcursor = new Cursor(payload)
       this.payload.write(subcursor)
       subcursor.fill(0, subcursor.remaining)
@@ -64,7 +63,7 @@ export class RawOldCell<T extends Writable> {
 
       return new this(circuit, command, payload)
     } else {
-      const bytes = cursor.read(PAYLOAD_LEN)
+      const bytes = cursor.read(Cell.PAYLOAD_LEN)
       const payload = new Opaque(bytes)
 
       return new this(circuit, command, payload)
@@ -125,7 +124,7 @@ export class RawCell<T extends Writable> {
     if (this.command >= 128)
       return 4 + 1 + 2 + this.payload.size()
     else
-      return 4 + 1 + PAYLOAD_LEN
+      return 4 + 1 + Cell.PAYLOAD_LEN
   }
 
   write(cursor: Cursor) {
@@ -138,7 +137,7 @@ export class RawCell<T extends Writable> {
       cursor.writeUint32(this.circuit)
       cursor.writeUint8(this.command)
 
-      const payload = cursor.read(PAYLOAD_LEN)
+      const payload = cursor.read(Cell.PAYLOAD_LEN)
       const subcursor = new Cursor(payload)
       this.payload.write(subcursor)
       subcursor.fill(0, subcursor.remaining)
@@ -156,7 +155,7 @@ export class RawCell<T extends Writable> {
 
       return new this<Opaque>(circuit, command, payload)
     } else {
-      const bytes = cursor.read(PAYLOAD_LEN)
+      const bytes = cursor.read(Cell.PAYLOAD_LEN)
       const payload = new Opaque(bytes)
 
       return new this<Opaque>(circuit, command, payload)
@@ -166,6 +165,8 @@ export class RawCell<T extends Writable> {
 }
 
 export class Cell<T extends Writable> {
+
+  static PAYLOAD_LEN = 509
 
   readonly #raw: RawCell<T>
 
