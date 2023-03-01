@@ -12,14 +12,13 @@ async function fetchWs(ws: Fleche.WebSocket) {
 
   ws.send(JSON.stringify({ "jsonrpc": "2.0", "method": "web3_clientVersion", "params": [], "id": 67 }))
 
-  const event = await new Promise((ok, err) => {
+  const event = await new Promise<MessageEvent>((ok, err) => {
     ws.addEventListener("message", ok)
     ws.addEventListener("error", err)
   })
 
   const delay = Date.now() - start
-  const msgEvent = event as MessageEvent
-  console.log(msgEvent.data, delay)
+  console.log(event.data, delay)
 }
 
 async function fetchCircuit(circuit: Circuit) {

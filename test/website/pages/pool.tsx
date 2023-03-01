@@ -14,14 +14,13 @@ async function fetch(socket: WebSocket) {
 
   socket.send(JSON.stringify({ "jsonrpc": "2.0", "method": "web3_clientVersion", "params": [], "id": 67 }))
 
-  const event = await new Promise((ok, err) => {
+  const event = await new Promise<MessageEvent>((ok, err) => {
     socket.addEventListener("message", ok)
     socket.addEventListener("error", err)
   })
 
   const delay = Date.now() - start
-  const msgEvent = event as MessageEvent
-  console.log(msgEvent.data, delay)
+  console.log(event.data, delay)
 }
 
 async function createWebSocket(circuit: Circuit) {
@@ -52,13 +51,13 @@ async function raceCreateWebSocket(tor: Tor) {
   try {
     tor.read.addEventListener("close", future.err)
     tor.read.addEventListener("error", future.err)
-    pool.addEventListener("ready", future.ok)
+    pool.addEventListener("circuit", future.ok)
 
     await future.promise
   } finally {
     tor.read.removeEventListener("close", future.err)
     tor.read.removeEventListener("error", future.err)
-    pool.removeEventListener("ready", future.err)
+    pool.removeEventListener("circuit", future.err)
   }
 
   console.warn("READY")

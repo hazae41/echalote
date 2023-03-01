@@ -4,7 +4,10 @@ import { SuperTransformStream } from "libs/streams/transform.js";
 import { TurboFrame } from "./frame.js";
 import { SecretTurboStream } from "./stream.js";
 
-export class SecretTurboWriter extends AsyncEventTarget<"close" | "error"> {
+export class SecretTurboWriter extends AsyncEventTarget<{
+  close: CloseEvent,
+  error: ErrorEvent
+}> {
 
   readonly stream: SuperTransformStream<Writable, Writable>
 

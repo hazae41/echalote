@@ -5,7 +5,10 @@ import { SuperTransformStream } from "libs/streams/transform.js";
 import { KcpSegment } from "./segment.js";
 import { SecretKcpStream } from "./stream.js";
 
-export class SecretKcpWriter extends AsyncEventTarget<"close" | "error"> {
+export class SecretKcpWriter extends AsyncEventTarget<{
+  close: CloseEvent,
+  error: ErrorEvent
+}> {
 
   readonly stream: SuperTransformStream<Writable, Writable>
 
@@ -47,9 +50,8 @@ export class SecretKcpWriter extends AsyncEventTarget<"close" | "error"> {
 
     const future = new Future<void, Error>()
 
-    const onEvent = (event: Event) => {
-      const msgEvent = event as MessageEvent<KcpSegment<Opaque>>
-      if (msgEvent.data.serial !== serial) return
+    const onEvent = (event: MessageEvent<KcpSegment<Opaque>>) => {
+      if (event.data.serial !== serial) return
       future.ok()
     }
 

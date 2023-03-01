@@ -1,6 +1,7 @@
+import { Event } from "./event.js"
 
-export type AsyncEventListener =
-  (e: Event) => void | Promise<void>
+export type AsyncEventListener<T = unknown> =
+  (e: T) => void | Promise<void>
 
 export type AddAsyncEventListenerOptions = {
   once?: boolean
@@ -15,12 +16,12 @@ type EventListenerOptions = {
   onabort: () => void
 }
 
-export class AsyncEventTarget<T extends string = string> {
-  readonly #listeners = new Map<string, Map<AsyncEventListener, EventListenerOptions>>()
+export class AsyncEventTarget<E extends { [P in string]: Event } = { [P in string]: Event }> {
+  readonly #listeners = new Map<keyof E, Map<AsyncEventListener, EventListenerOptions>>()
 
   constructor() { }
 
-  #get(type: T) {
+  #get(type: keyof E) {
     const listeners = this.#listeners.get(type)
     if (listeners !== undefined) return listeners
 
@@ -37,7 +38,7 @@ export class AsyncEventTarget<T extends string = string> {
    * @param options Options // { passive: true }
    * @returns 
    */
-  addEventListener(type: T, listener: AsyncEventListener | null, options: AddAsyncEventListenerOptions = {}) {
+  addEventListener<K extends Extract<keyof E, string>>(type: K, listener: AsyncEventListener<E[K]> | null, options: AddAsyncEventListenerOptions = {}) {
     if (!listener) return
 
     const listeners = this.#get(type)
@@ -45,7 +46,7 @@ export class AsyncEventTarget<T extends string = string> {
     const onabort = () => this.removeEventListener(type, listener)
     const options2 = { ...options, onabort }
 
-    listeners.set(listener, options2)
+    listeners.set(listener as AsyncEventListener, options2)
 
     options.signal?.addEventListener("abort", onabort, { passive: true })
   }
@@ -57,17 +58,17 @@ export class AsyncEventTarget<T extends string = string> {
    * @param _ Just to look like DOM's EventTarget
    * @returns 
    */
-  removeEventListener(type: T, listener: AsyncEventListener | null, _: {} = {}) {
+  removeEventListener<K extends Extract<keyof E, string>>(type: K, listener: AsyncEventListener<E[K]> | null, _: {} = {}) {
     if (!listener) return
 
     const listeners = this.#get(type)
 
-    const options = listeners.get(listener)
+    const options = listeners.get(listener as AsyncEventListener)
     if (!options) return
 
     options.signal?.removeEventListener("abort", options.onabort)
 
-    listeners.delete(listener)
+    listeners.delete(listener as AsyncEventListener)
 
     if (listeners.size) return
     this.#listeners.delete(type)
@@ -83,9 +84,7 @@ export class AsyncEventTarget<T extends string = string> {
    * @param event Event
    * @returns 
    */
-  async dispatchEvent(event: Event) {
-    const type = event.type as T
-
+  async dispatchEvent<K extends Extract<keyof E, string>>(event: E[K], type: K /*= event.type as K*/) {
     const listeners = this.#listeners.get(type)
 
     if (!listeners) return true
@@ -96,7 +95,7 @@ export class AsyncEventTarget<T extends string = string> {
       const onsettle = () => {
         if (!options.once) return
 
-        this.removeEventListener(type as T, listener)
+        this.removeEventListener(type, listener)
       }
 
       try {

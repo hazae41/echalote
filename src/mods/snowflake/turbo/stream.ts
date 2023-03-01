@@ -79,7 +79,7 @@ export class SecretTurboStream {
     this.reader.stream.closed = {}
 
     const closeEvent = new CloseEvent("close", {})
-    await this.reader.dispatchEvent(closeEvent)
+    await this.reader.dispatchEvent(closeEvent, "close")
   }
 
   async #onReadError(reason?: unknown) {
@@ -90,7 +90,7 @@ export class SecretTurboStream {
 
     const error = new Error(`Errored`, { cause: reason })
     const errorEvent = new ErrorEvent("error", { error })
-    await this.reader.dispatchEvent(errorEvent)
+    await this.reader.dispatchEvent(errorEvent, "error")
   }
 
   async #onWriteClose() {
@@ -99,7 +99,7 @@ export class SecretTurboStream {
     this.writer.stream.closed = {}
 
     const closeEvent = new CloseEvent("close", {})
-    await this.writer.dispatchEvent(closeEvent)
+    await this.writer.dispatchEvent(closeEvent, "close")
   }
 
   async #onWriteError(reason?: unknown) {
@@ -110,7 +110,7 @@ export class SecretTurboStream {
 
     const error = new Error(`Errored`, { cause: reason })
     const errorEvent = new ErrorEvent("error", { error })
-    await this.writer.dispatchEvent(errorEvent)
+    await this.writer.dispatchEvent(errorEvent, "error")
   }
 
 }

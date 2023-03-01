@@ -2,13 +2,16 @@ import { Arrays } from "libs/arrays/arrays.js";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Circuit } from "mods/tor/circuit.js";
 import { Tor } from "mods/tor/tor.js";
+;
 
 export interface CircuitPoolParams {
   readonly count?: number
   readonly signal?: AbortSignal
 }
 
-export class CircuitPool extends AsyncEventTarget<"ready"> {
+export class CircuitPool extends AsyncEventTarget<{
+  "circuit": MessageEvent<Circuit>
+}> {
 
   readonly count: number
 
@@ -61,8 +64,8 @@ export class CircuitPool extends AsyncEventTarget<"ready"> {
     circuit.addEventListener("error", onCircuitError)
     this.#circuits[index] = circuit
 
-    if (this.#circuits.filter(Boolean).length !== this.count) return
-    this.dispatchEvent(new Event("ready")).catch(console.warn)
+    const event = new MessageEvent("circuit", { data: circuit })
+    this.dispatchEvent(event, "circuit").catch(console.warn)
   }
 
   /**

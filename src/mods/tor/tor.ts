@@ -10,6 +10,7 @@ import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
 import { AbortEvent } from "libs/events/abort.js";
 import { CloseEvent } from "libs/events/close.js";
 import { ErrorEvent } from "libs/events/error.js";
+import { Event } from "libs/events/event.js";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { Mutex } from "libs/mutex/mutex.js";
@@ -39,6 +40,7 @@ import { Circuit } from "mods/tor/circuit.js";
 import { Authority, parseAuthorities } from "mods/tor/consensus/authorities.js";
 import { Target } from "mods/tor/target.js";
 import { LoopParams } from "mods/tor/types/loop.js";
+;
 
 export type TorState =
   | TorNoneState
@@ -85,11 +87,34 @@ export interface TorParams {
   fallbacks: Fallback[]
 }
 
-export class Tor extends AsyncEventTarget<"close" | "error" | "handshake" | "CREATED_FAST" | "DESTROY" | "RELAY_CONNECTED" | "RELAY_DATA" | "RELAY_EXTENDED2" | "RELAY_TRUNCATED" | "RELAY_END"> {
+export type TorEvents = {
+  "handshake": Event,
+  "VERSIONS": MessageEvent<VersionsCell>
+  "CERTS": MessageEvent<CertsCell>
+  "AUTH_CHALLENGE": MessageEvent<AuthChallengeCell>
+  "NETINFO": MessageEvent<NetinfoCell>
+  "CREATED_FAST": MessageEvent<CreatedFastCell>,
+  "DESTROY": MessageEvent<DestroyCell>,
+  "RELAY_CONNECTED": MessageEvent<RelayConnectedCell>,
+  "RELAY_DATA": MessageEvent<RelayDataCell<Opaque>>,
+  "RELAY_DROP": MessageEvent<RelayDropCell<Opaque>>
+  "RELAY_EXTENDED2": MessageEvent<RelayExtended2Cell<Opaque>>,
+  "RELAY_TRUNCATED": MessageEvent<RelayTruncatedCell>,
+  "RELAY_END": MessageEvent<RelayEndCell>
+}
+
+export class Tor extends AsyncEventTarget<TorEvents> {
   readonly #class = Tor
 
-  readonly read = new AsyncEventTarget()
-  readonly write = new AsyncEventTarget()
+  readonly read = new AsyncEventTarget<{
+    "close": CloseEvent,
+    "error": ErrorEvent,
+  }>()
+
+  readonly write = new AsyncEventTarget<{
+    "close": CloseEvent,
+    "error": ErrorEvent,
+  }>()
 
   readonly reader: SuperTransformStream<Opaque, Opaque>
   readonly writer: SuperTransformStream<Writable, Writable>
@@ -154,15 +179,15 @@ export class Tor extends AsyncEventTarget<"close" | "error" | "handshake" | "CRE
     await Foras.initBundledOnce()
   }
 
-  async #wait(type: "handshake" | "CREATED_FAST", signal?: AbortSignal) {
+  async #wait(type: keyof TorEvents, signal?: AbortSignal) {
     const future = new Future<Event, Error>()
     const onEvent = (event: Event) => future.ok(event)
     return await this.#waitFor(type, { future, onEvent, signal })
   }
 
-  async #waitFor<T>(type: "handshake" | "CREATED_FAST", params: {
+  async #waitFor<T, K extends keyof TorEvents>(type: K, params: {
     future: Future<T, Error>,
-    onEvent: (event: Event) => void,
+    onEvent: (event: TorEvents[K]) => void,
     signal?: AbortSignal
   }) {
     const { future, onEvent, signal } = params
@@ -173,15 +198,13 @@ export class Tor extends AsyncEventTarget<"close" | "error" | "handshake" | "CRE
       future.err(error)
     }
 
-    const onClose = (event: Event) => {
-      const closeEvent = event as CloseEvent
-      const error = new Error(`Closed`, { cause: closeEvent })
+    const onClose = (event: CloseEvent) => {
+      const error = new Error(`Closed`, { cause: event })
       future.err(error)
     }
 
-    const onError = (event: Event) => {
-      const errorEvent = event as ErrorEvent
-      const error = new Error(`Errored`, { cause: errorEvent })
+    const onError = (event: ErrorEvent) => {
+      const error = new Error(`Errored`, { cause: event })
       future.err(error)
     }
 
@@ -210,7 +233,7 @@ export class Tor extends AsyncEventTarget<"close" | "error" | "handshake" | "CRE
     this.reader.closed = {}
 
     const closeEvent = new CloseEvent("close", {})
-    await this.read.dispatchEvent(closeEvent)
+    await this.read.dispatchEvent(closeEvent, "close")
   }
 
   async #onReadError(reason?: unknown) {
@@ -221,7 +244,7 @@ export class Tor extends AsyncEventTarget<"close" | "error" | "handshake" | "CRE
 
     const error = new Error(`Errored`, { cause: reason })
     const errorEvent = new ErrorEvent("error", { error })
-    await this.read.dispatchEvent(errorEvent)
+    await this.read.dispatchEvent(errorEvent, "error")
   }
 
   async #onWriteClose() {
@@ -230,7 +253,7 @@ export class Tor extends AsyncEventTarget<"close" | "error" | "handshake" | "CRE
     this.writer.closed = {}
 
     const closeEvent = new CloseEvent("close", {})
-    await this.write.dispatchEvent(closeEvent)
+    await this.write.dispatchEvent(closeEvent, "close")
   }
 
   async #onWriteError(reason?: unknown) {
@@ -241,7 +264,7 @@ export class Tor extends AsyncEventTarget<"close" | "error" | "handshake" | "CRE
 
     const error = new Error(`Errored`, { cause: reason })
     const errorEvent = new ErrorEvent("error", { error })
-    await this.write.dispatchEvent(errorEvent)
+    await this.write.dispatchEvent(errorEvent, "error")
   }
 
   async #onWriteStart() {
@@ -373,15 +396,12 @@ export class Tor extends AsyncEventTarget<"close" | "error" | "handshake" | "CRE
     console.debug(`VERSIONS`, data)
 
     const cellEvent = new MessageEvent("VERSIONS", { data })
-    if (!await this.dispatchEvent(cellEvent)) return
+    await this.dispatchEvent(cellEvent, "VERSIONS")
 
     if (!data.versions.includes(5))
       throw new Error(`Incompatible versions`)
 
     this.#state = { type: "versioned", version: 5 }
-
-    const stateEvent = new MessageEvent("versioned", { data: 5 })
-    if (!await this.dispatchEvent(stateEvent)) return
   }
 
   async #onCertsCell(cell: Cell<Opaque>) {
@@ -393,7 +413,7 @@ export class Tor extends AsyncEventTarget<"close" | "error" | "handshake" | "CRE
     console.debug(`CERTS`, data)
 
     const cellEvent = new MessageEvent("CERTS", { data })
-    if (!await this.dispatchEvent(cellEvent)) return
+    await this.dispatchEvent(cellEvent, "CERTS")
 
     const idh = await data.getIdHash()
 
@@ -408,9 +428,6 @@ export class Tor extends AsyncEventTarget<"close" | "error" | "handshake" | "CRE
 
     const { version } = this.#state
     this.#state = { type: "handshaking", version, guard }
-
-    const stateEvent = new MessageEvent("handshaking", {})
-    if (!await this.dispatchEvent(stateEvent)) return
   }
 
   async #onAuthChallengeCell(cell: Cell<Opaque>) {
@@ -422,7 +439,7 @@ export class Tor extends AsyncEventTarget<"close" | "error" | "handshake" | "CRE
     console.debug(`AUTH_CHALLENGE`, data)
 
     const cellEvent = new MessageEvent("AUTH_CHALLENGE", { data })
-    if (!await this.dispatchEvent(cellEvent)) return
+    await this.dispatchEvent(cellEvent, "AUTH_CHALLENGE")
   }
 
   async #onNetinfoCell(cell: Cell<Opaque>) {
@@ -434,7 +451,7 @@ export class Tor extends AsyncEventTarget<"close" | "error" | "handshake" | "CRE
     console.debug(`NETINFO`, data)
 
     const cellEvent = new MessageEvent("NETINFO", { data })
-    if (!await this.dispatchEvent(cellEvent)) return
+    await this.dispatchEvent(cellEvent, "NETINFO")
 
     const address = new TypedAddress(4, new Uint8Array([127, 0, 0, 1]))
     const netinfo = new NetinfoCell(undefined, 0, address, [])
@@ -448,8 +465,8 @@ export class Tor extends AsyncEventTarget<"close" | "error" | "handshake" | "CRE
     const { version, guard } = this.#state
     this.#state = { type: "handshaked", version, guard }
 
-    const stateEvent = new MessageEvent("handshake", {})
-    if (!await this.dispatchEvent(stateEvent)) return
+    const stateEvent = new Event("handshake", {})
+    await this.dispatchEvent(stateEvent, "handshake")
   }
 
   async #onCreatedFastCell(cell: Cell<Opaque>) {
@@ -458,7 +475,7 @@ export class Tor extends AsyncEventTarget<"close" | "error" | "handshake" | "CRE
     console.debug(`CREATED_FAST`, data)
 
     const cellEvent = new MessageEvent("CREATED_FAST", { data })
-    if (!await this.dispatchEvent(cellEvent)) return
+    await this.dispatchEvent(cellEvent, "CREATED_FAST")
   }
 
   async #onDestroyCell(cell: Cell<Opaque>) {
@@ -467,7 +484,7 @@ export class Tor extends AsyncEventTarget<"close" | "error" | "handshake" | "CRE
     console.debug(`DESTROY`, data)
 
     const cellEvent = new MessageEvent("DESTROY", { data })
-    if (!await this.dispatchEvent(cellEvent)) return
+    await this.dispatchEvent(cellEvent, "DESTROY")
 
     this.circuits.delete(data.circuit.id)
   }
@@ -497,7 +514,7 @@ export class Tor extends AsyncEventTarget<"close" | "error" | "handshake" | "CRE
     console.debug(`RELAY_EXTENDED2`, data)
 
     const cellEvent = new MessageEvent("RELAY_EXTENDED2", { data })
-    if (!await this.dispatchEvent(cellEvent)) return
+    await this.dispatchEvent(cellEvent, "RELAY_EXTENDED2")
   }
 
   async #onRelayConnectedCell(cell: RelayCell<Opaque>) {
@@ -506,7 +523,7 @@ export class Tor extends AsyncEventTarget<"close" | "error" | "handshake" | "CRE
     console.debug(`RELAY_CONNECTED`, data)
 
     const cellEvent = new MessageEvent("RELAY_CONNECTED", { data })
-    if (!await this.dispatchEvent(cellEvent)) return
+    await this.dispatchEvent(cellEvent, "RELAY_CONNECTED")
   }
 
   async #onRelayDataCell(cell: RelayCell<Opaque>) {
@@ -515,7 +532,7 @@ export class Tor extends AsyncEventTarget<"close" | "error" | "handshake" | "CRE
     console.debug(`RELAY_DATA`, data)
 
     const cellEvent = new MessageEvent("RELAY_DATA", { data })
-    if (!await this.dispatchEvent(cellEvent)) return
+    await this.dispatchEvent(cellEvent, "RELAY_DATA")
   }
 
   async #onRelayEndCell(cell: RelayCell<Opaque>) {
@@ -524,7 +541,7 @@ export class Tor extends AsyncEventTarget<"close" | "error" | "handshake" | "CRE
     console.debug(`RELAY_END`, data)
 
     const cellEvent = new MessageEvent("RELAY_END", { data })
-    if (!await this.dispatchEvent(cellEvent)) return
+    await this.dispatchEvent(cellEvent, "RELAY_END")
   }
 
   async #onRelayDropCell(cell: RelayCell<Opaque>) {
@@ -533,7 +550,7 @@ export class Tor extends AsyncEventTarget<"close" | "error" | "handshake" | "CRE
     console.debug(`RELAY_DROP`, data)
 
     const cellEvent = new MessageEvent("RELAY_DROP", { data })
-    if (!await this.dispatchEvent(cellEvent)) return
+    await this.dispatchEvent(cellEvent, "RELAY_DROP")
   }
 
   async #onRelayTruncatedCell(cell: RelayCell<Opaque>) {
@@ -542,7 +559,7 @@ export class Tor extends AsyncEventTarget<"close" | "error" | "handshake" | "CRE
     console.debug(`RELAY_TRUNCATED`, data)
 
     const cellEvent = new MessageEvent("RELAY_TRUNCATED", { data })
-    if (!await this.dispatchEvent(cellEvent)) return
+    await this.dispatchEvent(cellEvent, "RELAY_TRUNCATED")
 
     data.circuit.targets.pop()
   }
@@ -572,10 +589,9 @@ export class Tor extends AsyncEventTarget<"close" | "error" | "handshake" | "CRE
   async #waitCreatedFast(circuit: Circuit, signal?: AbortSignal) {
     const future = new Future<CreatedFastCell, Error>()
 
-    const onEvent = (event: Event) => {
-      const msgEvent = event as MessageEvent<CreatedFastCell>
-      if (msgEvent.data.circuit !== circuit) return
-      future.ok(msgEvent.data)
+    const onEvent = (event: MessageEvent<CreatedFastCell>) => {
+      if (event.data.circuit !== circuit) return
+      future.ok(event.data)
     }
 
     return await this.#waitFor("CREATED_FAST", { future, onEvent, signal })

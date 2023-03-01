@@ -4,7 +4,10 @@ import { SuperTransformStream } from "libs/streams/transform.js";
 import { SmuxSegment, SmuxUpdate } from "mods/snowflake/smux/segment.js";
 import { SecretSmuxStream } from "./stream.js";
 
-export class SecretSmuxReader extends AsyncEventTarget<"close" | "error"> {
+export class SecretSmuxReader extends AsyncEventTarget<{
+  close: CloseEvent,
+  error: ErrorEvent
+}> {
 
   readonly stream: SuperTransformStream<Opaque, Opaque>
 

@@ -6,7 +6,13 @@ import { SuperTransformStream } from "libs/streams/transform.js";
 import { KcpSegment } from "./segment.js";
 import { SecretKcpStream } from "./stream.js";
 
-export class SecretKcpReader extends AsyncEventTarget<"close" | "error" | "ack">  {
+export type SecretKcpReaderEvents = {
+  "close": CloseEvent,
+  "error": ErrorEvent,
+  "ack": MessageEvent<KcpSegment<Opaque>>
+}
+
+export class SecretKcpReader extends AsyncEventTarget<SecretKcpReaderEvents>  {
 
   readonly stream: SuperTransformStream<Opaque, Opaque>
 
@@ -22,15 +28,15 @@ export class SecretKcpReader extends AsyncEventTarget<"close" | "error" | "ack">
     })
   }
 
-  async wait(type: "ack", signal?: AbortSignal) {
-    const future = new Future<Event, Error>()
-    const onEvent = (event: Event) => future.ok(event)
+  async wait<K extends keyof SecretKcpReaderEvents>(type: K, signal?: AbortSignal) {
+    const future = new Future<SecretKcpReaderEvents[K], Error>()
+    const onEvent = (event: SecretKcpReaderEvents[K]) => future.ok(event)
     return await this.waitFor(type, { future, onEvent, signal })
   }
 
-  async waitFor<T>(type: "ack", params: {
+  async waitFor<T, K extends keyof SecretKcpReaderEvents>(type: K, params: {
     future: Future<T, Error>,
-    onEvent: (event: Event) => void,
+    onEvent: (event: SecretKcpReaderEvents[K]) => void,
     signal?: AbortSignal
   }) {
     const { future, onEvent, signal } = params
@@ -41,15 +47,13 @@ export class SecretKcpReader extends AsyncEventTarget<"close" | "error" | "ack">
       future.err(error)
     }
 
-    const onClose = (event: Event) => {
-      const closeEvent = event as CloseEvent
-      const error = new Error(`Closed`, { cause: closeEvent })
+    const onClose = (event: CloseEvent) => {
+      const error = new Error(`Closed`, { cause: event })
       future.err(error)
     }
 
-    const onError = (event: Event) => {
-      const errorEvent = event as ErrorEvent
-      const error = new Error(`Errored`, { cause: errorEvent })
+    const onError = (event: ErrorEvent) => {
+      const error = new Error(`Errored`, { cause: event })
       future.err(error)
     }
 
@@ -131,7 +135,7 @@ export class SecretKcpReader extends AsyncEventTarget<"close" | "error" | "ack">
 
   async #onAckSegment(segment: KcpSegment<Opaque>) {
     const msgEvent = new MessageEvent("ack", { data: segment })
-    this.dispatchEvent(msgEvent)
+    await this.dispatchEvent(msgEvent, "ack")
   }
 
   async #onWaskSegment(segment: KcpSegment<Opaque>) {
