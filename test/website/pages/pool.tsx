@@ -2,8 +2,10 @@ import { Ciphers, TlsStream } from "@hazae41/cadenas";
 import { Circuit, CircuitPool, createWebSocketSnowflakeStream, Tor } from "@hazae41/echalote";
 import { Fleche } from "@hazae41/fleche";
 import fallbacks from "assets/fallbacks.json";
+import { Arrays } from "libs/arrays/arrays";
+import { AsyncEventTarget } from "libs/events/target";
 import { Future } from "libs/futures/future";
-import { DependencyList, useCallback, useEffect, useState } from "react";
+import { DependencyList, useCallback, useEffect, useMemo, useState } from "react";
 
 async function fetch(socket: WebSocket) {
   const start = Date.now()
@@ -17,12 +19,14 @@ async function fetch(socket: WebSocket) {
 
   const delay = Date.now() - start
   console.log(event.data, delay)
+
+  socket.close()
 }
 
-async function createWebSocket(circuit: Circuit) {
-  const tcp = await circuit.open("mainnet.infura.io", 443)
+async function createWebSocket(url: URL, circuit: Circuit, signal?: AbortSignal) {
+  const tcp = await circuit.open(url.hostname, 443)
   const tls = new TlsStream(tcp, { ciphers: [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384] })
-  const socket = new Fleche.WebSocket("wss://mainnet.infura.io/ws/v3/b6bf7d3508c941499b10025c0776eaf8", undefined, { stream: tls })
+  const socket = new Fleche.WebSocket(url, undefined, { stream: tls })
 
   const future = new Future()
 
@@ -39,29 +43,97 @@ async function createWebSocket(circuit: Circuit) {
   return socket
 }
 
-async function raceCreateWebSocket(tor: Tor) {
-  const pool = new CircuitPool(tor, {})
+async function tryCreateWebSocketLoop(url: URL, circuit: Circuit, signal?: AbortSignal) {
+  while (true) {
+    try {
+      return await createWebSocket(url, circuit, signal)
+    } catch (e: unknown) {
+      console.warn(e)
+      await new Promise(ok => setTimeout(ok, 1000))
+    }
+  }
+}
 
-  const future = new Future()
+class SocketPool {
 
-  try {
-    tor.events.addEventListener("close", future.err)
-    tor.events.addEventListener("error", future.err)
-    pool.events.addEventListener("circuit", future.ok)
+  readonly events = new AsyncEventTarget<{
+    promise: MessageEvent<{ index: number, promise: Promise<WebSocket> }>
+    socket: MessageEvent<{ index: number, socket: WebSocket }>
+  }>()
 
-    await future.promise
-  } finally {
-    tor.events.removeEventListener("close", future.err)
-    tor.events.removeEventListener("error", future.err)
-    pool.events.removeEventListener("circuit", future.err)
+  readonly #allSockets: WebSocket[]
+  readonly #allPromises: Promise<WebSocket>[]
+
+  readonly #openSockets = new Set<WebSocket>()
+
+  constructor(
+    readonly url: URL,
+    readonly circuits: CircuitPool,
+    readonly signal?: AbortSignal
+  ) {
+    this.#allSockets = new Array(circuits.capacity)
+    this.#allPromises = new Array(circuits.capacity)
+
+    for (let index = 0; index < circuits.capacity; index++)
+      this.#start(index)
   }
 
-  console.warn("READY")
+  #start(index: number) {
+    if (this.#allSockets.at(index))
+      return
 
-  const promises = pool.circuits.map(createWebSocket)
-  const socket = await Promise.any(promises)
+    const promise = this.#create(index)
+    this.#allPromises[index] = promise
+    promise.catch(console.warn)
 
-  return socket
+    const event = new MessageEvent("promise", { data: { index, promise } })
+    this.events.dispatchEvent(event, "promise")
+  }
+
+  async #create(index: number) {
+    const { signal } = this
+
+    const circuit = await this.circuits.get(index)
+    const socket = await tryCreateWebSocketLoop(this.url, circuit, signal)
+
+    this.#allSockets[index] = socket
+    this.#openSockets.add(socket)
+
+    const onSocketCloseOrError = () => {
+      delete this.#allSockets[index]
+      this.#openSockets.delete(socket)
+
+      socket.removeEventListener("close", onSocketCloseOrError)
+      socket.removeEventListener("error", onSocketCloseOrError)
+
+      this.#start(index)
+    }
+
+    socket.addEventListener("close", onSocketCloseOrError)
+    socket.addEventListener("error", onSocketCloseOrError)
+
+    const event = new MessageEvent("socket", { data: { index, socket } })
+    await this.events.dispatchEvent(event, "socket")
+
+    return socket
+  }
+
+  async random() {
+    await Promise.any(this.#allPromises)
+
+    return this.randomSync()
+  }
+
+  randomSync() {
+    const sockets = [...this.#openSockets]
+    const socket = Arrays.randomOf(sockets)
+
+    if (!socket)
+      throw new Error(`No circuit in pool`)
+
+    return socket
+  }
+
 }
 
 function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
@@ -86,17 +158,32 @@ export default function Page() {
     return new Tor(tcp, { fallbacks })
   }, [])
 
-  const socket = useAsyncMemo(async () => {
+  const circuits = useMemo(() => {
     if (!tor) return
 
-    return await raceCreateWebSocket(tor)
+    return new CircuitPool(tor)
   }, [tor])
 
+  const sockets = useMemo(() => {
+    if (!circuits) return
+
+    const url = new URL("wss://mainnet.infura.io/ws/v3/b6bf7d3508c941499b10025c0776eaf8")
+    return new SocketPool(url, circuits)
+  }, [circuits])
+
+  const socket = useAsyncMemo(async () => {
+    if (!sockets) return
+
+    return await sockets.random()
+  }, [sockets])
+
   const onClick = useCallback(async () => {
-    if (!socket) return
+    if (!sockets) return
+
+    const socket = await sockets.random()
 
     await fetch(socket)
-  }, [socket])
+  }, [sockets])
 
   return <>
     <button onClick={onClick}>

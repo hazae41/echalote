@@ -4,86 +4,124 @@ import { Circuit } from "mods/tor/circuit.js";
 import { Tor } from "mods/tor/tor.js";
 
 export interface CircuitPoolParams {
-  readonly count?: number
+  readonly capacity?: number
   readonly signal?: AbortSignal
 }
 
+export interface CircuitPoolEntry {
+  readonly index: number,
+  readonly circuit: Circuit
+}
+
 export type CircuitPoolEvents = {
-  circuit: MessageEvent<Circuit>
+  circuit: MessageEvent<CircuitPoolEntry>
 }
 
 export class CircuitPool {
 
   readonly events = new AsyncEventTarget<CircuitPoolEvents>()
 
-  readonly count: number
+  readonly capacity: number
 
-  #circuits: Circuit[]
-  #promises: Promise<void>[]
+  readonly #allCircuits: Circuit[]
+  readonly #allPromises: Promise<Circuit>[]
+
+  readonly #openCircuits = new Set<Circuit>()
 
   constructor(
     readonly tor: Tor,
     readonly params: CircuitPoolParams = {}
   ) {
-    const { count = 3, signal } = this.params
+    const { capacity = 3 } = this.params
 
-    this.count = count
-    this.#circuits = new Array<Circuit>(count)
-    this.#promises = new Array<Promise<void>>(count)
+    this.capacity = capacity
 
-    for (let index = 0; index < count; index++)
-      this.#start(index, signal)
+    this.#allCircuits = new Array(capacity)
+    this.#allPromises = new Array(capacity)
+
+    for (let index = 0; index < capacity; index++)
+      this.#start(index)
   }
 
-  get circuits() {
-    return this.#circuits as readonly Circuit[]
-  }
-
-  get promises() {
-    return this.#promises as readonly Promise<void>[]
-  }
-
-  #start(index: number, signal?: AbortSignal) {
-    if (this.#promises.at(index))
+  #start(index: number) {
+    if (this.#allCircuits.at(index))
       return
-    if (this.#circuits.at(index))
-      return
-    this.#promises[index] = this.#create(index, signal).catch(console.warn)
+    const promise = this.#create(index)
+    this.#allPromises[index] = promise
+    promise.catch(console.warn)
   }
 
-  async #create(index: number, signal?: AbortSignal) {
-    if (signal?.aborted)
-      throw new Error(`Aborted`)
+  async #create(index: number) {
+    const { signal } = this.params
 
-    const onCircuitError = () => {
-      delete this.#circuits[index]
-      delete this.#promises[index]
+    const circuit = await this.tor.tryCreateAndExtend({ signal })
+
+    this.#allCircuits[index] = circuit
+    this.#openCircuits.add(circuit)
+
+    const onCircuitCloseOrError = () => {
+      delete this.#allCircuits[index]
+      this.#openCircuits.delete(circuit)
+
+      circuit.events.removeEventListener("close", onCircuitCloseOrError)
+      circuit.events.removeEventListener("error", onCircuitCloseOrError)
+
       this.#start(index)
     }
 
-    const circuit = await this.tor.tryCreateAndExtend({ signal })
-    circuit.events.addEventListener("error", onCircuitError)
-    this.#circuits[index] = circuit
+    circuit.events.addEventListener("close", onCircuitCloseOrError)
+    circuit.events.addEventListener("error", onCircuitCloseOrError)
 
-    const event = new MessageEvent("circuit", { data: circuit })
+    const event = new MessageEvent("circuit", { data: { index, circuit } })
     this.events.dispatchEvent(event, "circuit").catch(console.warn)
+
+    return circuit
+  }
+
+  /**
+   * Number of open circuits
+   */
+  get size() {
+    return this.#openCircuits.size
+  }
+
+  /**
+   * Get the circuit (or undefined) at index
+   * @param index 
+   * @returns 
+   */
+  async get(index: number) {
+    return this.#allPromises[index]
+  }
+
+  getSync(index: number) {
+    return this.#allCircuits.at(index)
+  }
+
+  /**
+   * Iterator on open circuits
+   * @returns 
+   */
+  [Symbol.iterator]() {
+    return this.#openCircuits.values()
   }
 
   /**
    * Wait for any circuit to be created, then get a random one
    * @returns 
    */
-  async get() {
-    await Promise.any(this.#promises)
-    return this.getSync()
+  async random() {
+    await Promise.any(this.#allPromises)
+
+    return this.randomSync()
   }
 
   /**
    * Get a random circuit from the pool
    * @returns 
    */
-  getSync() {
-    const circuits = this.#circuits.filter(Boolean)
+  randomSync() {
+    const circuits = [...this.#openCircuits]
     const circuit = Arrays.randomOf(circuits)
 
     if (!circuit)
