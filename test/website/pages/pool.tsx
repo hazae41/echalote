@@ -49,14 +49,14 @@ async function raceCreateWebSocket(tor: Tor) {
   const future = new Future()
 
   try {
-    tor.read.addEventListener("close", future.err)
-    tor.read.addEventListener("error", future.err)
+    tor.addEventListener("close", future.err)
+    tor.addEventListener("error", future.err)
     pool.addEventListener("circuit", future.ok)
 
     await future.promise
   } finally {
-    tor.read.removeEventListener("close", future.err)
-    tor.read.removeEventListener("error", future.err)
+    tor.removeEventListener("close", future.err)
+    tor.removeEventListener("error", future.err)
     pool.removeEventListener("circuit", future.err)
   }
 

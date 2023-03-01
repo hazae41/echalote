@@ -1,7 +1,6 @@
 import { Cursor, Opaque, Writable } from "@hazae41/binary";
 import { CloseEvent } from "libs/events/close.js";
 import { ErrorEvent } from "libs/events/error.js";
-import { AsyncEventTarget } from "libs/events/target.js";
 import { SuperReadableStream } from "libs/streams/readable.js";
 import { SuperWritableStream } from "libs/streams/writable.js";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
@@ -9,14 +8,10 @@ import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js"
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { Circuit } from "mods/tor/circuit.js";
 import { PAYLOAD_LEN } from "mods/tor/constants.js";
-;
 
 const DATA_LEN = PAYLOAD_LEN - (1 + 2 + 2 + 4 + 2)
 
-export class TcpStream extends AsyncEventTarget<{
-  "close": CloseEvent
-  "error": ErrorEvent
-}> {
+export class TcpStream {
   readonly #class = TcpStream
 
   readonly #reader: SuperReadableStream<Opaque>
@@ -26,23 +21,21 @@ export class TcpStream extends AsyncEventTarget<{
   readonly writable: WritableStream<Writable>
 
   constructor(
-    readonly circuit: Circuit,
     readonly id: number,
+    readonly circuit: Circuit,
     readonly signal?: AbortSignal
   ) {
-    super()
-
     const onClose = this.#onCircuitClose.bind(this)
-    this.circuit.addEventListener("close", onClose, { passive: true })
+    this.circuit.events.addEventListener("close", onClose, { passive: true })
 
     const onError = this.#onCircuitError.bind(this)
-    this.circuit.addEventListener("error", onError, { passive: true })
+    this.circuit.events.addEventListener("error", onError, { passive: true })
 
     const onRelayDataCell = this.#onRelayDataCell.bind(this)
-    this.circuit.addEventListener("RELAY_DATA", onRelayDataCell, { passive: true })
+    this.circuit.events.addEventListener("RELAY_DATA", onRelayDataCell, { passive: true })
 
     const onRelayEndCell = this.#onRelayEndCell.bind(this)
-    this.circuit.addEventListener("RELAY_END", onRelayEndCell, { passive: true })
+    this.circuit.events.addEventListener("RELAY_END", onRelayEndCell, { passive: true })
 
     this.#reader = new SuperReadableStream({})
 
@@ -66,16 +59,12 @@ export class TcpStream extends AsyncEventTarget<{
     console.debug(`${this.#class.name}.onCircuitClose`, event)
 
     this.#close(new Error(`Closed`, { cause: event }))
-
-    await this.dispatchEvent(event, "close")
   }
 
   async #onCircuitError(event: ErrorEvent) {
     console.debug(`${this.#class.name}.onCircuitError`, event)
 
     this.#close(new Error(`Errored`, { cause: event.error }))
-
-    await this.dispatchEvent(event, "error")
   }
 
   async #onRelayDataCell(event: MessageEvent<RelayDataCell<Opaque>>) {

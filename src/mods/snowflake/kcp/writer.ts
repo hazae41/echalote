@@ -1,14 +1,14 @@
 import { Opaque, Writable } from "@hazae41/binary";
+import { CloseAndErrorEvents, Events } from "libs/events/events.js";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { SuperTransformStream } from "libs/streams/transform.js";
 import { KcpSegment } from "./segment.js";
 import { SecretKcpStream } from "./stream.js";
 
-export class SecretKcpWriter extends AsyncEventTarget<{
-  close: CloseEvent,
-  error: ErrorEvent
-}> {
+export class SecretKcpWriter {
+
+  readonly events = new AsyncEventTarget<CloseAndErrorEvents>()
 
   readonly stream: SuperTransformStream<Writable, Writable>
 
@@ -17,8 +17,6 @@ export class SecretKcpWriter extends AsyncEventTarget<{
   constructor(
     readonly parent: SecretKcpStream,
   ) {
-    super()
-
     this.stream = new SuperTransformStream({
       transform: this.#onWrite.bind(this)
     })
@@ -55,8 +53,7 @@ export class SecretKcpWriter extends AsyncEventTarget<{
       future.ok()
     }
 
-    this.parent.reader
-      .waitFor("ack", { future, onEvent })
+    Events.waitFor(this.parent.reader.events, "ack", { future, onEvent })
       .catch(() => { })
       .finally(() => clearInterval(retry))
   }

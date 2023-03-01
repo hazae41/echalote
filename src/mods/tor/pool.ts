@@ -61,7 +61,7 @@ export class CircuitPool extends AsyncEventTarget<{
     }
 
     const circuit = await this.tor.tryCreateAndExtend({ signal })
-    circuit.addEventListener("error", onCircuitError)
+    circuit.events.addEventListener("error", onCircuitError)
     this.#circuits[index] = circuit
 
     const event = new MessageEvent("circuit", { data: circuit })

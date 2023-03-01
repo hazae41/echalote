@@ -71,7 +71,7 @@ export class SecretKcpStream {
     this.reader.stream.closed = {}
 
     const closeEvent = new CloseEvent("close", {})
-    await this.reader.dispatchEvent(closeEvent, "close")
+    await this.reader.events.dispatchEvent(closeEvent, "close")
   }
 
   async #onReadError(reason?: unknown) {
@@ -82,7 +82,7 @@ export class SecretKcpStream {
 
     const error = new Error(`Errored`, { cause: reason })
     const errorEvent = new ErrorEvent("error", { error })
-    await this.reader.dispatchEvent(errorEvent, "error")
+    await this.reader.events.dispatchEvent(errorEvent, "error")
   }
 
   async #onWriteClose() {
@@ -91,7 +91,7 @@ export class SecretKcpStream {
     this.writer.stream.closed = {}
 
     const closeEvent = new CloseEvent("close", {})
-    await this.writer.dispatchEvent(closeEvent, "close")
+    await this.writer.events.dispatchEvent(closeEvent, "close")
   }
 
   async #onWriteError(reason?: unknown) {
@@ -102,7 +102,7 @@ export class SecretKcpStream {
 
     const error = new Error(`Errored`, { cause: reason })
     const errorEvent = new ErrorEvent("error", { error })
-    await this.writer.dispatchEvent(errorEvent, "error")
+    await this.writer.events.dispatchEvent(errorEvent, "error")
   }
 
 }

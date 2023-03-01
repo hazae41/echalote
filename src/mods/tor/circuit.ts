@@ -7,11 +7,10 @@ import { fetch } from "@hazae41/fleche";
 import { Sha1Hasher } from "@hazae41/morax";
 import { Aes128Ctr128BEKey } from "@hazae41/zepar";
 import { Arrays } from "libs/arrays/arrays.js";
-import { AbortEvent } from "libs/events/abort.js";
 import { CloseEvent } from "libs/events/close.js";
 import { ErrorEvent } from "libs/events/error.js";
+import { CloseAndErrorEvents, Events } from "libs/events/events.js";
 import { AsyncEventTarget } from "libs/events/target.js";
-import { Future } from "libs/futures/future.js";
 import { Ntor } from "mods/tor/algorithms/ntor/index.js";
 import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
 import { RelayBeginCell } from "mods/tor/binary/cells/relayed/relay_begin/cell.js";
@@ -29,17 +28,18 @@ import { Fallback, Tor } from "mods/tor/tor.js";
 import { LoopParams } from "mods/tor/types/loop.js";
 import { RelayCell } from "./binary/cells/direct/relay/cell.js";
 import { RelayEarlyCell } from "./binary/cells/direct/relay_early/cell.js";
-;
 
-export class Circuit extends AsyncEventTarget<{
-  "close": CloseEvent
-  "error": ErrorEvent,
+export type CircuitEvents = CloseAndErrorEvents & {
   "RELAY_EXTENDED2": MessageEvent<RelayExtended2Cell<Opaque>>,
   "RELAY_DATA": MessageEvent<RelayDataCell<Opaque>>
   "RELAY_END": MessageEvent<RelayEndCell>,
   "RELAY_TRUNCATED": MessageEvent<RelayTruncatedCell>
-}> {
+}
+
+export class Circuit {
   readonly #class = Circuit
+
+  readonly events = new AsyncEventTarget<CircuitEvents>()
 
   readonly targets = new Array<Target>()
   readonly streams = new Map<number, TcpStream>()
@@ -52,13 +52,11 @@ export class Circuit extends AsyncEventTarget<{
     readonly tor: Tor,
     readonly id: number
   ) {
-    super()
+    const onClose = this.#onTorClose.bind(this)
+    this.tor.addEventListener("close", onClose, { passive: true })
 
-    const onClose = this.#onReadClose.bind(this)
-    this.tor.read.addEventListener("close", onClose, { passive: true })
-
-    const onError = this.#onReadError.bind(this)
-    this.tor.read.addEventListener("error", onError, { passive: true })
+    const onError = this.#onTorError.bind(this)
+    this.tor.addEventListener("error", onError, { passive: true })
 
     const onDestroyCell = this.#onDestroyCell.bind(this)
     this.tor.addEventListener("DESTROY", onDestroyCell, { passive: true })
@@ -83,20 +81,20 @@ export class Circuit extends AsyncEventTarget<{
     return this.#closed
   }
 
-  async #onReadClose(event: CloseEvent) {
+  async #onTorClose(event: CloseEvent) {
     console.debug(`${this.#class.name}.onReadClose`, event)
 
     this.#closed = {}
 
-    await this.dispatchEvent(event, "close")
+    await this.events.dispatchEvent(event, "close")
   }
 
-  async #onReadError(event: ErrorEvent) {
+  async #onTorError(event: ErrorEvent) {
     console.debug(`${this.#class.name}.onReadError`, event)
 
     this.#closed = { reason: event.error }
 
-    await this.dispatchEvent(event, "error")
+    await this.events.dispatchEvent(event, "error")
   }
 
   async #onDestroyCell(event: MessageEvent<DestroyCell>) {
@@ -108,7 +106,7 @@ export class Circuit extends AsyncEventTarget<{
 
     const error = new Error(`Destroyed`, { cause: event.data })
     const errorEvent = new ErrorEvent("error", { error })
-    await this.dispatchEvent(errorEvent, "error")
+    await this.events.dispatchEvent(errorEvent, "error")
   }
 
   async #onRelayExtended2Cell(event: MessageEvent<RelayExtended2Cell<Opaque>>) {
@@ -116,7 +114,7 @@ export class Circuit extends AsyncEventTarget<{
 
     console.debug(`${this.#class.name}.onRelayExtended2Cell`, event)
 
-    await this.dispatchEvent(event, "RELAY_EXTENDED2")
+    await this.events.dispatchEvent(event, "RELAY_EXTENDED2")
   }
 
   async #onRelayTruncatedCell(event: MessageEvent<RelayTruncatedCell>) {
@@ -126,11 +124,11 @@ export class Circuit extends AsyncEventTarget<{
 
     this.#closed = {}
 
-    this.dispatchEvent(event, "RELAY_TRUNCATED")
+    this.events.dispatchEvent(event, "RELAY_TRUNCATED")
 
     const error = new Error(`Errored`, { cause: event.data })
     const errorEvent = new ErrorEvent("error", { error })
-    await this.dispatchEvent(errorEvent, "error")
+    await this.events.dispatchEvent(errorEvent, "error")
   }
 
   async #onRelayConnectedCell(event: MessageEvent<RelayConnectedCell>) {
@@ -144,7 +142,7 @@ export class Circuit extends AsyncEventTarget<{
 
     console.debug(`${this.#class.name}.onRelayDataCell`, event)
 
-    await this.dispatchEvent(event, "RELAY_DATA")
+    await this.events.dispatchEvent(event, "RELAY_DATA")
   }
 
   async #onRelayEndCell(event: MessageEvent<RelayEndCell>) {
@@ -152,43 +150,9 @@ export class Circuit extends AsyncEventTarget<{
 
     console.debug(`${this.#class.name}.onRelayEndCell`, event)
 
-    await this.dispatchEvent(event, "RELAY_END")
+    await this.events.dispatchEvent(event, "RELAY_END")
 
     this.streams.delete(event.data.stream.id)
-  }
-
-  async #waitExtended(signal?: AbortSignal) {
-    const future = new Future<Event, Error>()
-
-    const onAbort = (event: Event) => {
-      const abortEvent = event as AbortEvent
-      const error = new Error(`Aborted`, { cause: abortEvent.target.reason })
-      future.err(error)
-    }
-
-    const onClose = (event: CloseEvent) => {
-      const error = new Error(`Closed`, { cause: event })
-      future.err(error)
-    }
-
-    const onError = (event: ErrorEvent) => {
-      const error = new Error(`Errored`, { cause: event })
-      future.err(error)
-    }
-
-    try {
-      signal?.addEventListener("abort", onAbort, { passive: true })
-      this.addEventListener("close", onClose, { passive: true })
-      this.addEventListener("error", onError, { passive: true })
-      this.addEventListener("RELAY_EXTENDED2", future.ok, { passive: true })
-
-      return await future.promise as MessageEvent<RelayExtended2Cell<Opaque>>
-    } finally {
-      signal?.removeEventListener("abort", onAbort)
-      this.removeEventListener("close", onClose)
-      this.removeEventListener("error", onError)
-      this.removeEventListener("RELAY_EXTENDED2", future.ok)
-    }
   }
 
   async extendDir() {
@@ -261,7 +225,7 @@ export class Circuit extends AsyncEventTarget<{
     const relay_extend2 = new RelayExtend2Cell(this, undefined, RelayExtend2Cell.types.NTOR, links, ntor_request)
     this.tor.writer.enqueue(RelayEarlyCell.from(relay_extend2).cell())
 
-    const msg_extended2 = await this.#waitExtended(signal)
+    const msg_extended2 = await Events.wait(this.events, "RELAY_EXTENDED2", signal)
     const response = msg_extended2.data.data.into(Ntor.Response)
     const { public_y } = response
 
@@ -290,50 +254,16 @@ export class Circuit extends AsyncEventTarget<{
     this.targets.push(target)
   }
 
-  async #waitTruncated(signal?: AbortSignal) {
-    const future = new Future<Event, Error>()
-
-    const onAbort = (event: Event) => {
-      const abortEvent = event as AbortEvent
-      const error = new Error(`Aborted`, { cause: abortEvent.target.reason })
-      future.err(error)
-    }
-
-    const onClose = (event: CloseEvent) => {
-      const error = new Error(`Closed`, { cause: event })
-      future.err(error)
-    }
-
-    const onError = (event: ErrorEvent) => {
-      const error = new Error(`Errored`, { cause: event })
-      future.err(error)
-    }
-
-    try {
-      signal?.addEventListener("abort", onAbort, { passive: true })
-      this.addEventListener("close", onClose, { passive: true })
-      this.addEventListener("error", onError, { passive: true })
-      this.addEventListener("RELAY_TRUNCATED", future.ok, { passive: true })
-
-      return await future.promise as MessageEvent<RelayTruncatedCell>
-    } finally {
-      signal?.removeEventListener("abort", onAbort)
-      this.removeEventListener("close", onClose)
-      this.removeEventListener("error", onError)
-      this.removeEventListener("RELAY_TRUNCATED", future.ok)
-    }
-  }
-
   async destroy() {
     this.#closed = {}
 
     const error = new Error(`Destroyed`)
     const errorEvent = new ErrorEvent("error", { error })
-    await this.dispatchEvent(errorEvent, "error")
+    await this.events.dispatchEvent(errorEvent, "error")
   }
 
   async truncate(reason = RelayTruncateCell.reasons.NONE) {
-    const ptruncated = this.#waitTruncated()
+    const ptruncated = Events.wait(this.events, "RELAY_TRUNCATED")
     const relay_truncate = new RelayTruncateCell(this, undefined, reason)
     this.tor.writer.enqueue(RelayCell.from(relay_truncate).cell())
     await ptruncated
@@ -345,7 +275,7 @@ export class Circuit extends AsyncEventTarget<{
 
     const streamId = this.#streamId++
 
-    const stream = new TcpStream(this, streamId, signal)
+    const stream = new TcpStream(streamId, this, signal)
     this.streams.set(streamId, stream)
 
     const flags = new Bitset(0, 32)

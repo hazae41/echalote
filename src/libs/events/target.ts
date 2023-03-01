@@ -16,12 +16,12 @@ type EventListenerOptions = {
   onabort: () => void
 }
 
-export class AsyncEventTarget<E extends { [P in string]: Event } = { [P in string]: Event }> {
+export class AsyncEventTarget<E extends { [P: string]: Event }> {
   readonly #listeners = new Map<keyof E, Map<AsyncEventListener, EventListenerOptions>>()
 
   constructor() { }
 
-  #get(type: keyof E) {
+  #get<K extends keyof E>(type: K) {
     const listeners = this.#listeners.get(type)
     if (listeners !== undefined) return listeners
 
@@ -38,7 +38,7 @@ export class AsyncEventTarget<E extends { [P in string]: Event } = { [P in strin
    * @param options Options // { passive: true }
    * @returns 
    */
-  addEventListener<K extends Extract<keyof E, string>>(type: K, listener: AsyncEventListener<E[K]> | null, options: AddAsyncEventListenerOptions = {}) {
+  addEventListener<K extends keyof E>(type: K, listener: AsyncEventListener<E[K]> | null, options: AddAsyncEventListenerOptions = {}) {
     if (!listener) return
 
     const listeners = this.#get(type)
@@ -58,7 +58,7 @@ export class AsyncEventTarget<E extends { [P in string]: Event } = { [P in strin
    * @param _ Just to look like DOM's EventTarget
    * @returns 
    */
-  removeEventListener<K extends Extract<keyof E, string>>(type: K, listener: AsyncEventListener<E[K]> | null, _: {} = {}) {
+  removeEventListener<K extends keyof E>(type: K, listener: AsyncEventListener<E[K]> | null, _: {} = {}) {
     if (!listener) return
 
     const listeners = this.#get(type)
@@ -84,7 +84,7 @@ export class AsyncEventTarget<E extends { [P in string]: Event } = { [P in strin
    * @param event Event
    * @returns 
    */
-  async dispatchEvent<K extends Extract<keyof E, string>>(event: E[K], type: K /*= event.type as K*/) {
+  async dispatchEvent<K extends keyof E>(event: E[K], type: K /*= event.type as K*/) {
     const listeners = this.#listeners.get(type)
 
     if (!listeners) return true

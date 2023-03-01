@@ -1,21 +1,19 @@
 import { Empty, Writable } from "@hazae41/binary";
+import { CloseAndErrorEvents } from "libs/events/events.js";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { SuperTransformStream } from "libs/streams/transform.js";
 import { SmuxSegment, SmuxUpdate } from "mods/snowflake/smux/segment.js";
 import { SecretSmuxStream } from "./stream.js";
 
-export class SecretSmuxWriter extends AsyncEventTarget<{
-  close: CloseEvent,
-  error: ErrorEvent
-}>{
+export class SecretSmuxWriter {
+
+  readonly events = new AsyncEventTarget<CloseAndErrorEvents>()
 
   readonly stream: SuperTransformStream<Writable, Writable>
 
   constructor(
     readonly parent: SecretSmuxStream
   ) {
-    super()
-
     this.stream = new SuperTransformStream({
       start: this.#onStart.bind(this),
       transform: this.#onWrite.bind(this)

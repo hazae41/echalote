@@ -7,10 +7,10 @@ import { Foras } from "@hazae41/foras";
 import { Morax } from "@hazae41/morax";
 import { Paimon } from "@hazae41/paimon";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
-import { AbortEvent } from "libs/events/abort.js";
 import { CloseEvent } from "libs/events/close.js";
 import { ErrorEvent } from "libs/events/error.js";
 import { Event } from "libs/events/event.js";
+import { CloseAndErrorEvents, Events } from "libs/events/events.js";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Future } from "libs/futures/future.js";
 import { Mutex } from "libs/mutex/mutex.js";
@@ -87,7 +87,7 @@ export interface TorParams {
   fallbacks: Fallback[]
 }
 
-export type TorEvents = {
+export type TorEvents = CloseAndErrorEvents & {
   "handshake": Event,
   "VERSIONS": MessageEvent<VersionsCell>
   "CERTS": MessageEvent<CertsCell>
@@ -105,16 +105,6 @@ export type TorEvents = {
 
 export class Tor extends AsyncEventTarget<TorEvents> {
   readonly #class = Tor
-
-  readonly read = new AsyncEventTarget<{
-    "close": CloseEvent,
-    "error": ErrorEvent,
-  }>()
-
-  readonly write = new AsyncEventTarget<{
-    "close": CloseEvent,
-    "error": ErrorEvent,
-  }>()
 
   readonly reader: SuperTransformStream<Opaque, Opaque>
   readonly writer: SuperTransformStream<Writable, Writable>
@@ -179,50 +169,6 @@ export class Tor extends AsyncEventTarget<TorEvents> {
     await Foras.initBundledOnce()
   }
 
-  async #wait(type: keyof TorEvents, signal?: AbortSignal) {
-    const future = new Future<Event, Error>()
-    const onEvent = (event: Event) => future.ok(event)
-    return await this.#waitFor(type, { future, onEvent, signal })
-  }
-
-  async #waitFor<T, K extends keyof TorEvents>(type: K, params: {
-    future: Future<T, Error>,
-    onEvent: (event: TorEvents[K]) => void,
-    signal?: AbortSignal
-  }) {
-    const { future, onEvent, signal } = params
-
-    const onAbort = (event: Event) => {
-      const abortEvent = event as AbortEvent
-      const error = new Error(`Aborted`, { cause: abortEvent.target.reason })
-      future.err(error)
-    }
-
-    const onClose = (event: CloseEvent) => {
-      const error = new Error(`Closed`, { cause: event })
-      future.err(error)
-    }
-
-    const onError = (event: ErrorEvent) => {
-      const error = new Error(`Errored`, { cause: event })
-      future.err(error)
-    }
-
-    try {
-      signal?.addEventListener("abort", onAbort, { passive: true })
-      this.read.addEventListener("close", onClose, { passive: true })
-      this.read.addEventListener("error", onError, { passive: true })
-      this.addEventListener(type, onEvent, { passive: true })
-
-      return await future.promise
-    } finally {
-      signal?.removeEventListener("abort", onAbort)
-      this.read.removeEventListener("close", onClose)
-      this.read.removeEventListener("error", onError)
-      this.removeEventListener(type, onEvent)
-    }
-  }
-
   get closed() {
     return this.reader.closed
   }
@@ -233,7 +179,7 @@ export class Tor extends AsyncEventTarget<TorEvents> {
     this.reader.closed = {}
 
     const closeEvent = new CloseEvent("close", {})
-    await this.read.dispatchEvent(closeEvent, "close")
+    await this.dispatchEvent(closeEvent, "close")
   }
 
   async #onReadError(reason?: unknown) {
@@ -244,16 +190,13 @@ export class Tor extends AsyncEventTarget<TorEvents> {
 
     const error = new Error(`Errored`, { cause: reason })
     const errorEvent = new ErrorEvent("error", { error })
-    await this.read.dispatchEvent(errorEvent, "error")
+    await this.dispatchEvent(errorEvent, "error")
   }
 
   async #onWriteClose() {
     console.debug(`${this.#class.name}.onWriteClose`)
 
     this.writer.closed = {}
-
-    const closeEvent = new CloseEvent("close", {})
-    await this.write.dispatchEvent(closeEvent, "close")
   }
 
   async #onWriteError(reason?: unknown) {
@@ -261,10 +204,6 @@ export class Tor extends AsyncEventTarget<TorEvents> {
 
     this.writer.closed = { reason }
     this.reader.error(reason)
-
-    const error = new Error(`Errored`, { cause: reason })
-    const errorEvent = new ErrorEvent("error", { error })
-    await this.write.dispatchEvent(errorEvent, "error")
   }
 
   async #onWriteStart() {
@@ -273,7 +212,7 @@ export class Tor extends AsyncEventTarget<TorEvents> {
     const version = new VersionsCell(undefined, [5])
     this.writer.enqueue(OldCell.from(version))
 
-    await this.#wait("handshake")
+    await Events.wait(this, "handshake")
   }
 
   async #onRead(chunk: Opaque) {
@@ -594,7 +533,7 @@ export class Tor extends AsyncEventTarget<TorEvents> {
       future.ok(event.data)
     }
 
-    return await this.#waitFor("CREATED_FAST", { future, onEvent, signal })
+    return await Events.waitFor(this, "CREATED_FAST", { future, onEvent, signal })
   }
 
   async tryCreateAndExtend(params: LoopParams = {}) {
