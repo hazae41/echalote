@@ -53,28 +53,28 @@ export class Circuit {
     readonly id: number
   ) {
     const onClose = this.#onTorClose.bind(this)
-    this.tor.addEventListener("close", onClose, { passive: true })
+    this.tor.events.addEventListener("close", onClose, { passive: true })
 
     const onError = this.#onTorError.bind(this)
-    this.tor.addEventListener("error", onError, { passive: true })
+    this.tor.events.addEventListener("error", onError, { passive: true })
 
     const onDestroyCell = this.#onDestroyCell.bind(this)
-    this.tor.addEventListener("DESTROY", onDestroyCell, { passive: true })
+    this.tor.events.addEventListener("DESTROY", onDestroyCell, { passive: true })
 
     const onRelayExtended2Cell = this.#onRelayExtended2Cell.bind(this)
-    this.tor.addEventListener("RELAY_EXTENDED2", onRelayExtended2Cell, { passive: true })
+    this.tor.events.addEventListener("RELAY_EXTENDED2", onRelayExtended2Cell, { passive: true })
 
     const onRelayTruncatedCell = this.#onRelayTruncatedCell.bind(this)
-    this.tor.addEventListener("RELAY_TRUNCATED", onRelayTruncatedCell, { passive: true })
+    this.tor.events.addEventListener("RELAY_TRUNCATED", onRelayTruncatedCell, { passive: true })
 
     const onRelayConnectedCell = this.#onRelayConnectedCell.bind(this)
-    this.tor.addEventListener("RELAY_CONNECTED", onRelayConnectedCell, { passive: true })
+    this.tor.events.addEventListener("RELAY_CONNECTED", onRelayConnectedCell, { passive: true })
 
     const onRelayDataCell = this.#onRelayDataCell.bind(this)
-    this.tor.addEventListener("RELAY_DATA", onRelayDataCell, { passive: true })
+    this.tor.events.addEventListener("RELAY_DATA", onRelayDataCell, { passive: true })
 
     const onRelayEndCell = this.#onRelayEndCell.bind(this)
-    this.tor.addEventListener("RELAY_END", onRelayEndCell, { passive: true })
+    this.tor.events.addEventListener("RELAY_END", onRelayEndCell, { passive: true })
   }
 
   get closed() {

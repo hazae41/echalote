@@ -102,8 +102,10 @@ export type TorEvents = CloseAndErrorEvents & {
   "RELAY_END": MessageEvent<RelayEndCell>
 }
 
-export class Tor extends AsyncEventTarget<TorEvents> {
+export class Tor {
   readonly #class = Tor
+
+  readonly events = new AsyncEventTarget<TorEvents>()
 
   readonly reader: SuperTransformStream<Opaque, Opaque>
   readonly writer: SuperTransformStream<Writable, Writable>
@@ -124,8 +126,6 @@ export class Tor extends AsyncEventTarget<TorEvents> {
     readonly tcp: ReadableWritablePair<Opaque, Writable>,
     readonly params: TorParams
   ) {
-    super()
-
     const { signal } = params
 
     this.authorities = parseAuthorities()
@@ -178,7 +178,7 @@ export class Tor extends AsyncEventTarget<TorEvents> {
     this.reader.closed = {}
 
     const closeEvent = new CloseEvent("close", {})
-    await this.dispatchEvent(closeEvent, "close")
+    await this.events.dispatchEvent(closeEvent, "close")
   }
 
   async #onReadError(reason?: unknown) {
@@ -189,7 +189,7 @@ export class Tor extends AsyncEventTarget<TorEvents> {
 
     const error = new Error(`Errored`, { cause: reason })
     const errorEvent = new ErrorEvent("error", { error })
-    await this.dispatchEvent(errorEvent, "error")
+    await this.events.dispatchEvent(errorEvent, "error")
   }
 
   async #onWriteClose() {
@@ -211,7 +211,7 @@ export class Tor extends AsyncEventTarget<TorEvents> {
     const version = new VersionsCell(undefined, [5])
     this.writer.enqueue(OldCell.from(version))
 
-    await Events.wait(this, "handshake")
+    await Events.wait(this.events, "handshake")
   }
 
   async #onRead(chunk: Opaque) {
@@ -334,7 +334,7 @@ export class Tor extends AsyncEventTarget<TorEvents> {
     console.debug(`VERSIONS`, data)
 
     const cellEvent = new MessageEvent("VERSIONS", { data })
-    await this.dispatchEvent(cellEvent, "VERSIONS")
+    await this.events.dispatchEvent(cellEvent, "VERSIONS")
 
     if (!data.versions.includes(5))
       throw new Error(`Incompatible versions`)
@@ -351,7 +351,7 @@ export class Tor extends AsyncEventTarget<TorEvents> {
     console.debug(`CERTS`, data)
 
     const cellEvent = new MessageEvent("CERTS", { data })
-    await this.dispatchEvent(cellEvent, "CERTS")
+    await this.events.dispatchEvent(cellEvent, "CERTS")
 
     const idh = await data.getIdHash()
 
@@ -377,7 +377,7 @@ export class Tor extends AsyncEventTarget<TorEvents> {
     console.debug(`AUTH_CHALLENGE`, data)
 
     const cellEvent = new MessageEvent("AUTH_CHALLENGE", { data })
-    await this.dispatchEvent(cellEvent, "AUTH_CHALLENGE")
+    await this.events.dispatchEvent(cellEvent, "AUTH_CHALLENGE")
   }
 
   async #onNetinfoCell(cell: Cell<Opaque>) {
@@ -389,7 +389,7 @@ export class Tor extends AsyncEventTarget<TorEvents> {
     console.debug(`NETINFO`, data)
 
     const cellEvent = new MessageEvent("NETINFO", { data })
-    await this.dispatchEvent(cellEvent, "NETINFO")
+    await this.events.dispatchEvent(cellEvent, "NETINFO")
 
     const address = new TypedAddress(4, new Uint8Array([127, 0, 0, 1]))
     const netinfo = new NetinfoCell(undefined, 0, address, [])
@@ -404,7 +404,7 @@ export class Tor extends AsyncEventTarget<TorEvents> {
     this.#state = { type: "handshaked", version, guard }
 
     const stateEvent = new Event("handshake", {})
-    await this.dispatchEvent(stateEvent, "handshake")
+    await this.events.dispatchEvent(stateEvent, "handshake")
   }
 
   async #onCreatedFastCell(cell: Cell<Opaque>) {
@@ -413,7 +413,7 @@ export class Tor extends AsyncEventTarget<TorEvents> {
     console.debug(`CREATED_FAST`, data)
 
     const cellEvent = new MessageEvent("CREATED_FAST", { data })
-    await this.dispatchEvent(cellEvent, "CREATED_FAST")
+    await this.events.dispatchEvent(cellEvent, "CREATED_FAST")
   }
 
   async #onDestroyCell(cell: Cell<Opaque>) {
@@ -422,7 +422,7 @@ export class Tor extends AsyncEventTarget<TorEvents> {
     console.debug(`DESTROY`, data)
 
     const cellEvent = new MessageEvent("DESTROY", { data })
-    await this.dispatchEvent(cellEvent, "DESTROY")
+    await this.events.dispatchEvent(cellEvent, "DESTROY")
 
     this.circuits.delete(data.circuit.id)
   }
@@ -452,7 +452,7 @@ export class Tor extends AsyncEventTarget<TorEvents> {
     console.debug(`RELAY_EXTENDED2`, data)
 
     const cellEvent = new MessageEvent("RELAY_EXTENDED2", { data })
-    await this.dispatchEvent(cellEvent, "RELAY_EXTENDED2")
+    await this.events.dispatchEvent(cellEvent, "RELAY_EXTENDED2")
   }
 
   async #onRelayConnectedCell(cell: RelayCell<Opaque>) {
@@ -461,7 +461,7 @@ export class Tor extends AsyncEventTarget<TorEvents> {
     console.debug(`RELAY_CONNECTED`, data)
 
     const cellEvent = new MessageEvent("RELAY_CONNECTED", { data })
-    await this.dispatchEvent(cellEvent, "RELAY_CONNECTED")
+    await this.events.dispatchEvent(cellEvent, "RELAY_CONNECTED")
   }
 
   async #onRelayDataCell(cell: RelayCell<Opaque>) {
@@ -470,7 +470,7 @@ export class Tor extends AsyncEventTarget<TorEvents> {
     console.debug(`RELAY_DATA`, data)
 
     const cellEvent = new MessageEvent("RELAY_DATA", { data })
-    await this.dispatchEvent(cellEvent, "RELAY_DATA")
+    await this.events.dispatchEvent(cellEvent, "RELAY_DATA")
   }
 
   async #onRelayEndCell(cell: RelayCell<Opaque>) {
@@ -479,7 +479,7 @@ export class Tor extends AsyncEventTarget<TorEvents> {
     console.debug(`RELAY_END`, data)
 
     const cellEvent = new MessageEvent("RELAY_END", { data })
-    await this.dispatchEvent(cellEvent, "RELAY_END")
+    await this.events.dispatchEvent(cellEvent, "RELAY_END")
   }
 
   async #onRelayDropCell(cell: RelayCell<Opaque>) {
@@ -488,7 +488,7 @@ export class Tor extends AsyncEventTarget<TorEvents> {
     console.debug(`RELAY_DROP`, data)
 
     const cellEvent = new MessageEvent("RELAY_DROP", { data })
-    await this.dispatchEvent(cellEvent, "RELAY_DROP")
+    await this.events.dispatchEvent(cellEvent, "RELAY_DROP")
   }
 
   async #onRelayTruncatedCell(cell: RelayCell<Opaque>) {
@@ -497,7 +497,7 @@ export class Tor extends AsyncEventTarget<TorEvents> {
     console.debug(`RELAY_TRUNCATED`, data)
 
     const cellEvent = new MessageEvent("RELAY_TRUNCATED", { data })
-    await this.dispatchEvent(cellEvent, "RELAY_TRUNCATED")
+    await this.events.dispatchEvent(cellEvent, "RELAY_TRUNCATED")
 
     data.circuit.targets.pop()
   }
@@ -532,7 +532,7 @@ export class Tor extends AsyncEventTarget<TorEvents> {
       future.ok(event.data)
     }
 
-    return await Events.waitFor(this, "CREATED_FAST", { future, onEvent, signal })
+    return await Events.waitFor(this.events, "CREATED_FAST", { future, onEvent, signal })
   }
 
   async tryCreateAndExtend(params: LoopParams = {}) {

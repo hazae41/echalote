@@ -2,12 +2,8 @@ import { Ciphers, TlsStream } from "@hazae41/cadenas";
 import { Circuit, CircuitPool, createWebSocketSnowflakeStream, Tor } from "@hazae41/echalote";
 import { Fleche } from "@hazae41/fleche";
 import fallbacks from "assets/fallbacks.json";
-import lorem from "assets/lorem.json";
 import { Future } from "libs/futures/future";
 import { DependencyList, useCallback, useEffect, useState } from "react";
-
-
-lorem;
 
 async function fetch(socket: WebSocket) {
   const start = Date.now()
@@ -31,8 +27,8 @@ async function createWebSocket(circuit: Circuit) {
   const future = new Future()
 
   try {
-    socket.addEventListener("open", future.ok)
-    socket.addEventListener("error", future.err)
+    socket.addEventListener("open", future.ok, { passive: true })
+    socket.addEventListener("error", future.err, { passive: true })
 
     await future.promise
   } finally {
