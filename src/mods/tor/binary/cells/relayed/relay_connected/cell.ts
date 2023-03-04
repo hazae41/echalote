@@ -25,20 +25,21 @@ export class RelayConnectedCell {
   static read(cursor: Cursor) {
     const ipv4 = Address4.read(cursor)
 
-    if (ipv4.address !== "...") {
+    if (ipv4.address !== "0.0.0.0") {
       const ttl = ttlToDate(cursor.readUint32())
+
       return { address: ipv4, ttl }
+    } else {
+      const type = cursor.readUint8()
+
+      if (type !== 6)
+        throw new Error(`Unknown address type ${type}`)
+
+      const ipv6 = Address6.read(cursor)
+      const ttl = ttlToDate(cursor.readUint32())
+
+      return { address: ipv6, ttl }
     }
-
-    const type = cursor.readUint8()
-
-    if (type !== 6)
-      throw new Error(`Unknown address type ${type}`)
-
-    const ipv6 = Address6.read(cursor)
-    const ttl = ttlToDate(cursor.readUint32())
-
-    return { address: ipv6, ttl }
   }
 
   static uncell(cell: RelayCell<Opaque>) {
