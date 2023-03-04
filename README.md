@@ -34,7 +34,7 @@ This is experimental software in early development
 ## Usage
 
 ```typescript
-import { Tor, createWebSocketSnowflakeStream } from "@hazae41/echalote"
+import { TorClientDuplex, createWebSocketSnowflakeStream } from "@hazae41/echalote"
 import fallbacks from "./fallbacks.json"
 
 const tcp = await createWebSocketSnowflakeStream("wss://snowflake.bamsoftware.com/")
