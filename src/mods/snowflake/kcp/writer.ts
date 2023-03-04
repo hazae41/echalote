@@ -1,7 +1,7 @@
 import { Opaque, Writable } from "@hazae41/binary";
+import { Future } from "@hazae41/future";
 import { CloseAndErrorEvents, Events } from "libs/events/events.js";
 import { AsyncEventTarget } from "libs/events/target.js";
-import { Future } from "libs/futures/future.js";
 import { SuperTransformStream } from "libs/streams/transform.js";
 import { KcpSegment } from "./segment.js";
 import { SecretKcpStream } from "./stream.js";
@@ -46,11 +46,11 @@ export class SecretKcpWriter {
       this.stream.enqueue(writable)
     }, 1000)
 
-    const future = new Future<void, Error>()
+    const future = new Future<void>()
 
     const onEvent = (event: MessageEvent<KcpSegment<Opaque>>) => {
       if (event.data.serial !== serial) return
-      future.ok()
+      future.resolve()
     }
 
     Events.waitFor(this.parent.reader.events, "ack", { future, onEvent })

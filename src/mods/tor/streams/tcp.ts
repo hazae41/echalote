@@ -1,6 +1,4 @@
 import { Cursor, Opaque, Writable } from "@hazae41/binary";
-import { CloseEvent } from "libs/events/close.js";
-import { ErrorEvent } from "libs/events/error.js";
 import { SuperReadableStream } from "libs/streams/readable.js";
 import { SuperWritableStream } from "libs/streams/writable.js";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";

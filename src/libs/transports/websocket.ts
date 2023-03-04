@@ -1,5 +1,4 @@
 import { Opaque, Writable } from "@hazae41/binary"
-import { Future } from "libs/futures/future.js"
 
 export async function createWebSocketStream(url: string) {
   const websocket = new WebSocket(url)
@@ -15,22 +14,16 @@ export async function createWebSocketStream(url: string) {
 }
 
 async function tryClose(websocket: WebSocket) {
-  const close = new Future<void>()
+  await new Promise<void>((ok, err) => {
+    const onClose = (e: CloseEvent) => {
+      if (e.wasClean)
+        ok()
+      else
+        err(e)
+    }
 
-  const onClose = (e: CloseEvent) => {
-    if (e.wasClean)
-      close.ok()
-    else
-      close.err(e)
-  }
-
-  try {
-    websocket.addEventListener("close", onClose, { passive: true })
-
-    await close.promise
-  } finally {
-    websocket.removeEventListener("close", onClose)
-  }
+    websocket.addEventListener("close", onClose, { passive: true, once: true })
+  })
 }
 
 export type WebSocketStreamParams =
@@ -78,7 +71,7 @@ export class WebSocketSource implements UnderlyingDefaultSource<Opaque> {
 
     const onMessage = (msgEvent: MessageEvent<ArrayBuffer>) => {
       const bytes = new Uint8Array(msgEvent.data)
-      // console.debug("ws <-", chunk)
+      // console.debug("ws <-", bytes)
       controller.enqueue(new Opaque(bytes))
     }
 
@@ -91,7 +84,7 @@ export class WebSocketSource implements UnderlyingDefaultSource<Opaque> {
       this.websocket.removeEventListener("error", onError)
     }
 
-    const onClose = (closeEvent: CloseEvent) => {
+    const onClose = (event: CloseEvent) => {
       controller.close()
 
       this.websocket.removeEventListener("message", onMessage)
@@ -157,7 +150,7 @@ export class WebSocketSink implements UnderlyingSink<Writable> {
 
   async write(chunk: Writable) {
     const bytes = Writable.toBytes(chunk)
-    // console.debug("ws ->", chunk)
+    // console.debug("ws ->", bytes)
     this.websocket.send(bytes)
   }
 

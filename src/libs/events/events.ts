@@ -1,4 +1,4 @@
-import { Future } from "libs/futures/future.js"
+import { Future } from "@hazae41/future"
 import { AbortEvent } from "./abort.js"
 import { AsyncEventTarget } from "./target.js"
 
@@ -17,14 +17,14 @@ export namespace Events {
    * @returns 
    */
   export async function wait<E extends CloseAndErrorEvents, K extends keyof E>(target: AsyncEventTarget<E>, type: K, signal?: AbortSignal) {
-    const future = new Future<E[K], Error>()
-    const onEvent = (event: E[K]) => future.ok(event)
+    const future = new Future<E[K]>()
+    const onEvent = (event: E[K]) => future.resolve(event)
     return await waitFor(target, type, { future, onEvent, signal })
   }
 
   export interface WaitForParams<T, E extends CloseAndErrorEvents, K extends keyof E> {
     onEvent: (event: E[K]) => void,
-    future: Future<T, Error>,
+    future: Future<T>,
     signal?: AbortSignal
   }
 
@@ -41,17 +41,17 @@ export namespace Events {
     const onAbort = (event: Event) => {
       const abortEvent = event as AbortEvent
       const error = new Error(`Aborted`, { cause: abortEvent.target.reason })
-      future.err(error)
+      future.reject(error)
     }
 
     const onClose = (event: CloseEvent) => {
       const error = new Error(`Closed`, { cause: event })
-      future.err(error)
+      future.reject(error)
     }
 
     const onError = (event: ErrorEvent) => {
       const error = new Error(`Errored`, { cause: event })
-      future.err(error)
+      future.reject(error)
     }
 
     try {

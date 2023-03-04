@@ -9,7 +9,7 @@ console.log(relative(directory, pathname.replace(".mjs", ".ts")))
 test("AsyncEventTarget", async ({ test }) => {
   const target = new AsyncEventTarget<{ test: Event }>()
 
-  const stack = []
+  const stack = new Array<string>()
 
   target.addEventListener("test", async () => {
     stack.push("first")

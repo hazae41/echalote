@@ -1,6 +1,4 @@
 import { Cursor, Opaque, Writable } from "@hazae41/binary";
-import { CloseEvent } from "libs/events/close.js";
-import { ErrorEvent } from "libs/events/error.js";
 import { SecretKcpReader } from "./reader.js";
 import { SecretKcpWriter } from "./writer.js";
 

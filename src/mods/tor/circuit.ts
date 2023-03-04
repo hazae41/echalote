@@ -7,8 +7,6 @@ import { fetch } from "@hazae41/fleche";
 import { Sha1Hasher } from "@hazae41/morax";
 import { Aes128Ctr128BEKey } from "@hazae41/zepar";
 import { Arrays } from "libs/arrays/arrays.js";
-import { CloseEvent } from "libs/events/close.js";
-import { ErrorEvent } from "libs/events/error.js";
 import { CloseAndErrorEvents, Events } from "libs/events/events.js";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Ntor } from "mods/tor/algorithms/ntor/index.js";

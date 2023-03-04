@@ -1,5 +1,3 @@
-import { Event } from "./event.js"
-
 export type AsyncEventListener<T = unknown> =
   (e: T) => void | Promise<void>
 

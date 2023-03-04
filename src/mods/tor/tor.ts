@@ -4,15 +4,12 @@ import { Bitset } from "@hazae41/bitset";
 import { Bytes } from "@hazae41/bytes";
 import { TlsStream } from "@hazae41/cadenas";
 import { Foras } from "@hazae41/foras";
+import { Future } from "@hazae41/future";
 import { Morax } from "@hazae41/morax";
 import { Paimon } from "@hazae41/paimon";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
-import { CloseEvent } from "libs/events/close.js";
-import { ErrorEvent } from "libs/events/error.js";
-import { Event } from "libs/events/event.js";
 import { CloseAndErrorEvents, Events } from "libs/events/events.js";
 import { AsyncEventTarget } from "libs/events/target.js";
-import { Future } from "libs/futures/future.js";
 import { Mutex } from "libs/mutex/mutex.js";
 import { SuperTransformStream } from "libs/streams/transform.js";
 import { kdftor } from "mods/tor/algorithms/kdftor.js";
@@ -525,11 +522,11 @@ export class Tor {
   }
 
   async #waitCreatedFast(circuit: Circuit, signal?: AbortSignal) {
-    const future = new Future<CreatedFastCell, Error>()
+    const future = new Future<CreatedFastCell>()
 
     const onEvent = (event: MessageEvent<CreatedFastCell>) => {
       if (event.data.circuit !== circuit) return
-      future.ok(event.data)
+      future.resolve(event.data)
     }
 
     return await Events.waitFor(this.events, "CREATED_FAST", { future, onEvent, signal })
