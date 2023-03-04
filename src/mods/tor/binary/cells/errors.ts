@@ -1,5 +1,5 @@
 import { Circuit } from "mods/tor/circuit.js"
-import { TcpStream } from "mods/tor/streams/tcp.js"
+import { TorStreamDuplex } from "mods/tor/stream.js"
 
 export class InvalidCommand extends Error {
   constructor(
@@ -31,7 +31,7 @@ export class InvalidCircuit extends Error {
 export class InvalidStream extends Error {
   constructor(
     readonly name: string,
-    readonly stream?: TcpStream
+    readonly stream?: TorStreamDuplex
   ) {
     super(`Invalid ${name} circuit ${stream?.id}`)
   }

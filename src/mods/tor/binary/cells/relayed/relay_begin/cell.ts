@@ -2,7 +2,7 @@ import { Cursor, Opaque } from "@hazae41/binary";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/index.js";
 import { InvalidRelayCommand, InvalidStream } from "mods/tor/binary/cells/errors.js";
 import { Circuit } from "mods/tor/circuit.js";
-import { TcpStream } from "mods/tor/streams/tcp.js";
+import { TorStreamDuplex } from "mods/tor/stream.js";
 
 export class RelayBeginCell {
   readonly #class = RelayBeginCell
@@ -17,7 +17,7 @@ export class RelayBeginCell {
 
   constructor(
     readonly circuit: Circuit,
-    readonly stream: TcpStream,
+    readonly stream: TorStreamDuplex,
     readonly address: string,
     readonly flags: number
   ) { }

@@ -1,4 +1,4 @@
-import { CircuitPool, createWebSocketSnowflakeStream, Tor } from "@hazae41/echalote";
+import { CircuitPool, createWebSocketSnowflakeStream, TorClientDuplex } from "@hazae41/echalote";
 import fallbacks from "assets/fallbacks.json";
 import { SocketPool } from "libs/sockets/pool";
 import { DependencyList, useCallback, useEffect, useMemo, useState } from "react";
@@ -35,7 +35,7 @@ export default function Page() {
     // const tcp = await createMeekStream("https://meek.bamsoftware.com/")
     // const tcp = await createWebSocketStream("ws://localhost:8080")
 
-    return new Tor(tcp, { fallbacks })
+    return new TorClientDuplex(tcp, { fallbacks })
   }, [])
 
   const circuits = useMemo(() => {

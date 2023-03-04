@@ -4,7 +4,7 @@ import { Address4, Address6 } from "mods/tor/binary/address.js"
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js"
 import { InvalidRelayCommand, InvalidStream } from "mods/tor/binary/cells/errors.js"
 import { Circuit } from "mods/tor/circuit.js"
-import { TcpStream } from "mods/tor/streams/tcp.js"
+import { TorStreamDuplex } from "mods/tor/stream.js"
 
 export class RelayConnectedCell {
   readonly #class = RelayConnectedCell
@@ -13,7 +13,7 @@ export class RelayConnectedCell {
 
   constructor(
     readonly circuit: Circuit,
-    readonly stream: TcpStream,
+    readonly stream: TorStreamDuplex,
     readonly address: Address4 | Address6,
     readonly ttl: Date
   ) { }

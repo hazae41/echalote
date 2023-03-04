@@ -20,9 +20,9 @@ import { RelayExtend2Link, RelayExtend2LinkLegacyID, RelayExtend2LinkModernID } 
 import { RelayExtended2Cell } from "mods/tor/binary/cells/relayed/relay_extended2/cell.js";
 import { RelayTruncateCell } from "mods/tor/binary/cells/relayed/relay_truncate/cell.js";
 import { RelayTruncatedCell } from "mods/tor/binary/cells/relayed/relay_truncated/cell.js";
-import { TcpStream } from "mods/tor/streams/tcp.js";
+import { TorStreamDuplex } from "mods/tor/stream.js";
 import { Target } from "mods/tor/target.js";
-import { Fallback, Tor } from "mods/tor/tor.js";
+import { Fallback, TorClientDuplex } from "mods/tor/tor.js";
 import { LoopParams } from "mods/tor/types/loop.js";
 import { RelayCell } from "./binary/cells/direct/relay/cell.js";
 import { RelayEarlyCell } from "./binary/cells/direct/relay_early/cell.js";
@@ -40,14 +40,14 @@ export class Circuit {
   readonly events = new AsyncEventTarget<CircuitEvents>()
 
   readonly targets = new Array<Target>()
-  readonly streams = new Map<number, TcpStream>()
+  readonly streams = new Map<number, TorStreamDuplex>()
 
   #streamId = 1
 
   #closed?: { reason?: any }
 
   constructor(
-    readonly tor: Tor,
+    readonly tor: TorClientDuplex,
     readonly id: number
   ) {
     const onClose = this.#onTorClose.bind(this)
@@ -273,7 +273,7 @@ export class Circuit {
 
     const streamId = this.#streamId++
 
-    const stream = new TcpStream(streamId, this, signal)
+    const stream = new TorStreamDuplex(streamId, this, signal)
     this.streams.set(streamId, stream)
 
     const flags = new Bitset(0, 32)

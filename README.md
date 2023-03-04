@@ -39,7 +39,7 @@ import fallbacks from "./fallbacks.json"
 
 const tcp = await createWebSocketSnowflakeStream("wss://snowflake.bamsoftware.com/")
 
-const tor = new Tor(tcp, { fallbacks })
+const tor = new TorClientDuplex(tcp, { fallbacks })
 
 const circuit = await tor.tryCreateAndExtend()
 const res = await circuit.fetch("https://twitter.com")

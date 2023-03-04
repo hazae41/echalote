@@ -6,8 +6,8 @@ import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js"
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { Circuit } from "mods/tor/circuit.js";
 
-export class TcpStream {
-  readonly #class = TcpStream
+export class TorStreamDuplex {
+  readonly #class = TorStreamDuplex
 
   readonly #reader: SuperReadableStream<Opaque>
   readonly #writer: SuperWritableStream<Writable>

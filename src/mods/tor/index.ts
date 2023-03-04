@@ -5,7 +5,7 @@ export * from "./circuit.js";
 export * from "./consensus/index.js";
 export * from "./constants.js";
 export * from "./pool.js";
-export * from "./streams/index.js";
+export * from "./stream.js";
 export * from "./target.js";
 export * from "./tor.js";
 export * from "./types/index.js";

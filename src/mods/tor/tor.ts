@@ -99,8 +99,8 @@ export type TorEvents = CloseAndErrorEvents & {
   "RELAY_END": MessageEvent<RelayEndCell>
 }
 
-export class Tor {
-  readonly #class = Tor
+export class TorClientDuplex {
+  readonly #class = TorClientDuplex
 
   readonly events = new AsyncEventTarget<TorEvents>()
 

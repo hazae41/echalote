@@ -1,7 +1,7 @@
 import { Arrays } from "libs/arrays/arrays.js";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Circuit } from "mods/tor/circuit.js";
-import { Tor } from "mods/tor/tor.js";
+import { TorClientDuplex } from "mods/tor/tor.js";
 
 export interface CircuitPoolParams {
   readonly capacity?: number
@@ -34,7 +34,7 @@ export class CircuitPool {
    * @param params 
    */
   constructor(
-    readonly tor: Tor,
+    readonly tor: TorClientDuplex,
     readonly params: CircuitPoolParams = {}
   ) {
     const { capacity = 3 } = this.params
