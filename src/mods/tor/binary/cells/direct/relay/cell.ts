@@ -51,7 +51,7 @@ export class RelayCell<T extends Writable>  {
     cursor.fill(0, Math.min(cursor.remaining, 4))
     cursor.write(Bytes.random(cursor.remaining))
 
-    const exit = Arrays.lastOf(this.circuit.targets)
+    const exit = Arrays.last(this.circuit.targets)
 
     exit.forward_digest.update(cursor.bytes)
 

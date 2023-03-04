@@ -154,7 +154,7 @@ export class Circuit {
   }
 
   async extendDir() {
-    const authority = Arrays.randomOf(this.tor.authorities.filter(it => it.v3ident))
+    const authority = Arrays.random(this.tor.authorities.filter(it => it.v3ident))
 
     if (!authority)
       throw new Error(`Could not find authority`)
@@ -192,7 +192,7 @@ export class Circuit {
     const fallbacks = exit
       ? this.tor.params.fallbacks.filter(it => it.exit)
       : this.tor.params.fallbacks
-    const fallback = Arrays.randomOf(fallbacks)
+    const fallback = Arrays.random(fallbacks)
 
     if (!fallback)
       throw new Error(`Could not find fallback`)

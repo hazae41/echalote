@@ -130,7 +130,7 @@ export class CircuitPool {
    */
   randomSync() {
     const circuits = [...this.#openCircuits]
-    const circuit = Arrays.randomOf(circuits)
+    const circuit = Arrays.random(circuits)
 
     if (!circuit)
       throw new Error(`No circuit in pool`)
