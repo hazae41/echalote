@@ -1,20 +1,18 @@
-import { CircuitPool, createWebSocketSnowflakeStream, Tor } from "@hazae41/echalote";
+import { Circuit, CircuitPool, createWebSocketSnowflakeStream, Tor } from "@hazae41/echalote";
 import fallbacks from "assets/fallbacks.json";
-import { SocketPool } from "libs/sockets/pool";
 import { DependencyList, useCallback, useEffect, useMemo, useState } from "react";
 
-async function fetch(socket: WebSocket) {
+async function fetch(circuit: Circuit) {
   const start = Date.now()
 
-  socket.send(JSON.stringify({ "jsonrpc": "2.0", "method": "web3_clientVersion", "params": [], "id": 67 }))
+  const body = JSON.stringify({ "jsonrpc": "2.0", "method": "web3_clientVersion", "params": [], "id": 67 })
+  const headers = { "content-type": "application/json" }
+  const res = await circuit.fetch("https://virginia.rpc.blxrbdn.com", { method: "POST", headers, body })
 
-  const event = await new Promise<MessageEvent>((ok, err) => {
-    socket.addEventListener("message", ok)
-    socket.addEventListener("error", err)
-  })
+  // const res = await circuit.fetch("https://twitter.com", {})
 
-  const delay = Date.now() - start
-  console.log(event.data, delay)
+  console.log(res, Date.now() - start)
+  console.log(await res.text(), Date.now() - start)
 }
 
 function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
@@ -45,21 +43,13 @@ export default function Page() {
     return new CircuitPool(tor)
   }, [tor])
 
-  const sockets = useMemo(() => {
+  const onClick = useCallback(async () => {
     if (!circuits) return
 
-    const url = new URL("wss://mainnet.infura.io/ws/v3/b6bf7d3508c941499b10025c0776eaf8")
+    const circuit = await circuits.random()
 
-    return new SocketPool(url, circuits)
+    fetch(circuit)
   }, [circuits])
-
-  const onClick = useCallback(async () => {
-    if (!sockets) return
-
-    const socket = await sockets.random()
-
-    await fetch(socket)
-  }, [sockets])
 
   return <>
     <button onClick={onClick}>
