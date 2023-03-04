@@ -2,7 +2,7 @@ import { X25519PublicKey, X25519StaticSecret } from "@hazae41/berith";
 import { Opaque } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Bytes } from "@hazae41/bytes";
-import { Ciphers, TlsStream } from "@hazae41/cadenas";
+import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
 import { fetch } from "@hazae41/fleche";
 import { Sha1Hasher } from "@hazae41/morax";
 import { Aes128Ctr128BEKey } from "@hazae41/zepar";
@@ -314,7 +314,7 @@ export class Circuit {
       const tcp = await this.open(url.hostname, port, req.signal)
 
       const ciphers = [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
-      const tls = new TlsStream(tcp, { ciphers })
+      const tls = new TlsClientDuplex(tcp, { ciphers })
 
       return fetch(input, { ...init, stream: tls })
     }

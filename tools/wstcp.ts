@@ -18,7 +18,9 @@ async function onconn(conn: Deno.Conn) {
     try {
       const { socket, response } = Deno.upgradeWebSocket(request);
 
-      onsocket(socket)
+      const target = await Deno.connect({ hostname: "127.0.0.1", port: 9001, transport: "tcp" })
+
+      onsocket(socket, target)
 
       await respondWith(response)
     } catch (_: unknown) {
@@ -27,10 +29,8 @@ async function onconn(conn: Deno.Conn) {
   }
 }
 
-async function onsocket(socket: WebSocket) {
+async function onsocket(socket: WebSocket, target: Deno.Conn) {
   socket.binaryType = "arraybuffer"
-
-  const target = await Deno.connect({ hostname: "127.0.0.1", port: 9001, transport: "tcp" })
 
   socket.addEventListener("message", async e => {
     try {

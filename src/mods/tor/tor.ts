@@ -2,7 +2,7 @@ import { Berith } from "@hazae41/berith";
 import { Cursor, Opaque, Readable, Writable } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Bytes } from "@hazae41/bytes";
-import { TlsStream } from "@hazae41/cadenas";
+import { TlsClientDuplex } from "@hazae41/cadenas";
 import { Foras } from "@hazae41/foras";
 import { Future } from "@hazae41/future";
 import { Morax } from "@hazae41/morax";
@@ -128,7 +128,7 @@ export class Tor {
     this.authorities = parseAuthorities()
 
     const ciphers = Object.values(TorCiphers)
-    const tls = new TlsStream(tcp, { signal, ciphers })
+    const tls = new TlsClientDuplex(tcp, { signal, ciphers })
 
     this.reader = new SuperTransformStream({
       transform: this.#onRead.bind(this)
