@@ -20,7 +20,7 @@ import { RelayExtend2Link, RelayExtend2LinkLegacyID, RelayExtend2LinkModernID } 
 import { RelayExtended2Cell } from "mods/tor/binary/cells/relayed/relay_extended2/cell.js";
 import { RelayTruncateCell } from "mods/tor/binary/cells/relayed/relay_truncate/cell.js";
 import { RelayTruncatedCell } from "mods/tor/binary/cells/relayed/relay_truncated/cell.js";
-import { TorStreamDuplex } from "mods/tor/stream.js";
+import { SecretTorStreamDuplex, TorStreamDuplex } from "mods/tor/stream.js";
 import { Target } from "mods/tor/target.js";
 import { Fallback, SecretTorClientDuplex } from "mods/tor/tor.js";
 import { LoopParams } from "mods/tor/types/loop.js";
@@ -86,15 +86,15 @@ export class SecretCircuit {
   readonly events = new AsyncEventTarget<SecretCircuitEvents>()
 
   readonly targets = new Array<Target>()
-  readonly streams = new Map<number, TorStreamDuplex>()
+  readonly streams = new Map<number, SecretTorStreamDuplex>()
 
   #streamId = 1
 
   #closed?: { reason?: any }
 
   constructor(
-    readonly tor: SecretTorClientDuplex,
-    readonly id: number
+    readonly id: number,
+    readonly tor: SecretTorClientDuplex
   ) {
     const onClose = this.#onTorClose.bind(this)
     this.tor.events.addEventListener("close", onClose, { passive: true })
@@ -319,7 +319,7 @@ export class SecretCircuit {
 
     const streamId = this.#streamId++
 
-    const stream = new TorStreamDuplex(streamId, this, signal)
+    const stream = new SecretTorStreamDuplex(streamId, this, signal)
     this.streams.set(streamId, stream)
 
     const flags = new Bitset(0, 32)
@@ -331,7 +331,7 @@ export class SecretCircuit {
     const begin = new RelayBeginCell(this, stream, `${hostname}:${port}`, flags)
     this.tor.writer.enqueue(RelayCell.from(begin).cell())
 
-    return stream
+    return new TorStreamDuplex(stream)
   }
 
   /**

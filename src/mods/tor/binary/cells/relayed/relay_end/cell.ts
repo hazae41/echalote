@@ -3,7 +3,7 @@ import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { InvalidRelayCommand, InvalidStream } from "mods/tor/binary/cells/errors.js";
 import { RelayEndReason, RelayEndReasonExitPolicy, RelayEndReasonOther } from "mods/tor/binary/cells/relayed/relay_end/reason.js";
 import { SecretCircuit } from "mods/tor/circuit.js";
-import { TorStreamDuplex } from "mods/tor/stream.js";
+import { SecretTorStreamDuplex } from "mods/tor/stream.js";
 
 export class RelayEndCell {
   readonly #class = RelayEndCell
@@ -30,7 +30,7 @@ export class RelayEndCell {
 
   constructor(
     readonly circuit: SecretCircuit,
-    readonly stream: TorStreamDuplex,
+    readonly stream: SecretTorStreamDuplex,
     readonly reason: RelayEndReason
   ) { }
 

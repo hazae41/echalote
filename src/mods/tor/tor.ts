@@ -110,6 +110,7 @@ export class TorClientDuplex {
 
 export type SecretTorEvents = CloseAndErrorEvents & {
   "handshaked": Event,
+
   "VERSIONS": MessageEvent<VersionsCell>
   "CERTS": MessageEvent<CertsCell>
   "AUTH_CHALLENGE": MessageEvent<AuthChallengeCell>
@@ -538,7 +539,7 @@ export class SecretTorClientDuplex {
           .value
         if (this.circuits.has(circuitId)) continue
 
-        const circuit = new SecretCircuit(this, circuitId)
+        const circuit = new SecretCircuit(circuitId, this)
         this.circuits.set(circuitId, circuit)
 
         return circuit

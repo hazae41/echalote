@@ -7,7 +7,25 @@ import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { SecretCircuit } from "mods/tor/circuit.js";
 
 export class TorStreamDuplex {
-  readonly #class = TorStreamDuplex
+
+  readonly #secret: SecretTorStreamDuplex
+
+  constructor(secret: SecretTorStreamDuplex) {
+    this.#secret = secret
+  }
+
+  get readable() {
+    return this.#secret.readable
+  }
+
+  get writable() {
+    return this.#secret.writable
+  }
+
+}
+
+export class SecretTorStreamDuplex {
+  readonly #class = SecretTorStreamDuplex
 
   readonly #reader: SuperReadableStream<Opaque>
   readonly #writer: SuperWritableStream<Writable>

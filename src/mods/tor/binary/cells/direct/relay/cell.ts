@@ -4,12 +4,12 @@ import { Bytes } from "@hazae41/bytes";
 import { Cell } from "mods/tor/binary/cells/cell.js";
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js";
 import { SecretCircuit } from "mods/tor/circuit.js";
-import { TorStreamDuplex } from "mods/tor/stream.js";
+import { SecretTorStreamDuplex } from "mods/tor/stream.js";
 
 export interface RelayCellable extends Writable {
   rcommand: number,
   circuit: SecretCircuit,
-  stream?: TorStreamDuplex
+  stream?: SecretTorStreamDuplex
 }
 
 export class RelayCell<T extends Writable>  {
@@ -22,7 +22,7 @@ export class RelayCell<T extends Writable>  {
 
   constructor(
     readonly circuit: SecretCircuit,
-    readonly stream: TorStreamDuplex | undefined,
+    readonly stream: SecretTorStreamDuplex | undefined,
     readonly rcommand: number,
     readonly data: T
   ) { }
