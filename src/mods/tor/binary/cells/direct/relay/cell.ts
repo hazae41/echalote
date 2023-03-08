@@ -1,6 +1,6 @@
+import { Arrays } from "@hazae41/arrays";
 import { Cursor, Opaque, Writable } from "@hazae41/binary";
 import { Bytes } from "@hazae41/bytes";
-import { Arrays } from "libs/arrays/arrays.js";
 import { Cell } from "mods/tor/binary/cells/cell.js";
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js";
 import { Circuit } from "mods/tor/circuit.js";

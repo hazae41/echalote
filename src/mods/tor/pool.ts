@@ -1,4 +1,4 @@
-import { Arrays } from "libs/arrays/arrays.js";
+import { Arrays } from "@hazae41/arrays";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Circuit } from "mods/tor/circuit.js";
 import { TorClientDuplex } from "mods/tor/tor.js";
@@ -118,19 +118,19 @@ export class CircuitPool {
    * Wait for any circuit to be created, then get a random one
    * @returns 
    */
-  async random() {
+  async cryptoRandom() {
     await Promise.any(this.#allPromises)
 
-    return this.randomSync()
+    return this.cryptoRandomSync()
   }
 
   /**
    * Get a random circuit from the pool, throws if none available
    * @returns 
    */
-  randomSync() {
+  cryptoRandomSync() {
     const circuits = [...this.#openCircuits]
-    const circuit = Arrays.random(circuits)
+    const circuit = Arrays.cryptoRandom(circuits)
 
     if (!circuit)
       throw new Error(`No circuit in pool`)

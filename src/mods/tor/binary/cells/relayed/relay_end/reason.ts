@@ -1,5 +1,5 @@
 import { Cursor } from "@hazae41/binary";
-import { dateToTtl, ttlToDate } from "libs/time.js";
+import { Dates } from "libs/dates/dates.js";
 import { Address4, Address6 } from "mods/tor/binary/address.js";
 
 export type RelayEndReason =
@@ -45,7 +45,7 @@ export class RelayEndReasonExitPolicy {
 
   write(cursor: Cursor) {
     this.address.write(cursor)
-    cursor.writeUint32(dateToTtl(this.ttl))
+    cursor.writeUint32(Dates.toSecondsDelay(this.ttl))
   }
 
   static read(cursor: Cursor) {
@@ -53,7 +53,7 @@ export class RelayEndReasonExitPolicy {
       ? Address4.read(cursor)
       : Address6.read(cursor)
 
-    const ttl = ttlToDate(cursor.readUint32())
+    const ttl = Dates.fromSecondsDelay(cursor.readUint32())
 
     return new this(address, ttl)
   }

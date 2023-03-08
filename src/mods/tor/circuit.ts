@@ -1,3 +1,4 @@
+import { Arrays } from "@hazae41/arrays";
 import { X25519PublicKey, X25519StaticSecret } from "@hazae41/berith";
 import { Opaque } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
@@ -6,7 +7,6 @@ import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
 import { fetch } from "@hazae41/fleche";
 import { Sha1Hasher } from "@hazae41/morax";
 import { Aes128Ctr128BEKey } from "@hazae41/zepar";
-import { Arrays } from "libs/arrays/arrays.js";
 import { CloseAndErrorEvents, Events } from "libs/events/events.js";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { Ntor } from "mods/tor/algorithms/ntor/index.js";
@@ -154,7 +154,7 @@ export class Circuit {
   }
 
   async extendDir() {
-    const authority = Arrays.random(this.tor.authorities.filter(it => it.v3ident))
+    const authority = Arrays.cryptoRandom(this.tor.authorities.filter(it => it.v3ident))
 
     if (!authority)
       throw new Error(`Could not find authority`)
@@ -192,7 +192,7 @@ export class Circuit {
     const fallbacks = exit
       ? this.tor.params.fallbacks.filter(it => it.exit)
       : this.tor.params.fallbacks
-    const fallback = Arrays.random(fallbacks)
+    const fallback = Arrays.cryptoRandom(fallbacks)
 
     if (!fallback)
       throw new Error(`Could not find fallback`)

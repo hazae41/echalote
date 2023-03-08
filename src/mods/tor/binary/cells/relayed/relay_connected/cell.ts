@@ -1,5 +1,5 @@
 import { Cursor, Opaque } from "@hazae41/binary"
-import { ttlToDate } from "libs/time.js"
+import { Dates } from "libs/dates/dates.js"
 import { Address4, Address6 } from "mods/tor/binary/address.js"
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js"
 import { InvalidRelayCommand, InvalidStream } from "mods/tor/binary/cells/errors.js"
@@ -26,7 +26,7 @@ export class RelayConnectedCell {
     const ipv4 = Address4.read(cursor)
 
     if (ipv4.address !== "0.0.0.0") {
-      const ttl = ttlToDate(cursor.readUint32())
+      const ttl = Dates.fromSecondsDelay(cursor.readUint32())
 
       return { address: ipv4, ttl }
     } else {
@@ -36,7 +36,7 @@ export class RelayConnectedCell {
         throw new Error(`Unknown address type ${type}`)
 
       const ipv6 = Address6.read(cursor)
-      const ttl = ttlToDate(cursor.readUint32())
+      const ttl = Dates.fromSecondsDelay(cursor.readUint32())
 
       return { address: ipv6, ttl }
     }
