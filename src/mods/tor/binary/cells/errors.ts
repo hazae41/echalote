@@ -1,4 +1,4 @@
-import { Circuit } from "mods/tor/circuit.js"
+import { SecretCircuit } from "mods/tor/circuit.js"
 import { TorStreamDuplex } from "mods/tor/stream.js"
 
 export class InvalidCommand extends Error {
@@ -22,7 +22,7 @@ export class InvalidRelayCommand extends Error {
 export class InvalidCircuit extends Error {
   constructor(
     readonly name: string,
-    readonly circuit?: Circuit
+    readonly circuit?: SecretCircuit
   ) {
     super(`Invalid ${name} circuit ${circuit?.id}`)
   }

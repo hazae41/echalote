@@ -1,9 +1,9 @@
 import { Cursor, Opaque, Writable } from "@hazae41/binary";
-import { Circuit } from "mods/tor/circuit.js";
+import { SecretCircuit } from "mods/tor/circuit.js";
 import { SecretTorClientDuplex } from "mods/tor/tor.js";
 
 export interface Cellable extends Writable {
-  circuit: Circuit | undefined,
+  circuit: SecretCircuit | undefined,
   command: number
 }
 
@@ -77,7 +77,7 @@ export class OldCell<T extends Writable> {
   readonly #raw: RawOldCell<T>
 
   constructor(
-    readonly circuit: Circuit | undefined,
+    readonly circuit: SecretCircuit | undefined,
     readonly command: number,
     readonly payload: T
   ) {
@@ -171,7 +171,7 @@ export class Cell<T extends Writable> {
   readonly #raw: RawCell<T>
 
   constructor(
-    readonly circuit: Circuit | undefined,
+    readonly circuit: SecretCircuit | undefined,
     readonly command: number,
     readonly payload: T
   ) {

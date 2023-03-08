@@ -4,7 +4,7 @@ import { SuperWritableStream } from "libs/streams/writable.js";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
-import { Circuit } from "mods/tor/circuit.js";
+import { SecretCircuit } from "mods/tor/circuit.js";
 
 export class TorStreamDuplex {
   readonly #class = TorStreamDuplex
@@ -17,7 +17,7 @@ export class TorStreamDuplex {
 
   constructor(
     readonly id: number,
-    readonly circuit: Circuit,
+    readonly circuit: SecretCircuit,
     readonly signal?: AbortSignal
   ) {
     const onClose = this.#onCircuitClose.bind(this)

@@ -33,7 +33,7 @@ import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { RelayExtended2Cell } from "mods/tor/binary/cells/relayed/relay_extended2/cell.js";
 import { RelayTruncatedCell } from "mods/tor/binary/cells/relayed/relay_truncated/cell.js";
 import { TorCiphers } from "mods/tor/ciphers.js";
-import { Circuit } from "mods/tor/circuit.js";
+import { Circuit, SecretCircuit } from "mods/tor/circuit.js";
 import { Authority, parseAuthorities } from "mods/tor/consensus/authorities.js";
 import { Target } from "mods/tor/target.js";
 import { LoopParams } from "mods/tor/types/loop.js";
@@ -133,7 +133,7 @@ export class SecretTorClientDuplex {
   readonly writer: SuperTransformStream<Writable, Writable>
 
   readonly authorities = new Array<Authority>()
-  readonly circuits = new Map<number, Circuit>()
+  readonly circuits = new Map<number, SecretCircuit>()
 
   readonly #buffer = Cursor.allocUnsafe(65535)
 
@@ -538,7 +538,7 @@ export class SecretTorClientDuplex {
           .value
         if (this.circuits.has(circuitId)) continue
 
-        const circuit = new Circuit(this, circuitId)
+        const circuit = new SecretCircuit(this, circuitId)
         this.circuits.set(circuitId, circuit)
 
         return circuit
@@ -546,7 +546,7 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async #waitCreatedFast(circuit: Circuit, signal?: AbortSignal) {
+  async #waitCreatedFast(circuit: SecretCircuit, signal?: AbortSignal) {
     const future = new Future<CreatedFastCell>()
 
     const onEvent = (event: MessageEvent<CreatedFastCell>) => {
@@ -626,6 +626,6 @@ export class SecretTorClientDuplex {
 
     circuit.targets.push(target)
 
-    return circuit
+    return new Circuit(circuit)
   }
 }

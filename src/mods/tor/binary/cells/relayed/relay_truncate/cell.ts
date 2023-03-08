@@ -2,7 +2,7 @@ import { Cursor, Opaque } from "@hazae41/binary";
 import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { InvalidRelayCommand, InvalidStream } from "mods/tor/binary/cells/errors.js";
-import { Circuit } from "mods/tor/circuit.js";
+import { SecretCircuit } from "mods/tor/circuit.js";
 
 export class RelayTruncateCell {
   readonly #class = RelayTruncateCell
@@ -12,7 +12,7 @@ export class RelayTruncateCell {
   static reasons = DestroyCell.reasons
 
   constructor(
-    readonly circuit: Circuit,
+    readonly circuit: SecretCircuit,
     readonly stream: undefined,
     readonly reason: number
   ) { }

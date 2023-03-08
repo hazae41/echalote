@@ -1,7 +1,7 @@
 import { Cursor, Opaque, Writable } from "@hazae41/binary";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { InvalidRelayCommand } from "mods/tor/binary/cells/errors.js";
-import { Circuit } from "mods/tor/circuit.js";
+import { SecretCircuit } from "mods/tor/circuit.js";
 import { TorStreamDuplex } from "mods/tor/stream.js";
 
 export class RelayDropCell<T extends Writable> {
@@ -10,7 +10,7 @@ export class RelayDropCell<T extends Writable> {
   static rcommand = 10
 
   constructor(
-    readonly circuit: Circuit,
+    readonly circuit: SecretCircuit,
     readonly stream: TorStreamDuplex | undefined,
     readonly data: T
   ) { }

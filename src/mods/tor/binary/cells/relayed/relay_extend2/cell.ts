@@ -1,6 +1,6 @@
 import { Cursor, Writable } from "@hazae41/binary"
 import { RelayExtend2Link } from "mods/tor/binary/cells/relayed/relay_extend2/link.js"
-import { Circuit } from "mods/tor/circuit.js"
+import { SecretCircuit } from "mods/tor/circuit.js"
 
 export class RelayExtend2Cell<T extends Writable> {
   readonly #class = RelayExtend2Cell
@@ -20,7 +20,7 @@ export class RelayExtend2Cell<T extends Writable> {
   }
 
   constructor(
-    readonly circuit: Circuit,
+    readonly circuit: SecretCircuit,
     readonly stream: undefined,
     readonly type: number,
     readonly links: RelayExtend2Link[],

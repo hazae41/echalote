@@ -1,7 +1,7 @@
 import { Cursor, Opaque, Writable } from "@hazae41/binary";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { InvalidRelayCommand, InvalidStream } from "mods/tor/binary/cells/errors.js";
-import { Circuit } from "mods/tor/circuit.js";
+import { SecretCircuit } from "mods/tor/circuit.js";
 
 export class RelayExtended2Cell<T extends Writable> {
   readonly #class = RelayExtended2Cell
@@ -9,7 +9,7 @@ export class RelayExtended2Cell<T extends Writable> {
   static rcommand = 15
 
   constructor(
-    readonly circuit: Circuit,
+    readonly circuit: SecretCircuit,
     readonly stream: undefined,
     readonly data: T
   ) { }

@@ -1,7 +1,7 @@
 import { Cursor, Opaque } from "@hazae41/binary"
 import { Cell } from "mods/tor/binary/cells/cell.js"
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
-import { Circuit } from "mods/tor/circuit.js"
+import { SecretCircuit } from "mods/tor/circuit.js"
 
 export class DestroyCell {
   readonly #class = DestroyCell
@@ -25,7 +25,7 @@ export class DestroyCell {
   }
 
   constructor(
-    readonly circuit: Circuit,
+    readonly circuit: SecretCircuit,
     readonly reason: number
   ) { }
 

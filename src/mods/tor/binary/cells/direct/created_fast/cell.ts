@@ -1,7 +1,7 @@
 import { Cursor, Opaque } from "@hazae41/binary";
 import { Cell } from "mods/tor/binary/cells/cell.js";
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js";
-import { Circuit } from "mods/tor/circuit.js";
+import { SecretCircuit } from "mods/tor/circuit.js";
 
 export class CreatedFastCell {
   readonly #class = CreatedFastCell
@@ -9,7 +9,7 @@ export class CreatedFastCell {
   static command = 6
 
   constructor(
-    readonly circuit: Circuit,
+    readonly circuit: SecretCircuit,
     readonly material: Uint8Array,
     readonly derivative: Uint8Array
   ) { }

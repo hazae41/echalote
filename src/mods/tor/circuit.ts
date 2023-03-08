@@ -27,17 +27,63 @@ import { LoopParams } from "mods/tor/types/loop.js";
 import { RelayCell } from "./binary/cells/direct/relay/cell.js";
 import { RelayEarlyCell } from "./binary/cells/direct/relay_early/cell.js";
 
-export type CircuitEvents = CloseAndErrorEvents & {
+export class Circuit {
+
+  readonly events = new AsyncEventTarget<CloseAndErrorEvents>()
+
+  readonly #secret: SecretCircuit
+
+  constructor(secret: SecretCircuit) {
+    this.#secret = secret
+
+    const onClose = this.#onClose.bind(this)
+    this.#secret.events.addEventListener("close", onClose)
+
+    const onError = this.#onError.bind(this)
+    this.#secret.events.addEventListener("error", onError)
+  }
+
+  async #onClose(event: CloseEvent) {
+    this.events.dispatchEvent(event, "close")
+  }
+
+  async #onError(event: ErrorEvent) {
+    this.events.dispatchEvent(event, "error")
+  }
+
+  async destroy() {
+    return await this.#secret.destroy()
+  }
+
+  async open(hostname: string, port: number, signal?: AbortSignal) {
+    return await this.#secret.open(hostname, port, signal)
+  }
+
+  async tryExtend(exit: boolean, params: LoopParams = {}) {
+    return await this.#secret.tryExtend(exit, params)
+  }
+
+  async extend(exit: boolean, signal?: AbortSignal) {
+    return await this.#secret.extend(exit, signal)
+  }
+
+  async fetch(input: RequestInfo | URL, init: RequestInit = {}) {
+    return await this.#secret.fetch(input, init)
+  }
+
+}
+
+export type SecretCircuitEvents = CloseAndErrorEvents & {
   "RELAY_EXTENDED2": MessageEvent<RelayExtended2Cell<Opaque>>,
   "RELAY_DATA": MessageEvent<RelayDataCell<Opaque>>
   "RELAY_END": MessageEvent<RelayEndCell>,
   "RELAY_TRUNCATED": MessageEvent<RelayTruncatedCell>
 }
 
-export class Circuit {
-  readonly #class = Circuit
+export class SecretCircuit {
+  readonly #class = SecretCircuit
 
-  readonly events = new AsyncEventTarget<CircuitEvents>()
+  readonly events = new AsyncEventTarget<SecretCircuitEvents>()
 
   readonly targets = new Array<Target>()
   readonly streams = new Map<number, TorStreamDuplex>()
@@ -159,7 +205,7 @@ export class Circuit {
     if (!authority)
       throw new Error(`Could not find authority`)
 
-    await this.extendTo({
+    await this.#extendTo({
       hosts: [authority.ipv4],
       id: authority.v3ident!,
       onion: authority.fingerprint,
@@ -197,10 +243,10 @@ export class Circuit {
     if (!fallback)
       throw new Error(`Could not find fallback`)
 
-    return await this.extendTo(fallback, signal)
+    return await this.#extendTo(fallback, signal)
   }
 
-  async extendTo(fallback: Fallback, signal?: AbortSignal) {
+  async #extendTo(fallback: Fallback, signal?: AbortSignal) {
     if (this.closed)
       throw new Error(`Circuit is closed`)
 
