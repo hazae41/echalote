@@ -4,7 +4,7 @@ import { CloseAndErrorEvents, Events } from "libs/events/events.js";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { SuperTransformStream } from "libs/streams/transform.js";
 import { KcpSegment } from "./segment.js";
-import { SecretKcpStream } from "./stream.js";
+import { SecretKcpDuplex } from "./stream.js";
 
 export class SecretKcpWriter {
 
@@ -15,7 +15,7 @@ export class SecretKcpWriter {
   closed = false
 
   constructor(
-    readonly parent: SecretKcpStream,
+    readonly parent: SecretKcpDuplex,
   ) {
     this.stream = new SuperTransformStream({
       transform: this.#onWrite.bind(this)

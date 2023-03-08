@@ -2,14 +2,14 @@ import { Cursor, Opaque, Writable } from "@hazae41/binary"
 import { SecretSmuxReader } from "./reader.js"
 import { SecretSmuxWriter } from "./writer.js"
 
-export class SmuxStream {
+export class SmuxDuplex {
 
-  readonly #secret: SecretSmuxStream
+  readonly #secret: SecretSmuxDuplex
 
   constructor(
     readonly stream: ReadableWritablePair<Opaque, Writable>
   ) {
-    this.#secret = new SecretSmuxStream(stream)
+    this.#secret = new SecretSmuxDuplex(stream)
   }
 
   get readable() {
@@ -22,8 +22,8 @@ export class SmuxStream {
 
 }
 
-export class SecretSmuxStream {
-  readonly #class = SecretSmuxStream
+export class SecretSmuxDuplex {
+  readonly #class = SecretSmuxDuplex
 
   selfRead = 0
   selfWrite = 0

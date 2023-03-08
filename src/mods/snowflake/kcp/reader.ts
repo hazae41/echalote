@@ -3,7 +3,7 @@ import { CloseAndErrorEvents } from "libs/events/events.js";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { SuperTransformStream } from "libs/streams/transform.js";
 import { KcpSegment } from "./segment.js";
-import { SecretKcpStream } from "./stream.js";
+import { SecretKcpDuplex } from "./stream.js";
 
 export type SecretKcpReaderEvents = CloseAndErrorEvents & {
   ack: MessageEvent<KcpSegment<Opaque>>
@@ -18,7 +18,7 @@ export class SecretKcpReader {
   readonly #buffer = new Map<number, KcpSegment<Opaque>>()
 
   constructor(
-    readonly parent: SecretKcpStream
+    readonly parent: SecretKcpDuplex
   ) {
     this.stream = new SuperTransformStream({
       transform: this.#onRead.bind(this)

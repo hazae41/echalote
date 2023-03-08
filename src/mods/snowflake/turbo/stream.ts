@@ -3,19 +3,19 @@ import { Bytes } from "@hazae41/bytes"
 import { SecretTurboReader } from "./reader.js"
 import { SecretTurboWriter } from "./writer.js"
 
-export interface TurboStreamParams {
+export interface TurboDuplexParams {
   clientID?: Uint8Array
 }
 
-export class TurboStream {
+export class TurboDuplex {
 
-  readonly #secret: SecretTurboStream
+  readonly #secret: SecretTurboDuplex
 
   constructor(
     readonly stream: ReadableWritablePair<Opaque, Writable>,
-    readonly params: TurboStreamParams = {}
+    readonly params: TurboDuplexParams = {}
   ) {
-    this.#secret = new SecretTurboStream(stream, params)
+    this.#secret = new SecretTurboDuplex(stream, params)
   }
 
   get readable() {
@@ -28,8 +28,8 @@ export class TurboStream {
 
 }
 
-export class SecretTurboStream {
-  readonly #class = SecretTurboStream
+export class SecretTurboDuplex {
+  readonly #class = SecretTurboDuplex
 
   static readonly token = new Uint8Array([0x12, 0x93, 0x60, 0x5d, 0x27, 0x81, 0x75, 0xf5])
 
@@ -43,7 +43,7 @@ export class SecretTurboStream {
 
   constructor(
     readonly stream: ReadableWritablePair<Opaque, Writable>,
-    readonly params: TurboStreamParams = {}
+    readonly params: TurboDuplexParams = {}
   ) {
     const { clientID } = params
 

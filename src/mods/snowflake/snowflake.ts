@@ -1,7 +1,7 @@
 import { WebSocketStream } from "libs/transports/websocket.js"
-import { KcpStream } from "mods/snowflake/kcp/stream.js"
-import { SmuxStream } from "mods/snowflake/smux/stream.js"
-import { TurboStream } from "mods/snowflake/turbo/stream.js"
+import { KcpDuplex } from "mods/snowflake/kcp/stream.js"
+import { SmuxDuplex } from "mods/snowflake/smux/stream.js"
+import { TurboDuplex } from "mods/snowflake/turbo/stream.js"
 
 export async function createWebSocketSnowflakeStream(url: string) {
   const websocket = new WebSocket(url)
@@ -19,5 +19,5 @@ export async function createWebSocketSnowflakeStream(url: string) {
     shouldCloseOnClose: false
   })
 
-  return new SmuxStream(new KcpStream(new TurboStream(stream)))
+  return new SmuxDuplex(new KcpDuplex(new TurboDuplex(stream)))
 }

@@ -22,7 +22,7 @@ import { RelayTruncateCell } from "mods/tor/binary/cells/relayed/relay_truncate/
 import { RelayTruncatedCell } from "mods/tor/binary/cells/relayed/relay_truncated/cell.js";
 import { TorStreamDuplex } from "mods/tor/stream.js";
 import { Target } from "mods/tor/target.js";
-import { Fallback, TorClientDuplex } from "mods/tor/tor.js";
+import { Fallback, SecretTorClientDuplex } from "mods/tor/tor.js";
 import { LoopParams } from "mods/tor/types/loop.js";
 import { RelayCell } from "./binary/cells/direct/relay/cell.js";
 import { RelayEarlyCell } from "./binary/cells/direct/relay_early/cell.js";
@@ -47,7 +47,7 @@ export class Circuit {
   #closed?: { reason?: any }
 
   constructor(
-    readonly tor: TorClientDuplex,
+    readonly tor: SecretTorClientDuplex,
     readonly id: number
   ) {
     const onClose = this.#onTorClose.bind(this)

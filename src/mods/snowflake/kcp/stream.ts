@@ -2,14 +2,14 @@ import { Cursor, Opaque, Writable } from "@hazae41/binary";
 import { SecretKcpReader } from "./reader.js";
 import { SecretKcpWriter } from "./writer.js";
 
-export class KcpStream {
+export class KcpDuplex {
 
-  readonly #secret: SecretKcpStream
+  readonly #secret: SecretKcpDuplex
 
   constructor(
     readonly stream: ReadableWritablePair<Opaque, Writable>
   ) {
-    this.#secret = new SecretKcpStream(stream)
+    this.#secret = new SecretKcpDuplex(stream)
   }
 
   get readable() {
@@ -26,8 +26,8 @@ export class KcpStream {
 
 }
 
-export class SecretKcpStream {
-  readonly #class = SecretKcpStream
+export class SecretKcpDuplex {
+  readonly #class = SecretKcpDuplex
 
   send_counter = 0
   recv_counter = 0

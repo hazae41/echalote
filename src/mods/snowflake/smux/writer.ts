@@ -3,7 +3,7 @@ import { CloseAndErrorEvents } from "libs/events/events.js";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { SuperTransformStream } from "libs/streams/transform.js";
 import { SmuxSegment, SmuxUpdate } from "mods/snowflake/smux/segment.js";
-import { SecretSmuxStream } from "./stream.js";
+import { SecretSmuxDuplex } from "./stream.js";
 
 export class SecretSmuxWriter {
 
@@ -12,7 +12,7 @@ export class SecretSmuxWriter {
   readonly stream: SuperTransformStream<Writable, Writable>
 
   constructor(
-    readonly parent: SecretSmuxStream
+    readonly parent: SecretSmuxDuplex
   ) {
     this.stream = new SuperTransformStream({
       start: this.#onStart.bind(this),

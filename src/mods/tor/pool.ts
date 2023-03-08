@@ -118,17 +118,17 @@ export class CircuitPool {
    * Wait for any circuit to be created, then get a random one
    * @returns 
    */
-  async cryptoRandom() {
+  async random() {
     await Promise.any(this.#allPromises)
 
-    return this.cryptoRandomSync()
+    return this.randomSync()
   }
 
   /**
    * Get a random circuit from the pool, throws if none available
    * @returns 
    */
-  cryptoRandomSync() {
+  randomSync() {
     const circuits = [...this.#openCircuits]
     const circuit = Arrays.cryptoRandom(circuits)
 

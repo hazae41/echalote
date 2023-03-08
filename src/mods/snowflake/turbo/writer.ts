@@ -3,7 +3,7 @@ import { CloseAndErrorEvents } from "libs/events/events.js";
 import { AsyncEventTarget } from "libs/events/target.js";
 import { SuperTransformStream } from "libs/streams/transform.js";
 import { TurboFrame } from "./frame.js";
-import { SecretTurboStream } from "./stream.js";
+import { SecretTurboDuplex } from "./stream.js";
 
 export class SecretTurboWriter {
 
@@ -12,7 +12,7 @@ export class SecretTurboWriter {
   readonly stream: SuperTransformStream<Writable, Writable>
 
   constructor(
-    readonly parent: SecretTurboStream
+    readonly parent: SecretTurboDuplex
   ) {
     this.stream = new SuperTransformStream({
       start: this.#onStart.bind(this),

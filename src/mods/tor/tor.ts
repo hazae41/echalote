@@ -71,20 +71,45 @@ export interface Guard {
 }
 
 export interface Fallback {
-  id: string,
-  eid?: string,
-  exit?: boolean,
-  onion: number[]
-  hosts: string[]
+  readonly id: string,
+  readonly eid?: string,
+  readonly exit?: boolean,
+  readonly onion: number[]
+  readonly hosts: string[]
 }
 
-export interface TorParams {
-  signal?: AbortSignal,
-  fallbacks: Fallback[]
+export interface TorClientParams {
+  readonly fallbacks: Fallback[]
+  readonly signal?: AbortSignal
 }
 
-export type TorEvents = CloseAndErrorEvents & {
-  "handshake": Event,
+export class TorClientDuplex {
+
+  readonly #secret: SecretTorClientDuplex
+
+  constructor(
+    readonly tcp: ReadableWritablePair<Opaque, Writable>,
+    readonly params: TorClientParams
+  ) {
+    this.#secret = new SecretTorClientDuplex(tcp, params)
+  }
+
+  async tryCreateAndExtend(params: LoopParams = {}) {
+    return await this.#secret.tryCreateAndExtend(params)
+  }
+
+  async tryCreate(params: LoopParams = {}) {
+    return await this.#secret.tryCreate(params)
+  }
+
+  async create(signal?: AbortSignal) {
+    return await this.#secret.create(signal)
+  }
+
+}
+
+export type SecretTorEvents = CloseAndErrorEvents & {
+  "handshaked": Event,
   "VERSIONS": MessageEvent<VersionsCell>
   "CERTS": MessageEvent<CertsCell>
   "AUTH_CHALLENGE": MessageEvent<AuthChallengeCell>
@@ -99,10 +124,10 @@ export type TorEvents = CloseAndErrorEvents & {
   "RELAY_END": MessageEvent<RelayEndCell>
 }
 
-export class TorClientDuplex {
-  readonly #class = TorClientDuplex
+export class SecretTorClientDuplex {
+  readonly #class = SecretTorClientDuplex
 
-  readonly events = new AsyncEventTarget<TorEvents>()
+  readonly events = new AsyncEventTarget<SecretTorEvents>()
 
   readonly reader: SuperTransformStream<Opaque, Opaque>
   readonly writer: SuperTransformStream<Writable, Writable>
@@ -121,7 +146,7 @@ export class TorClientDuplex {
    */
   constructor(
     readonly tcp: ReadableWritablePair<Opaque, Writable>,
-    readonly params: TorParams
+    readonly params: TorClientParams
   ) {
     const { signal } = params
 
@@ -208,7 +233,7 @@ export class TorClientDuplex {
     const version = new VersionsCell(undefined, [5])
     this.writer.enqueue(OldCell.from(version))
 
-    await Events.wait(this.events, "handshake")
+    await Events.wait(this.events, "handshaked")
   }
 
   async #onRead(chunk: Opaque) {
@@ -400,8 +425,8 @@ export class TorClientDuplex {
     const { version, guard } = this.#state
     this.#state = { type: "handshaked", version, guard }
 
-    const stateEvent = new Event("handshake", {})
-    await this.events.dispatchEvent(stateEvent, "handshake")
+    const stateEvent = new Event("handshaked", {})
+    await this.events.dispatchEvent(stateEvent, "handshaked")
   }
 
   async #onCreatedFastCell(cell: Cell<Opaque>) {
