@@ -1,4 +1,4 @@
-import { Pool, PoolParams } from "libs/pool/pool.js";
+import { Pool, PoolParams } from "@hazae41/piscine";
 import { Circuit } from "mods/tor/circuit.js";
 import { TorClientDuplex } from "mods/tor/tor.js";
 

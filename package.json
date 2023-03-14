@@ -36,6 +36,7 @@
     "@hazae41/morax": "^1.0.20",
     "@hazae41/mutex": "^1.0.2",
     "@hazae41/paimon": "^1.0.15",
+    "@hazae41/piscine": "^1.0.2",
     "@hazae41/x509": "^1.0.24",
     "@hazae41/zepar": "^1.0.13"
   },
