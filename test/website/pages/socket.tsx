@@ -1,4 +1,4 @@
-import { CircuitPool, createWebSocketSnowflakeStream, TorClientDuplex } from "@hazae41/echalote";
+import { createCircuitPool, createWebSocketSnowflakeStream, TorClientDuplex } from "@hazae41/echalote";
 import fallbacks from "assets/fallbacks.json";
 import { SocketPool } from "libs/sockets/pool";
 import { DependencyList, useCallback, useEffect, useMemo, useState } from "react";
@@ -41,7 +41,7 @@ export default function Page() {
   const circuits = useMemo(() => {
     if (!tor) return
 
-    return new CircuitPool(tor)
+    return createCircuitPool(tor)
   }, [tor])
 
   const sockets = useMemo(() => {
