@@ -1,9 +1,8 @@
 import { Ciphers, TlsStream } from "@hazae41/cadenas"
-import { Circuit, CircuitPool } from "@hazae41/echalote"
+import { Circuit } from "@hazae41/echalote"
 import { Fleche } from "@hazae41/fleche"
-import { Arrays } from "libs/arrays/arrays"
-import { AsyncEventTarget } from "libs/events/target"
-import { Future } from "libs/futures/future"
+import { Future } from "@hazae41/future"
+import { Pool } from "@hazae41/piscine"
 
 export async function createWebSocket(url: URL, circuit: Circuit, signal?: AbortSignal) {
   const tcp = await circuit.open(url.hostname, 443)
@@ -13,97 +12,36 @@ export async function createWebSocket(url: URL, circuit: Circuit, signal?: Abort
   const future = new Future()
 
   try {
-    socket.addEventListener("open", future.ok, { passive: true })
-    socket.addEventListener("error", future.err, { passive: true })
+    socket.addEventListener("open", future.resolve, { passive: true })
+    socket.addEventListener("error", future.reject, { passive: true })
 
     await future.promise
   } finally {
-    socket.removeEventListener("open", future.ok)
-    socket.removeEventListener("error", future.err)
+    socket.removeEventListener("open", future.resolve)
+    socket.removeEventListener("error", future.reject)
   }
 
   return socket
 }
 
-export interface SocketPoolEntry {
-  index: number,
-  socket: WebSocket
-}
+export function createWebSocketPool(url: URL, circuits: Pool<Circuit>) {
+  const { capacity } = circuits
 
-export type SocketPoolEvents = {
-  socket: MessageEvent<SocketPoolEntry>
-}
+  return new Pool<WebSocket>(async ({ index, destroy, signal }) => {
+    const circuit = await circuits.get(index)
 
-export class SocketPool {
+    const socket = await createWebSocket(url, circuit, signal)
 
-  readonly events = new AsyncEventTarget<SocketPoolEvents>()
+    const onCloseOrError = () => {
+      socket.removeEventListener("close", onCloseOrError)
+      socket.removeEventListener("error", onCloseOrError)
 
-  readonly #allSockets: WebSocket[]
-  readonly #allPromises: Promise<WebSocket>[]
-
-  readonly #openSockets = new Set<WebSocket>()
-
-  constructor(
-    readonly url: URL,
-    readonly circuits: CircuitPool,
-    readonly signal?: AbortSignal
-  ) {
-    this.#allSockets = new Array(circuits.capacity)
-    this.#allPromises = new Array(circuits.capacity)
-
-    for (let index = 0; index < circuits.capacity; index++)
-      this.#start(index)
-  }
-
-  #start(index: number) {
-    const promise = this.#create(index)
-    this.#allPromises[index] = promise
-    promise.catch(console.warn)
-  }
-
-  async #create(index: number) {
-    const { signal } = this
-
-    const circuit = await this.circuits.get(index)
-
-    const socket = await createWebSocket(this.url, circuit, signal)
-
-    this.#allSockets[index] = socket
-    this.#openSockets.add(socket)
-
-    const onSocketCloseOrError = () => {
-      delete this.#allSockets[index]
-      this.#openSockets.delete(socket)
-
-      socket.removeEventListener("close", onSocketCloseOrError)
-      socket.removeEventListener("error", onSocketCloseOrError)
-
-      this.#start(index)
+      destroy()
     }
 
-    socket.addEventListener("close", onSocketCloseOrError)
-    socket.addEventListener("error", onSocketCloseOrError)
-
-    const event = new MessageEvent("socket", { data: { index, socket } })
-    await this.events.dispatchEvent(event, "socket")
+    socket.addEventListener("close", onCloseOrError)
+    socket.addEventListener("error", onCloseOrError)
 
     return socket
-  }
-
-  async random() {
-    await Promise.any(this.#allPromises)
-
-    return this.randomSync()
-  }
-
-  randomSync() {
-    const sockets = [...this.#openSockets]
-    const socket = Arrays.randomOf(sockets)
-
-    if (!socket)
-      throw new Error(`No circuit in pool`)
-
-    return socket
-  }
-
+  }, { capacity })
 }

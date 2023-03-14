@@ -11,6 +11,7 @@
   "dependencies": {
     "@hazae41/cadenas": "^0.2.7",
     "@hazae41/fleche": "^1.1.12",
+    "@hazae41/piscine": "^1.0.2",
     "next": "13.2.1",
     "react": "18.2.0",
     "react-dom": "18.2.0"

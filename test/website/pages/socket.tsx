@@ -1,6 +1,6 @@
 import { createCircuitPool, createWebSocketSnowflakeStream, TorClientDuplex } from "@hazae41/echalote";
 import fallbacks from "assets/fallbacks.json";
-import { SocketPool } from "libs/sockets/pool";
+import { createWebSocketPool } from "libs/sockets/pool";
 import { DependencyList, useCallback, useEffect, useMemo, useState } from "react";
 
 async function fetch(socket: WebSocket) {
@@ -49,7 +49,7 @@ export default function Page() {
 
     const url = new URL("wss://mainnet.infura.io/ws/v3/b6bf7d3508c941499b10025c0776eaf8")
 
-    return new SocketPool(url, circuits)
+    return createWebSocketPool(url, circuits)
   }, [circuits])
 
   const onClick = useCallback(async () => {

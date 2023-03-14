@@ -1,10 +1,12 @@
+import Link from "next/link";
+
 export default function Page() {
   return <>
     <div>
-      <a href="/http">http</a>
+      <Link href="/http">http</Link>
     </div>
     <div>
-      <a href="/socket">socket</a>
+      <Link href="/socket">socket</Link>
     </div>
   </>
 }
