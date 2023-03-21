@@ -337,8 +337,8 @@ export class SecretCircuit {
     this.streams.set(streamId, stream)
 
     const flags = new Bitset(0, 32)
-      .setLE(RelayBeginCell.flags.IPV4_OK, IPv6[ipv6] !== IPv6.always)
-      .setLE(RelayBeginCell.flags.IPV6_NOT_OK, IPv6[ipv6] === IPv6.never)
+      .setLE(RelayBeginCell.flags.IPV6_OK, IPv6[ipv6] !== IPv6.never)
+      .setLE(RelayBeginCell.flags.IPV4_NOT_OK, IPv6[ipv6] === IPv6.always)
       .setLE(RelayBeginCell.flags.IPV6_PREFER, IPv6[ipv6] > IPv6.avoided)
       .unsign()
       .value

@@ -10,8 +10,8 @@ export class RelayBeginCell {
   static rcommand = 1
 
   static flags = {
-    IPV4_OK: 0,
-    IPV6_NOT_OK: 1,
+    IPV6_OK: 0,
+    IPV4_NOT_OK: 1,
     IPV6_PREFER: 2
   }
 
