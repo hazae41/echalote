@@ -27,6 +27,18 @@ import { LoopParams } from "mods/tor/types/loop.js";
 import { RelayCell } from "./binary/cells/direct/relay/cell.js";
 import { RelayEarlyCell } from "./binary/cells/direct/relay_early/cell.js";
 
+export const IPv6 = {
+  always: 3,
+  preferred: 2,
+  avoided: 1,
+  never: 0
+} as const
+
+export interface CircuitOpenParams {
+  ipv6?: keyof typeof IPv6
+  signal?: AbortSignal
+}
+
 export class Circuit {
 
   readonly events = new AsyncEventTarget<CloseAndErrorEvents>()
@@ -55,8 +67,8 @@ export class Circuit {
     return await this.#secret.destroy()
   }
 
-  async open(hostname: string, port: number, signal?: AbortSignal) {
-    return await this.#secret.open(hostname, port, signal)
+  async open(hostname: string, port: number, params?: CircuitOpenParams) {
+    return await this.#secret.open(hostname, port, params)
   }
 
   async tryExtend(exit: boolean, params: LoopParams = {}) {
@@ -67,7 +79,7 @@ export class Circuit {
     return await this.#secret.extend(exit, signal)
   }
 
-  async fetch(input: RequestInfo | URL, init: RequestInit = {}) {
+  async fetch(input: RequestInfo | URL, init: RequestInit & CircuitOpenParams = {}) {
     return await this.#secret.fetch(input, init)
   }
 
@@ -313,7 +325,9 @@ export class SecretCircuit {
     await ptruncated
   }
 
-  async open(hostname: string, port: number, signal?: AbortSignal) {
+  async open(hostname: string, port: number, params: CircuitOpenParams = {}) {
+    const { signal, ipv6 = "preferred" } = params
+
     if (this.closed)
       throw new Error(`Circuit is closed`)
 
@@ -323,9 +337,9 @@ export class SecretCircuit {
     this.streams.set(streamId, stream)
 
     const flags = new Bitset(0, 32)
-      .setLE(RelayBeginCell.flags.IPV4_OK, true)
-      .setLE(RelayBeginCell.flags.IPV6_NOT_OK, false)
-      .setLE(RelayBeginCell.flags.IPV6_PREFER, true)
+      .setLE(RelayBeginCell.flags.IPV4_OK, IPv6[ipv6] !== IPv6.always)
+      .setLE(RelayBeginCell.flags.IPV6_NOT_OK, IPv6[ipv6] === IPv6.never)
+      .setLE(RelayBeginCell.flags.IPV6_PREFER, IPv6[ipv6] > IPv6.avoided)
       .unsign()
       .value
     const begin = new RelayBeginCell(this, stream, `${hostname}:${port}`, flags)
@@ -340,7 +354,7 @@ export class SecretCircuit {
    * @param init Fetch init
    * @returns Response promise
    */
-  async fetch(input: RequestInfo | URL, init: RequestInit = {}) {
+  async fetch(input: RequestInfo | URL, init: RequestInit & CircuitOpenParams = {}) {
     if (this.closed)
       throw new Error(`Circuit is closed`)
 
@@ -350,14 +364,14 @@ export class SecretCircuit {
 
     if (url.protocol === "http:") {
       const port = Number(url.port) || 80
-      const tcp = await this.open(url.hostname, port, req.signal)
+      const tcp = await this.open(url.hostname, port, init)
 
       return fetch(input, { ...init, stream: tcp })
     }
 
     if (url.protocol === "https:") {
       const port = Number(url.port) || 443
-      const tcp = await this.open(url.hostname, port, req.signal)
+      const tcp = await this.open(url.hostname, port, init)
 
       const ciphers = [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
       const tls = new TlsClientDuplex(tcp, { ciphers })
