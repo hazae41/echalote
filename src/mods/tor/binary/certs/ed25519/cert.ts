@@ -6,8 +6,8 @@ export interface Extensions {
   signer?: SignedWithEd25519Key
 }
 
-export class Cert implements ICert {
-  readonly #class = Cert
+export class Ed25519Cert implements ICert {
+  readonly #class = Ed25519Cert
 
   static types = {
     ED_TO_SIGN: 4,
@@ -33,15 +33,6 @@ export class Cert implements ICert {
 
   write(cursor: Cursor) {
     throw new Error(`Unimplemented`)
-  }
-
-  check() {
-    const now = new Date()
-
-    if (now > this.expiration)
-      throw new Error(`Late certificate`)
-    if (this.extensions.signer)
-      this.extensions.signer.check(this)
   }
 
   static read(cursor: Cursor, type: number, length: number) {

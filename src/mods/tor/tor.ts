@@ -1,4 +1,3 @@
-import { Berith } from "@hazae41/berith";
 import { Cursor, Opaque, Readable, Writable } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Bytes } from "@hazae41/bytes";
@@ -12,6 +11,8 @@ import { Paimon } from "@hazae41/paimon";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
 import { CloseAndErrorEvents, Events } from "libs/events/events.js";
 import { AsyncEventTarget } from "libs/events/target.js";
+import { Ed25519 } from "mods/crypto/ed25519/ed25519.js";
+import { X25519 } from "mods/crypto/x25519/x25519.js";
 import { kdftor } from "mods/tor/algorithms/kdftor.js";
 import { TypedAddress } from "mods/tor/binary/address.js";
 import { Cell, OldCell, RawCell, RawOldCell } from "mods/tor/binary/cells/cell.js";
@@ -32,6 +33,7 @@ import { RelayDropCell } from "mods/tor/binary/cells/relayed/relay_drop/cell.js"
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { RelayExtended2Cell } from "mods/tor/binary/cells/relayed/relay_extended2/cell.js";
 import { RelayTruncatedCell } from "mods/tor/binary/cells/relayed/relay_truncated/cell.js";
+import { Certs } from "mods/tor/certs/certs.js";
 import { TorCiphers } from "mods/tor/ciphers.js";
 import { Circuit, SecretCircuit } from "mods/tor/circuit.js";
 import { Authority, parseAuthorities } from "mods/tor/consensus/authorities.js";
@@ -79,6 +81,8 @@ export interface Fallback {
 }
 
 export interface TorClientParams {
+  readonly ed25519: Ed25519.Adapter
+  readonly x25519: X25519.Adapter
   readonly fallbacks: Fallback[]
   readonly signal?: AbortSignal
 }
@@ -185,7 +189,6 @@ export class SecretTorClientDuplex {
 
   async #init() {
     await Paimon.initBundledOnce()
-    await Berith.initBundledOnce()
     await Zepar.initBundledOnce()
     await Morax.initBundledOnce()
     await Foras.initBundledOnce()
@@ -378,11 +381,7 @@ export class SecretTorClientDuplex {
 
     const idh = await data.getIdHash()
 
-    await data.checkId()
-    await data.checkIdToTls()
-    await data.checkIdToEid()
-    data.checkEidToSigning()
-    data.checkSigningToTls()
+    Certs.verify(data.certs, this)
 
     const { certs } = data
     const guard = { certs, idh }

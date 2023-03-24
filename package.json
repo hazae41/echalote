@@ -25,7 +25,6 @@
   },
   "dependencies": {
     "@hazae41/arrays": "^1.0.0",
-    "@hazae41/berith": "^1.1.40",
     "@hazae41/binary": "^1.2.10",
     "@hazae41/bitset": "^1.0.1",
     "@hazae41/bytes": "^1.0.4",
@@ -42,8 +41,10 @@
     "@hazae41/zepar": "^1.0.13"
   },
   "devDependencies": {
+    "@hazae41/berith": "^1.1.40",
     "@hazae41/deimos": "^1.0.6",
     "@hazae41/phobos": "^1.0.10",
+    "@noble/curves": "^0.9.0",
     "@rollup/plugin-inject": "^5.0.3",
     "@rollup/plugin-typescript": "^11.0.0",
     "@types/node": "^18.15.7",

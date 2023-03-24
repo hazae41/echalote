@@ -1,5 +1,4 @@
 import { Arrays } from "@hazae41/arrays";
-import { X25519PublicKey, X25519StaticSecret } from "@hazae41/berith";
 import { Opaque } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Bytes } from "@hazae41/bytes";
@@ -259,6 +258,8 @@ export class SecretCircuit {
   }
 
   async #extendTo(fallback: Fallback, signal?: AbortSignal) {
+    const { StaticSecret, PublicKey } = this.tor.params.x25519
+
     if (this.closed)
       throw new Error(`Circuit is closed`)
 
@@ -272,7 +273,7 @@ export class SecretCircuit {
     links.push(new RelayExtend2LinkLegacyID(relayid_rsa))
     if (relayid_ed) links.push(new RelayExtend2LinkModernID(relayid_ed))
 
-    const wasm_secret_x = new X25519StaticSecret()
+    const wasm_secret_x = new StaticSecret()
 
     const public_x = wasm_secret_x.to_public().to_bytes()
     const public_b = new Uint8Array(fallback.onion)
@@ -285,8 +286,8 @@ export class SecretCircuit {
     const response = msg_extended2.data.data.into(Ntor.Response)
     const { public_y } = response
 
-    const wasm_public_y = new X25519PublicKey(public_y)
-    const wasm_public_b = new X25519PublicKey(public_b)
+    const wasm_public_y = new PublicKey(public_y)
+    const wasm_public_b = new PublicKey(public_b)
 
     const shared_xy = wasm_secret_x.diffie_hellman(wasm_public_y).to_bytes()
     const shared_xb = wasm_secret_x.diffie_hellman(wasm_public_b).to_bytes()

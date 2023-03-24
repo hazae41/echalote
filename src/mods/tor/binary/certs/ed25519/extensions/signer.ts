@@ -1,6 +1,4 @@
-import { Ed25519PublicKey, Ed25519Signature } from "@hazae41/berith";
 import { Cursor } from "@hazae41/binary";
-import { Cert } from "mods/tor/binary/certs/ed25519/cert.js";
 import { Extension } from "mods/tor/binary/certs/ed25519/extensions/extension.js";
 
 export class SignedWithEd25519Key implements Extension {
@@ -16,13 +14,6 @@ export class SignedWithEd25519Key implements Extension {
 
   get type() {
     return this.#class.type
-  }
-
-  check(cert: Cert) {
-    const identity = new Ed25519PublicKey(this.key)
-    const signature = new Ed25519Signature(cert.signature)
-    const verified = identity.verify(cert.payload, signature)
-    if (!verified) throw new Error(`Invalid signer for Ed25519 Cert`)
   }
 
   write(cursor: Cursor) {

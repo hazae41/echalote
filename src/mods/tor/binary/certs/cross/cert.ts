@@ -1,8 +1,8 @@
 import { Cursor } from "@hazae41/binary";
 import { Cert as ICert } from "mods/tor/binary/certs/cert.js";
 
-export class Cert implements ICert {
-  readonly #class = Cert
+export class CrossCert implements ICert {
+  readonly #class = CrossCert
 
   static types = {
     RSA_TO_ED: 7

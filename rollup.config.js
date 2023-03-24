@@ -21,6 +21,7 @@ export const config = [
       sourcemap: true,
       entryFileNames: "[name].cjs",
     }],
+    external: ["@noble/curves/ed25519"],
     plugins: [externals(), ts()]
   },
   {
@@ -33,6 +34,7 @@ export const config = [
       sourcemap: false,
       entryFileNames: "[name].d.ts",
     }],
+    external: ["@noble/curves/ed25519"],
     plugins: [externals(), ts(), dts()]
   },
   {
@@ -45,6 +47,7 @@ export const config = [
       sourcemap: true,
       entryFileNames: "[name].mjs",
     }],
+    external: ["@noble/curves/ed25519"],
     plugins: [externals({ devDeps: true }), ts(), inject({ crypto: "node:crypto" })],
   },
   {
@@ -57,6 +60,7 @@ export const config = [
       sourcemap: true,
       entryFileNames: "[name].mjs",
     }],
+    external: ["@noble/curves/ed25519"],
     plugins: [externals({ devDeps: true }), ts()],
   },
 ]
