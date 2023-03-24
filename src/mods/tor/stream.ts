@@ -1,6 +1,5 @@
 import { Cursor, Opaque, Writable } from "@hazae41/binary";
-import { SuperReadableStream } from "libs/streams/readable.js";
-import { SuperWritableStream } from "libs/streams/writable.js";
+import { SuperReadableStream, SuperWritableStream } from "@hazae41/cascade";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";

@@ -1,8 +1,8 @@
 import { Opaque, Writable } from "@hazae41/binary";
+import { SuperTransformStream } from "@hazae41/cascade";
 import { Future } from "@hazae41/future";
 import { CloseAndErrorEvents, Events } from "libs/events/events.js";
 import { AsyncEventTarget } from "libs/events/target.js";
-import { SuperTransformStream } from "libs/streams/transform.js";
 import { KcpSegment } from "./segment.js";
 import { SecretKcpDuplex } from "./stream.js";
 
