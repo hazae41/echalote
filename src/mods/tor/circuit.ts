@@ -4,7 +4,6 @@ import { Bitset } from "@hazae41/bitset";
 import { Bytes } from "@hazae41/bytes";
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
 import { fetch } from "@hazae41/fleche";
-import { Sha1Hasher } from "@hazae41/morax";
 import { Aes128Ctr128BEKey } from "@hazae41/zepar";
 import { CloseAndErrorEvents, Events } from "libs/events/events.js";
 import { AsyncEventTarget } from "libs/events/target.js";
@@ -297,8 +296,8 @@ export class SecretCircuit {
     if (!Bytes.equals(response.auth, result.auth))
       throw new Error(`Invalid Ntor auth`)
 
-    const forward_digest = new Sha1Hasher()
-    const backward_digest = new Sha1Hasher()
+    const forward_digest = new this.tor.params.sha1.Hasher()
+    const backward_digest = new this.tor.params.sha1.Hasher()
 
     forward_digest.update(result.forwardDigest)
     backward_digest.update(result.backwardDigest)

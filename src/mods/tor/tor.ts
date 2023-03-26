@@ -5,9 +5,9 @@ import { TlsClientDuplex } from "@hazae41/cadenas";
 import { SuperTransformStream } from "@hazae41/cascade";
 import type { Ed25519 } from "@hazae41/ed25519";
 import { Future } from "@hazae41/future";
-import { Morax } from "@hazae41/morax";
 import { Mutex } from "@hazae41/mutex";
 import { Paimon } from "@hazae41/paimon";
+import type { Sha1 } from "@hazae41/sha1";
 import type { X25519 } from "@hazae41/x25519";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
 import { CloseAndErrorEvents, Events } from "libs/events/events.js";
@@ -82,6 +82,7 @@ export interface Fallback {
 export interface TorClientParams {
   readonly ed25519: Ed25519.Adapter
   readonly x25519: X25519.Adapter
+  readonly sha1: Sha1.Adapter
   readonly fallbacks: Fallback[]
   readonly signal?: AbortSignal
 }
@@ -189,7 +190,6 @@ export class SecretTorClientDuplex {
   async #init() {
     await Paimon.initBundledOnce()
     await Zepar.initBundledOnce()
-    await Morax.initBundledOnce()
   }
 
   get closed() {
@@ -611,8 +611,8 @@ export class SecretTorClientDuplex {
     if (!Bytes.equals(result.keyHash, created_fast.derivative))
       throw new Error(`Invalid KDF-TOR key hash`)
 
-    const forwardDigest = new Morax.Sha1Hasher()
-    const backwardDigest = new Morax.Sha1Hasher()
+    const forwardDigest = new this.params.sha1.Hasher()
+    const backwardDigest = new this.params.sha1.Hasher()
 
     forwardDigest.update(result.forwardDigest)
     backwardDigest.update(result.backwardDigest)
