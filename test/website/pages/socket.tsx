@@ -1,6 +1,8 @@
 import { Berith } from "@hazae41/berith";
 import { createCircuitPool, createWebSocketSnowflakeStream, TorClientDuplex } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
+import { Morax } from "@hazae41/morax";
+import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
 import fallbacks from "assets/fallbacks.json";
 import { createWebSocketPool } from "libs/sockets/pool";
@@ -34,16 +36,18 @@ export default function Page() {
 
   const tor = useAsyncMemo(async () => {
     await Berith.initBundledOnce()
+    await Morax.initBundledOnce()
 
     const ed25519 = Ed25519.fromBerith(Berith)
     const x25519 = X25519.fromBerith(Berith)
+    const sha1 = Sha1.fromMorax(Morax)
 
     const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
     // const tcp = await createWebSocketSnowflakeStream("ws://localhost:12345/")
     // const tcp = await createMeekStream("https://meek.bamsoftware.com/")
     // const tcp = await createWebSocketStream("ws://localhost:8080")
 
-    return new TorClientDuplex(tcp, { fallbacks, ed25519, x25519 })
+    return new TorClientDuplex(tcp, { fallbacks, ed25519, x25519, sha1 })
   }, [])
 
   const circuits = useMemo(() => {

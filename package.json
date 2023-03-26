@@ -44,7 +44,6 @@
     "@hazae41/phobos": "^1.0.10",
     "@hazae41/sha1": "^1.0.0",
     "@hazae41/x25519": "^1.0.0",
-    "@noble/curves": "^0.9.0",
     "@rollup/plugin-inject": "^5.0.3",
     "@rollup/plugin-typescript": "^11.0.0",
     "@types/node": "^18.15.7",
