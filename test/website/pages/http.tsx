@@ -1,5 +1,7 @@
 import { Berith } from "@hazae41/berith";
-import { Circuit, createCircuitPool, createWebSocketSnowflakeStream, Ed25519, TorClientDuplex, X25519 } from "@hazae41/echalote";
+import { Circuit, createCircuitPool, createWebSocketSnowflakeStream, TorClientDuplex } from "@hazae41/echalote";
+import { Ed25519 } from "@hazae41/ed25519";
+import { X25519 } from "@hazae41/x25519";
 import fallbacks from "assets/fallbacks.json";
 import { DependencyList, useCallback, useEffect, useMemo, useState } from "react";
 

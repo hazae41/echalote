@@ -11,8 +11,10 @@
   "dependencies": {
     "@hazae41/berith": "^1.1.40",
     "@hazae41/cadenas": "^0.2.7",
+    "@hazae41/ed25519": "^1.0.0",
     "@hazae41/fleche": "^1.1.12",
     "@hazae41/piscine": "^1.0.2",
+    "@hazae41/x25519": "^1.0.0",
     "@noble/curves": "^0.9.0",
     "next": "13.2.1",
     "react": "18.2.0",
