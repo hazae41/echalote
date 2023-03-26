@@ -4,7 +4,6 @@ import { Bytes } from "@hazae41/bytes";
 import { TlsClientDuplex } from "@hazae41/cadenas";
 import { SuperTransformStream } from "@hazae41/cascade";
 import type { Ed25519 } from "@hazae41/ed25519";
-import { Foras } from "@hazae41/foras";
 import { Future } from "@hazae41/future";
 import { Morax } from "@hazae41/morax";
 import { Mutex } from "@hazae41/mutex";
@@ -191,7 +190,6 @@ export class SecretTorClientDuplex {
     await Paimon.initBundledOnce()
     await Zepar.initBundledOnce()
     await Morax.initBundledOnce()
-    await Foras.initBundledOnce()
   }
 
   get closed() {
