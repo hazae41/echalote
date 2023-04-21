@@ -4,11 +4,10 @@ import { Ed25519 } from "@hazae41/ed25519";
 import { Morax } from "@hazae41/morax";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
-import fallbacks from "assets/fallbacks.json";
 import { createWebSocketPool } from "libs/sockets/pool";
 import { DependencyList, useCallback, useEffect, useMemo, useState } from "react";
 
-async function fetch(socket: WebSocket) {
+async function superfetch(socket: WebSocket) {
   const start = Date.now()
 
   socket.send(JSON.stringify({ "jsonrpc": "2.0", "method": "web3_clientVersion", "params": [], "id": 67 }))
@@ -42,6 +41,11 @@ export default function Page() {
     const x25519 = X25519.fromBerith(Berith)
     const sha1 = Sha1.fromMorax(Morax)
 
+    const fallbacksUrl = "https://raw.githubusercontent.com/hazae41/echalote/master/tools/fallbacks/fallbacks.json"
+    const fallbacksRes = await fetch(fallbacksUrl)
+    if (!fallbacksRes.ok) throw new Error(await fallbacksRes.text())
+    const fallbacks = await fallbacksRes.json()
+
     const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
     // const tcp = await createWebSocketSnowflakeStream("ws://localhost:12345/")
     // const tcp = await createMeekStream("https://meek.bamsoftware.com/")
@@ -69,7 +73,7 @@ export default function Page() {
 
     const socket = await sockets.random()
 
-    await fetch(socket)
+    await superfetch(socket)
   }, [sockets])
 
   return <>

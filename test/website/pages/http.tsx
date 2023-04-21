@@ -4,10 +4,9 @@ import { Ed25519 } from "@hazae41/ed25519";
 import { Morax } from "@hazae41/morax";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
-import fallbacks from "assets/fallbacks.json";
 import { DependencyList, useCallback, useEffect, useMemo, useState } from "react";
 
-async function fetch(circuit: Circuit) {
+async function superfetch(circuit: Circuit) {
   const start = Date.now()
 
   const body = JSON.stringify({ "jsonrpc": "2.0", "method": "web3_clientVersion", "params": [], "id": 67 })
@@ -45,6 +44,11 @@ export default function Page() {
     const x25519 = X25519.fromBerith(Berith)
     const sha1 = Sha1.fromMorax(Morax)
 
+    const fallbacksUrl = "https://raw.githubusercontent.com/hazae41/echalote/master/tools/fallbacks/fallbacks.json"
+    const fallbacksRes = await fetch(fallbacksUrl)
+    if (!fallbacksRes.ok) throw new Error(await fallbacksRes.text())
+    const fallbacks = await fallbacksRes.json()
+
     const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
 
     return new TorClientDuplex(tcp, { fallbacks, ed25519, x25519, sha1 })
@@ -61,7 +65,7 @@ export default function Page() {
 
     const circuit = await circuits.random()
 
-    fetch(circuit)
+    superfetch(circuit)
   }, [circuits])
 
   return <>
