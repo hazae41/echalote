@@ -1,6 +1,6 @@
 import { KcpDuplex } from "@hazae41/kcp"
+import { SmuxDuplex } from "@hazae41/smux"
 import { WebSocketStream } from "libs/transports/websocket.js"
-import { SmuxDuplex } from "mods/snowflake/smux/stream.js"
 import { TurboDuplex } from "mods/snowflake/turbo/stream.js"
 
 export async function createWebSocketSnowflakeStream(url: string) {
