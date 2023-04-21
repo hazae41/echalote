@@ -60,6 +60,10 @@ export class Circuit {
     this.events.dispatchEvent(event, "error")
   }
 
+  get id() {
+    return this.#secret.id
+  }
+
   async destroy() {
     return await this.#secret.destroy()
   }

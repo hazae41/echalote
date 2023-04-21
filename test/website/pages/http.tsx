@@ -2,9 +2,10 @@ import { Berith } from "@hazae41/berith";
 import { Circuit, createCircuitPool, createWebSocketSnowflakeStream, TorClientDuplex } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
 import { Morax } from "@hazae41/morax";
+import { Mutex } from "@hazae41/mutex";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
-import { DependencyList, useCallback, useEffect, useMemo, useState } from "react";
+import { DependencyList, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 async function superfetch(circuit: Circuit) {
   const start = Date.now()
@@ -46,7 +47,10 @@ export default function Page() {
 
     const fallbacksUrl = "https://raw.githubusercontent.com/hazae41/echalote/master/tools/fallbacks/fallbacks.json"
     const fallbacksRes = await fetch(fallbacksUrl)
-    if (!fallbacksRes.ok) throw new Error(await fallbacksRes.text())
+
+    if (!fallbacksRes.ok)
+      throw new Error(await fallbacksRes.text())
+
     const fallbacks = await fallbacksRes.json()
 
     const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
@@ -57,20 +61,50 @@ export default function Page() {
   const circuits = useMemo(() => {
     if (!tor) return
 
-    return createCircuitPool(tor)
+    return createCircuitPool(tor, { capacity: 10 })
   }, [tor])
+
+  const mutex = useRef(new Mutex())
 
   const onClick = useCallback(async () => {
     if (!circuits) return
 
-    const circuit = await circuits.random()
+    if (mutex.current.promise) return
+
+    const circuit = await mutex.current.lock(async () => {
+      const circuit = await circuits.cryptoRandom()
+      circuits.delete(circuit)
+      return circuit
+    })
 
     superfetch(circuit)
+  }, [circuits])
+
+  const [_, setCounter] = useState(0)
+
+  useEffect(() => {
+    if (!circuits) return
+
+    const onCreatedOrDeleted = () => {
+      setCounter(c => c + 1)
+    }
+
+    circuits.events.addEventListener("created", onCreatedOrDeleted, { passive: true })
+    circuits.events.addEventListener("deleted", onCreatedOrDeleted, { passive: true })
+
+    return () => {
+      circuits.events.removeEventListener("created", onCreatedOrDeleted)
+      circuits.events.removeEventListener("deleted", onCreatedOrDeleted)
+    }
   }, [circuits])
 
   return <>
     <button onClick={onClick}>
       Click me
     </button>
+    {circuits &&
+      <div>
+        Circuit pool size: {circuits.size} / {circuits.capacity}
+      </div>}
   </>
 }
