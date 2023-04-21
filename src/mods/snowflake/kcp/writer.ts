@@ -1,8 +1,7 @@
 import { Opaque, Writable } from "@hazae41/binary";
 import { SuperTransformStream } from "@hazae41/cascade";
 import { Future } from "@hazae41/future";
-import { CloseAndErrorEvents, Events } from "libs/events/events.js";
-import { AsyncEventTarget } from "libs/events/target.js";
+import { AsyncEventTarget, CloseAndErrorEvents, Plume } from "@hazae41/plume";
 import { KcpSegment } from "./segment.js";
 import { SecretKcpDuplex } from "./stream.js";
 
@@ -53,7 +52,7 @@ export class SecretKcpWriter {
       future.resolve()
     }
 
-    Events.waitFor(this.parent.reader.events, "ack", { future, onEvent })
+    Plume.waitMapCloseOrError(this.parent.reader.events, "ack", { future, onEvent })
       .catch(() => { })
       .finally(() => clearInterval(retry))
   }

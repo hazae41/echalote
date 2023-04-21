@@ -7,18 +7,17 @@ import type { Ed25519 } from "@hazae41/ed25519";
 import { Future } from "@hazae41/future";
 import { Mutex } from "@hazae41/mutex";
 import { Paimon } from "@hazae41/paimon";
+import { AsyncEventTarget, CloseAndErrorEvents, Plume } from "@hazae41/plume";
 import type { Sha1 } from "@hazae41/sha1";
 import type { X25519 } from "@hazae41/x25519";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
-import { CloseAndErrorEvents, Events } from "libs/events/events.js";
-import { AsyncEventTarget } from "libs/events/target.js";
 import { kdftor } from "mods/tor/algorithms/kdftor.js";
 import { TypedAddress } from "mods/tor/binary/address.js";
 import { Cell, OldCell, RawCell, RawOldCell } from "mods/tor/binary/cells/cell.js";
 import { AuthChallengeCell } from "mods/tor/binary/cells/direct/auth_challenge/cell.js";
 import { CertsCell, CertsObject } from "mods/tor/binary/cells/direct/certs/cell.js";
-import { CreatedFastCell } from "mods/tor/binary/cells/direct/created_fast/cell.js";
 import { CreateFastCell } from "mods/tor/binary/cells/direct/create_fast/cell.js";
+import { CreatedFastCell } from "mods/tor/binary/cells/direct/created_fast/cell.js";
 import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
 import { NetinfoCell } from "mods/tor/binary/cells/direct/netinfo/cell.js";
 import { PaddingCell } from "mods/tor/binary/cells/direct/padding/cell.js";
@@ -235,7 +234,7 @@ export class SecretTorClientDuplex {
     const version = new VersionsCell(undefined, [5])
     this.writer.enqueue(OldCell.from(version))
 
-    await Events.wait(this.events, "handshaked")
+    await Plume.waitCloseOrError(this.events, "handshaked")
   }
 
   async #onRead(chunk: Opaque) {
@@ -552,7 +551,7 @@ export class SecretTorClientDuplex {
       future.resolve(event.data)
     }
 
-    return await Events.waitFor(this.events, "CREATED_FAST", { future, onEvent, signal })
+    return await Plume.waitMapCloseOrError(this.events, "CREATED_FAST", { future, onEvent, signal })
   }
 
   async tryCreateAndExtend(params: LoopParams = {}) {

@@ -4,9 +4,8 @@ import { Bitset } from "@hazae41/bitset";
 import { Bytes } from "@hazae41/bytes";
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
 import { fetch } from "@hazae41/fleche";
+import { AsyncEventTarget, CloseAndErrorEvents, Plume } from "@hazae41/plume";
 import { Aes128Ctr128BEKey } from "@hazae41/zepar";
-import { CloseAndErrorEvents, Events } from "libs/events/events.js";
-import { AsyncEventTarget } from "libs/events/target.js";
 import { Ntor } from "mods/tor/algorithms/ntor/index.js";
 import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
 import { RelayBeginCell } from "mods/tor/binary/cells/relayed/relay_begin/cell.js";
@@ -281,7 +280,7 @@ export class SecretCircuit {
     const relay_extend2 = new RelayExtend2Cell(this, undefined, RelayExtend2Cell.types.NTOR, links, ntor_request)
     this.tor.writer.enqueue(RelayEarlyCell.from(relay_extend2).cell())
 
-    const msg_extended2 = await Events.wait(this.events, "RELAY_EXTENDED2", signal)
+    const msg_extended2 = await Plume.waitCloseOrError(this.events, "RELAY_EXTENDED2", signal)
     const response = msg_extended2.data.data.into(Ntor.Response)
     const { public_y } = response
 
@@ -319,7 +318,7 @@ export class SecretCircuit {
   }
 
   async truncate(reason = RelayTruncateCell.reasons.NONE) {
-    const ptruncated = Events.wait(this.events, "RELAY_TRUNCATED")
+    const ptruncated = Plume.waitCloseOrError(this.events, "RELAY_TRUNCATED")
     const relay_truncate = new RelayTruncateCell(this, undefined, reason)
     this.tor.writer.enqueue(RelayCell.from(relay_truncate).cell())
     await ptruncated

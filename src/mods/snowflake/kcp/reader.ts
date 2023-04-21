@@ -1,7 +1,6 @@
 import { Cursor, Empty, Opaque } from "@hazae41/binary";
 import { SuperTransformStream } from "@hazae41/cascade";
-import { CloseAndErrorEvents } from "libs/events/events.js";
-import { AsyncEventTarget } from "libs/events/target.js";
+import { AsyncEventTarget, CloseAndErrorEvents } from "@hazae41/plume";
 import { KcpSegment } from "./segment.js";
 import { SecretKcpDuplex } from "./stream.js";
 
