@@ -1,5 +1,5 @@
+import { KcpDuplex } from "@hazae41/kcp"
 import { WebSocketStream } from "libs/transports/websocket.js"
-import { KcpDuplex } from "mods/snowflake/kcp/stream.js"
 import { SmuxDuplex } from "mods/snowflake/smux/stream.js"
 import { TurboDuplex } from "mods/snowflake/turbo/stream.js"
 
