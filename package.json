@@ -33,7 +33,7 @@
     "@hazae41/fleche": "^1.1.17",
     "@hazae41/future": "^1.0.3",
     "@hazae41/kcp": "^0.1.1",
-    "@hazae41/mutex": "^1.1.0",
+    "@hazae41/mutex": "^1.2.1",
     "@hazae41/paimon": "^1.0.15",
     "@hazae41/piscine": "^1.0.5",
     "@hazae41/plume": "^1.0.0",

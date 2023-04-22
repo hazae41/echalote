@@ -521,7 +521,7 @@ export class SecretTorClientDuplex {
     data.circuit.targets.pop()
   }
 
-  readonly #circuitsMutex = new Mutex()
+  readonly #circuitsMutex = new Mutex(undefined)
 
   async #createCircuitAtomic() {
     return await this.#circuitsMutex.lock(async () => {
