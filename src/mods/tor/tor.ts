@@ -137,7 +137,7 @@ export class SecretTorClientDuplex {
   readonly writer: SuperTransformStream<Writable, Writable>
 
   readonly authorities = new Array<Authority>()
-  readonly circuits = new Map<number, SecretCircuit>()
+  readonly circuits = new Mutex(new Map<number, SecretCircuit>())
 
   readonly #buffer = Cursor.allocUnsafe(65535)
 
@@ -443,7 +443,7 @@ export class SecretTorClientDuplex {
     const cellEvent = new MessageEvent("DESTROY", { data })
     await this.events.dispatchEvent(cellEvent, "DESTROY")
 
-    this.circuits.delete(data.circuit.id)
+    this.circuits.inner.delete(data.circuit.id)
   }
 
   async #onRelayCell(parent: Cell<Opaque>) {
@@ -521,26 +521,28 @@ export class SecretTorClientDuplex {
     data.circuit.targets.pop()
   }
 
-  readonly #circuitsMutex = new Mutex(undefined)
+  async #createCircuit() {
+    return await this.circuits.lock(this.#createCircuitLocked.bind(this))
+  }
 
-  async #createCircuitAtomic() {
-    return await this.#circuitsMutex.lock(async () => {
-      while (true) {
-        const rawCircuitId = new Cursor(Bytes.random(4)).getUint32()
-        if (rawCircuitId === 0) continue
+  async #createCircuitLocked(circuits: Map<number, SecretCircuit>) {
+    while (true) {
+      const rawCircuitId = new Cursor(Bytes.random(4)).getUint32()
 
-        const circuitId = new Bitset(rawCircuitId, 32)
-          .enableBE(0)
-          .unsign()
-          .value
-        if (this.circuits.has(circuitId)) continue
+      if (rawCircuitId === 0) continue
 
-        const circuit = new SecretCircuit(circuitId, this)
-        this.circuits.set(circuitId, circuit)
+      const circuitId = new Bitset(rawCircuitId, 32)
+        .enableBE(0)
+        .unsign()
+        .value
 
-        return circuit
-      }
-    })
+      if (circuits.has(circuitId)) continue
+
+      const circuit = new SecretCircuit(circuitId, this)
+      circuits.set(circuitId, circuit)
+
+      return circuit
+    }
   }
 
   async #waitCreatedFast(circuit: SecretCircuit, signal?: AbortSignal) {
@@ -596,7 +598,7 @@ export class SecretTorClientDuplex {
     if (this.#state.type !== "handshaked")
       throw new Error(`Can't create a circuit yet`)
 
-    const circuit = await this.#createCircuitAtomic()
+    const circuit = await this.#createCircuit()
     const material = Bytes.random(20)
 
     const create_fast = new CreateFastCell(circuit, material)

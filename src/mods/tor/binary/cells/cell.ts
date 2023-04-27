@@ -19,7 +19,7 @@ export class RawOldCell<T extends Writable> {
     if (!this.circuit)
       return new OldCell(undefined, this.command, this.payload)
 
-    const circuit = tor.circuits.get(this.circuit)
+    const circuit = tor.circuits.inner.get(this.circuit)
 
     if (!circuit)
       throw new Error(`Unknown circuit id ${this.circuit}`)
@@ -112,7 +112,7 @@ export class RawCell<T extends Writable> {
     if (!this.circuit)
       return new Cell(undefined, this.command, this.payload)
 
-    const circuit = tor.circuits.get(this.circuit)
+    const circuit = tor.circuits.inner.get(this.circuit)
 
     if (!circuit)
       throw new Error(`Unknown circuit id ${this.circuit}`)
