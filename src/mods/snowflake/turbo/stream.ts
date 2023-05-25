@@ -1,5 +1,7 @@
 import { Opaque, Writable } from "@hazae41/binary"
 import { Bytes } from "@hazae41/bytes"
+import { Cascade } from "@hazae41/cascade"
+import { Ok } from "@hazae41/result"
 import { SecretTurboReader } from "./reader.js"
 import { SecretTurboWriter } from "./writer.js"
 
@@ -78,39 +80,46 @@ export class SecretTurboDuplex {
 
     this.reader.stream.closed = {}
 
-    const closeEvent = new CloseEvent("close", {})
-    await this.reader.events.dispatchEvent(closeEvent, "close")
+    await this.reader.events.emit("close", undefined)
+
+    return Ok.void()
   }
 
-  async #onReadError(reason?: unknown) {
-    console.debug(`${this.#class.name}.onReadError`, reason)
-
-    this.reader.stream.closed = { reason }
-    this.writer.stream.error(reason)
-
-    const error = new Error(`Errored`, { cause: reason })
-    const errorEvent = new ErrorEvent("error", { error })
-    await this.reader.events.dispatchEvent(errorEvent, "error")
-  }
 
   async #onWriteClose() {
     console.debug(`${this.#class.name}.onWriteClose`)
 
     this.writer.stream.closed = {}
 
-    const closeEvent = new CloseEvent("close", {})
-    await this.writer.events.dispatchEvent(closeEvent, "close")
+    await this.writer.events.emit("close", undefined)
+
+    return Ok.void()
+  }
+
+  async #onReadError(reason?: unknown) {
+    const error = Cascade.filter(reason)
+
+    console.debug(`${this.#class.name}.onReadError`, { reason })
+
+    this.reader.stream.closed = { reason }
+    this.writer.stream.error(reason)
+
+    await this.reader.events.emit("error", reason)
+
+    return Cascade.rethrow(error)
   }
 
   async #onWriteError(reason?: unknown) {
-    console.debug(`${this.#class.name}.onWriteError`, reason)
+    const error = Cascade.filter(reason)
+
+    console.debug(`${this.#class.name}.onWriteError`, { reason })
 
     this.writer.stream.closed = { reason }
     this.reader.stream.error(reason)
 
-    const error = new Error(`Errored`, { cause: reason })
-    const errorEvent = new ErrorEvent("error", { error })
-    await this.writer.events.dispatchEvent(errorEvent, "error")
+    await this.writer.events.emit("error", reason)
+
+    return Cascade.rethrow(error)
   }
 
 }
