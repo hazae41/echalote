@@ -52,10 +52,10 @@ export class NtorRequest {
 export interface NtorResult {
   auth: Uint8Array,
   nonce: Uint8Array,
-  forwardDigest: Uint8Array,
-  backwardDigest: Uint8Array,
-  forwardKey: Uint8Array,
-  backwardKey: Uint8Array
+  forwardDigest: Bytes<HASH_LEN>,
+  backwardDigest: Bytes<HASH_LEN>,
+  forwardKey: Bytes<KEY_LEN>,
+  backwardKey: Bytes<KEY_LEN>
 }
 
 export namespace NtorResult {
