@@ -280,12 +280,12 @@ export class SecretCircuit {
     const public_x = wasm_secret_x.to_public().to_bytes()
     const public_b = new Uint8Array(fallback.onion)
 
-    const ntor_request = new Ntor.Request(public_x, relayid_rsa, public_b)
+    const ntor_request = new Ntor.NtorRequest(public_x, relayid_rsa, public_b)
     const relay_extend2 = new RelayExtend2Cell(this, undefined, RelayExtend2Cell.types.NTOR, links, ntor_request)
     this.tor.writer.enqueue(RelayEarlyCell.from(relay_extend2).cell())
 
     const msg_extended2 = await Plume.waitCloseOrError(this.events, "RELAY_EXTENDED2", signal)
-    const response = msg_extended2.data.data.into(Ntor.Response)
+    const response = msg_extended2.data.data.into(Ntor.NtorResponse)
     const { public_y } = response
 
     const wasm_public_y = new PublicKey(public_y)
