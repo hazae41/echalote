@@ -1,12 +1,15 @@
-import { Cursor } from "@hazae41/binary";
-import { Cert as ICert } from "mods/tor/binary/certs/cert.js";
+import { Cursor } from "@hazae41/cursor";
+import { Ed25519 } from "@hazae41/ed25519";
+import { Err, Ok, Result } from "@hazae41/result";
+import { InvalidSignatureError } from "index.js";
 import { SignedWithEd25519Key } from "mods/tor/binary/certs/ed25519/extensions/signer.js";
+import { ExpiredCertError } from "../index.js";
 
 export interface Extensions {
   signer?: SignedWithEd25519Key
 }
 
-export class Ed25519Cert implements ICert {
+export class Ed25519Cert {
   readonly #class = Ed25519Cert
 
   static types = {
@@ -31,50 +34,70 @@ export class Ed25519Cert implements ICert {
     readonly signature: Uint8Array
   ) { }
 
-  write(cursor: Cursor) {
-    throw new Error(`Unimplemented`)
+  tryVerify(ed25519: Ed25519.Adapter): Result<void, ExpiredCertError | InvalidSignatureError> {
+    const now = new Date()
+
+    if (now > this.expiration)
+      return new Err(new ExpiredCertError())
+
+    if (!this.extensions.signer)
+      return Ok.void()
+
+    const { PublicKey, Signature } = ed25519
+
+    const signer = new PublicKey(this.extensions.signer.key)
+    const signature = new Signature(this.signature)
+    const verified = signer.verify(this.payload, signature)
+
+    if (!verified)
+      return new Err(new InvalidSignatureError())
+
+    return Ok.void()
   }
 
-  static read(cursor: Cursor, type: number, length: number) {
-    const start = cursor.offset
+  static tryRead(cursor: Cursor, type: number, length: number) {
+    return Result.unthrowSync(t => {
+      const start = cursor.offset
 
-    const version = cursor.readUint8()
-    const certType = cursor.readUint8()
+      const version = cursor.tryReadUint8().throw(t)
+      const certType = cursor.tryReadUint8().throw(t)
 
-    const expDateHours = cursor.readUint32()
-    const expiration = new Date(expDateHours * 60 * 60 * 1000)
+      const expDateHours = cursor.tryReadUint32().throw(t)
+      const expiration = new Date(expDateHours * 60 * 60 * 1000)
 
-    const certKeyType = cursor.readUint8()
-    const certKey = cursor.read(32)
+      const certKeyType = cursor.tryReadUint8().throw(t)
+      const certKey = cursor.tryRead(32).throw(t)
 
-    const nextensions = cursor.readUint8()
-    const extensions: Extensions = {}
+      const nextensions = cursor.tryReadUint8().throw(t)
+      const extensions: Extensions = {}
 
-    for (let i = 0; i < nextensions; i++) {
-      const length = cursor.readUint16()
-      const type = cursor.readUint8()
-      const flags = cursor.readUint8()
+      for (let i = 0; i < nextensions; i++) {
+        const length = cursor.tryReadUint16().throw(t)
+        const type = cursor.tryReadUint8().throw(t)
+        const flags = cursor.tryReadUint8().throw(t)
 
-      if (type === SignedWithEd25519Key.type) {
-        extensions.signer = SignedWithEd25519Key.read(cursor, length, flags)
-        continue
+        if (type === SignedWithEd25519Key.type) {
+          extensions.signer = SignedWithEd25519Key.read(cursor, length, flags)
+          continue
+        }
+
+        if (flags === this.flags.AFFECTS_VALIDATION)
+          throw new Error(`Unknown Ed25519 cert extension type ${type}`)
+        else
+          cursor.tryRead(length).throw(t)
       }
 
-      if (flags === this.flags.AFFECTS_VALIDATION)
-        throw new Error(`Unknown Ed25519 cert extension type ${type}`)
-      else
-        cursor.read(length)
-    }
+      const content = cursor.offset - start
+      cursor.offset = start
+      const payload = cursor.tryRead(content).throw(t)
 
-    const content = cursor.offset - start
-    cursor.offset = start
-    const payload = cursor.read(content)
+      const signature = cursor.tryRead(64).throw(t)
 
-    const signature = cursor.read(64)
+      if (cursor.offset - start !== length)
+        throw new Error(`Invalid Ed25519 cert length ${length}`)
 
-    if (cursor.offset - start !== length)
-      throw new Error(`Invalid Ed25519 cert length ${length}`)
-    return new this(type, version, certType, expiration, certKeyType, certKey, extensions, payload, signature)
+      return new Ok(new this(type, version, certType, expiration, certKeyType, certKey, extensions, payload, signature))
+    })
   }
 
 }

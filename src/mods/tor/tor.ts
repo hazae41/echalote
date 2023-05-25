@@ -15,7 +15,7 @@ import { kdftor } from "mods/tor/algorithms/kdftor.js";
 import { TypedAddress } from "mods/tor/binary/address.js";
 import { Cell, OldCell, RawCell, RawOldCell } from "mods/tor/binary/cells/cell.js";
 import { AuthChallengeCell } from "mods/tor/binary/cells/direct/auth_challenge/cell.js";
-import { CertsCell, CertsObject } from "mods/tor/binary/cells/direct/certs/cell.js";
+import { Certs, CertsCell } from "mods/tor/binary/cells/direct/certs/cell.js";
 import { CreateFastCell } from "mods/tor/binary/cells/direct/create_fast/cell.js";
 import { CreatedFastCell } from "mods/tor/binary/cells/direct/created_fast/cell.js";
 import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
@@ -31,7 +31,6 @@ import { RelayDropCell } from "mods/tor/binary/cells/relayed/relay_drop/cell.js"
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { RelayExtended2Cell } from "mods/tor/binary/cells/relayed/relay_extended2/cell.js";
 import { RelayTruncatedCell } from "mods/tor/binary/cells/relayed/relay_truncated/cell.js";
-import { Certs } from "mods/tor/certs/certs.js";
 import { TorCiphers } from "mods/tor/ciphers.js";
 import { Circuit, SecretCircuit } from "mods/tor/circuit.js";
 import { Authority, parseAuthorities } from "mods/tor/consensus/authorities.js";
@@ -67,7 +66,7 @@ export interface TorHandshakedState {
 
 export interface Guard {
   readonly idh: Uint8Array
-  readonly certs: CertsObject
+  readonly certs: Certs
 }
 
 export interface Fallback {
@@ -378,7 +377,7 @@ export class SecretTorClientDuplex {
 
     const idh = await data.getIdHash()
 
-    Certs.verify(data.certs, this)
+    Certs.tryVerify(data.certs, this)
 
     const { certs } = data
     const guard = { certs, idh }

@@ -1,18 +1,10 @@
-import { Cursor, Opaque } from "@hazae41/binary"
+import { Opaque } from "@hazae41/binary"
+import { Cursor } from "@hazae41/cursor"
 import { Cell } from "mods/tor/binary/cells/cell.js"
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
 import { Duplicated } from "mods/tor/binary/certs/errors.js"
 import { CrossCert, Ed25519Cert, RsaCert } from "mods/tor/binary/certs/index.js"
-
-export interface CertsObject {
-  rsa_self?: RsaCert,
-  rsa_to_tls?: RsaCert,
-  rsa_to_auth?: RsaCert,
-  rsa_to_ed?: CrossCert,
-  ed_to_sign?: Ed25519Cert,
-  sign_to_tls?: Ed25519Cert,
-  sign_to_auth?: Ed25519Cert,
-}
+import { Certs } from "mods/tor/certs/certs.js"
 
 export class CertsCell {
   readonly #class = CertsCell
@@ -21,7 +13,7 @@ export class CertsCell {
 
   constructor(
     readonly circuit: undefined,
-    readonly certs: CertsObject
+    readonly certs: Certs
   ) { }
 
   get command() {
@@ -40,7 +32,7 @@ export class CertsCell {
 
   static read(cursor: Cursor) {
     const ncerts = cursor.readUint8()
-    const certs: CertsObject = {}
+    const certs: Certs = {}
 
     for (let i = 0; i < ncerts; i++) {
       const type = cursor.readUint8()
