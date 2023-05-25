@@ -1,13 +1,16 @@
-import { Cursor, Opaque, Readable, Writable } from "@hazae41/binary";
+import { Opaque, Readable, Writable } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Bytes } from "@hazae41/bytes";
 import { TlsClientDuplex } from "@hazae41/cadenas";
-import { SuperTransformStream } from "@hazae41/cascade";
+import { Cascade, SuperTransformStream } from "@hazae41/cascade";
+import { Cursor } from "@hazae41/cursor";
 import type { Ed25519 } from "@hazae41/ed25519";
 import { Future } from "@hazae41/future";
 import { Mutex } from "@hazae41/mutex";
+import { Some } from "@hazae41/option";
 import { Paimon } from "@hazae41/paimon";
-import { AsyncEventTarget, CloseAndErrorEvents, Plume } from "@hazae41/plume";
+import { Plume, StreamEvents, SuperEventTarget } from "@hazae41/plume";
+import { Ok } from "@hazae41/result";
 import type { Sha1 } from "@hazae41/sha1";
 import type { X25519 } from "@hazae41/x25519";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
@@ -15,7 +18,7 @@ import { kdftor } from "mods/tor/algorithms/kdftor.js";
 import { TypedAddress } from "mods/tor/binary/address.js";
 import { Cell, OldCell, RawCell, RawOldCell } from "mods/tor/binary/cells/cell.js";
 import { AuthChallengeCell } from "mods/tor/binary/cells/direct/auth_challenge/cell.js";
-import { Certs, CertsCell } from "mods/tor/binary/cells/direct/certs/cell.js";
+import { CertsCell } from "mods/tor/binary/cells/direct/certs/cell.js";
 import { CreateFastCell } from "mods/tor/binary/cells/direct/create_fast/cell.js";
 import { CreatedFastCell } from "mods/tor/binary/cells/direct/created_fast/cell.js";
 import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
@@ -36,6 +39,7 @@ import { Circuit, SecretCircuit } from "mods/tor/circuit.js";
 import { Authority, parseAuthorities } from "mods/tor/consensus/authorities.js";
 import { Target } from "mods/tor/target.js";
 import { LoopParams } from "mods/tor/types/loop.js";
+import { Certs } from "./index.js";
 
 export type TorState =
   | TorNoneState
@@ -110,7 +114,7 @@ export class TorClientDuplex {
 
 }
 
-export type SecretTorEvents = CloseAndErrorEvents & {
+export type SecretTorEvents = StreamEvents & {
   "handshaked": Event,
 
   "VERSIONS": MessageEvent<VersionsCell>
@@ -130,7 +134,7 @@ export type SecretTorEvents = CloseAndErrorEvents & {
 export class SecretTorClientDuplex {
   readonly #class = SecretTorClientDuplex
 
-  readonly events = new AsyncEventTarget<SecretTorEvents>()
+  readonly events = new SuperEventTarget<SecretTorEvents>()
 
   readonly reader: SuperTransformStream<Opaque, Opaque>
   readonly writer: SuperTransformStream<Writable, Writable>
@@ -173,11 +177,15 @@ export class SecretTorClientDuplex {
       .pipeTo(read.writable, { signal })
       .then(this.#onReadClose.bind(this))
       .catch(this.#onReadError.bind(this))
+      .then(r => r.ignore())
+      .catch(console.error)
 
     write.readable
       .pipeTo(tls.writable, { signal })
       .then(this.#onWriteClose.bind(this))
       .catch(this.#onWriteError.bind(this))
+      .then(r => r.ignore())
+      .catch(console.error)
 
     read.readable
       .pipeTo(new WritableStream())
@@ -199,32 +207,37 @@ export class SecretTorClientDuplex {
 
     this.reader.closed = {}
 
-    const closeEvent = new CloseEvent("close", {})
-    await this.events.dispatchEvent(closeEvent, "close")
-  }
+    await this.events.emit("close", undefined)
 
-  async #onReadError(reason?: unknown) {
-    console.debug(`${this.#class.name}.onReadError`, reason)
-
-    this.reader.closed = { reason }
-    this.writer.error(reason)
-
-    const error = new Error(`Errored`, { cause: reason })
-    const errorEvent = new ErrorEvent("error", { error })
-    await this.events.dispatchEvent(errorEvent, "error")
+    return Ok.void()
   }
 
   async #onWriteClose() {
     console.debug(`${this.#class.name}.onWriteClose`)
 
     this.writer.closed = {}
+
+    return Ok.void()
+  }
+
+  async #onReadError(reason?: unknown) {
+    console.debug(`${this.#class.name}.onReadError`, { reason })
+
+    this.reader.closed = { reason }
+    this.writer.error(reason)
+
+    await this.events.emit("error", reason)
+
+    return Cascade.rethrow(reason)
   }
 
   async #onWriteError(reason?: unknown) {
-    console.debug(`${this.#class.name}.onWriteError`, reason)
+    console.debug(`${this.#class.name}.onWriteError`, { reason })
 
     this.writer.closed = { reason }
     this.reader.error(reason)
+
+    return Cascade.rethrow(reason)
   }
 
   async #onWriteStart() {
@@ -233,7 +246,11 @@ export class SecretTorClientDuplex {
     const version = new VersionsCell(undefined, [5])
     this.writer.enqueue(OldCell.from(version))
 
-    await Plume.waitCloseOrError(this.events, "handshaked")
+    await Plume.tryWaitStream(this.events, "handshaked", () => {
+      return new Ok(new Some(Ok.void()))
+    }, AbortSignal.timeout(1000)).then(r => r.unwrap())
+
+    return Ok.void()
   }
 
   async #onRead(chunk: Opaque) {
@@ -243,6 +260,8 @@ export class SecretTorClientDuplex {
       await this.#onReadBuffered(chunk.bytes)
     else
       await this.#onReadDirect(chunk.bytes)
+
+    return Ok.void()
   }
 
   /**
@@ -251,7 +270,7 @@ export class SecretTorClientDuplex {
    * @returns 
    */
   async #onReadBuffered(chunk: Uint8Array) {
-    this.#buffer.write(chunk)
+    this.#buffer.tryWrite(chunk).unwrap()
     const full = this.#buffer.before
 
     this.#buffer.offset = 0
@@ -368,16 +387,16 @@ export class SecretTorClientDuplex {
     if (this.#state.type !== "versioned")
       throw new Error(`State is not versioned`)
 
-    const data = CertsCell.tryUncell(cell)
+    const data = CertsCell.tryUncell(cell).unwrap()
 
     console.debug(`CERTS`, data)
 
     const cellEvent = new MessageEvent("CERTS", { data })
-    await this.events.dispatchEvent(cellEvent, "CERTS")
+    await this.events.tryEmit("CERTS", cellEvent).then(r => r.unwrap())
 
     const idh = await data.certs.rsa_self?.tryHash().then(r => r.unwrap())
 
-    Certs.tryVerify(data.certs, this)
+    await Certs.tryVerify(data.certs, this.params.ed25519).then(r => r.unwrap())
 
     const { certs } = data
     const guard = { certs, idh }
@@ -390,7 +409,7 @@ export class SecretTorClientDuplex {
     if (this.#state.type !== "handshaking")
       throw new Error(`State is not handshaking`)
 
-    const data = AuthChallengeCell.uncell(cell)
+    const data = AuthChallengeCell.tryUncell(cell).unwrap()
 
     console.debug(`AUTH_CHALLENGE`, data)
 
