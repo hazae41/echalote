@@ -1,4 +1,7 @@
-import { Cursor, Opaque } from "@hazae41/binary"
+import { BinaryReadError, Opaque } from "@hazae41/binary"
+import { Bytes } from "@hazae41/bytes"
+import { Cursor } from "@hazae41/cursor"
+import { Ok, Result } from "@hazae41/result"
 import { Cell } from "mods/tor/binary/cells/cell.js"
 
 export class AuthChallengeCell {
@@ -8,7 +11,7 @@ export class AuthChallengeCell {
 
   constructor(
     readonly circuit: undefined,
-    readonly challenge: Uint8Array,
+    readonly challenge: Bytes<32>,
     readonly methods: number[]
   ) { }
 
@@ -16,33 +19,31 @@ export class AuthChallengeCell {
     return this.#class.command
   }
 
-  size(): number {
-    throw new Error(`Unimplemented`)
+  static tryRead(cursor: Cursor): Result<{
+    challenge: Bytes<32>,
+    methods: number[]
+  }, BinaryReadError> {
+    return Result.unthrowSync(t => {
+      const challenge = cursor.tryRead(32).throw(t)
+      const nmethods = cursor.tryReadUint16().throw(t)
+      const methods = new Array<number>(nmethods)
+
+      for (let i = 0; i < nmethods; i++)
+        methods[i] = cursor.tryReadUint16().throw(t)
+
+      return new Ok({ challenge, methods })
+    })
   }
 
-  write(cursor: Cursor) {
-    throw new Error(`Unimplemented`)
-  }
+  static tryUncell(cell: Cell<Opaque>): Result<AuthChallengeCell, BinaryReadError> {
+    const { command, circuit } = cell
 
-  static read(cursor: Cursor) {
-    const challenge = cursor.read(32)
-    const nmethods = cursor.readUint16()
-    const methods = new Array<number>(nmethods)
-
-    for (let i = 0; i < nmethods; i++)
-      methods[i] = cursor.readUint16()
-
-    return { challenge, methods }
-  }
-
-  static uncell(cell: Cell<Opaque>) {
-    if (cell.command !== this.command)
+    if (command !== this.command)
       throw new Error(`Invalid ${this.name} cell command ${cell.command}`)
-    if (cell.circuit)
+    if (circuit)
       throw new Error(`Unexpected circuit for ${this.name} cell`)
 
-    const { challenge, methods } = cell.payload.into(this)
-    return new this(cell.circuit, challenge, methods)
+    return cell.payload.tryInto(this).mapSync(x => new AuthChallengeCell(circuit, x.challenge, x.methods))
   }
 
 }
