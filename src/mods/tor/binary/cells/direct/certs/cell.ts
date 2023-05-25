@@ -1,10 +1,30 @@
 import { Opaque } from "@hazae41/binary"
 import { Cursor } from "@hazae41/cursor"
+import { Err, Ok, Result } from "@hazae41/result"
 import { Cell } from "mods/tor/binary/cells/cell.js"
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
-import { Duplicated } from "mods/tor/binary/certs/errors.js"
 import { CrossCert, Ed25519Cert, RsaCert } from "mods/tor/binary/certs/index.js"
 import { Certs } from "mods/tor/certs/certs.js"
+
+export class DuplicatedCertError extends Error {
+  readonly #class = DuplicatedCertError
+  readonly name = this.#class.name
+
+  constructor() {
+    super(`Duplicated certificate`)
+  }
+
+}
+
+export class UnknownCertError extends Error {
+  readonly #class = UnknownCertError
+  readonly name = this.#class.name
+
+  constructor() {
+    super(`Unknown certificate`)
+  }
+
+}
 
 export class CertsCell {
   readonly #class = CertsCell
@@ -13,87 +33,94 @@ export class CertsCell {
 
   constructor(
     readonly circuit: undefined,
-    readonly certs: Certs
+    readonly certs: Partial<Certs>
   ) { }
 
   get command() {
     return this.#class.command
   }
 
-  async getIdHash() {
-    if (!this.certs.rsa_self)
-      throw new Error(`Undefined ID cert`)
+  static tryRead(cursor: Cursor) {
+    return Result.unthrowSync(t => {
+      const ncerts = cursor.tryReadUint8().throw(t)
+      const certs: Partial<Certs> = {}
 
-    const key = this.certs.rsa_self.x509.tbsCertificate.subjectPublicKeyInfo.toBytes()
-    const hash = new Uint8Array(await crypto.subtle.digest("SHA-1", key))
+      for (let i = 0; i < ncerts; i++) {
+        const type = cursor.tryReadUint8().throw(t)
+        const length = cursor.tryReadUint16().throw(t)
 
-    return hash
+        if (type === RsaCert.types.RSA_SELF) {
+          if (certs.rsa_self)
+            return new Err(new DuplicatedCertError())
+
+          certs.rsa_self = RsaCert.tryRead(cursor, type, length).throw(t)
+          continue
+        }
+
+        if (type === RsaCert.types.RSA_TO_AUTH) {
+          if (certs.rsa_self)
+            return new Err(new DuplicatedCertError())
+
+          certs.rsa_to_auth = RsaCert.tryRead(cursor, type, length).throw(t)
+          continue
+        }
+
+        if (type === RsaCert.types.RSA_TO_TLS) {
+          if (certs.rsa_self)
+            return new Err(new DuplicatedCertError())
+
+          certs.rsa_to_tls = RsaCert.tryRead(cursor, type, length).throw(t)
+          continue
+        }
+
+        if (type === CrossCert.types.RSA_TO_ED) {
+          if (certs.rsa_self)
+            return new Err(new DuplicatedCertError())
+
+          certs.rsa_to_ed = CrossCert.tryRead(cursor, type, length).throw(t)
+          continue
+        }
+
+        if (type === Ed25519Cert.types.ED_TO_SIGN) {
+          if (certs.rsa_self)
+            return new Err(new DuplicatedCertError())
+
+          certs.ed_to_sign = Ed25519Cert.tryRead(cursor, type, length).throw(t)
+          continue
+        }
+
+        if (type === Ed25519Cert.types.SIGN_TO_TLS) {
+          if (certs.rsa_self)
+            return new Err(new DuplicatedCertError())
+
+          certs.sign_to_tls = Ed25519Cert.tryRead(cursor, type, length).throw(t)
+          continue
+        }
+
+        if (type === Ed25519Cert.types.SIGN_TO_AUTH) {
+          if (certs.rsa_self)
+            return new Err(new DuplicatedCertError())
+
+          certs.sign_to_auth = Ed25519Cert.tryRead(cursor, type, length).throw(t)
+          continue
+        }
+
+        return new Err(new UnknownCertError())
+      }
+
+      return new Ok({ certs })
+    })
   }
 
-  static read(cursor: Cursor) {
-    const ncerts = cursor.readUint8()
-    const certs: Certs = {}
+  static tryUncell(cell: Cell<Opaque>) {
+    const { command, circuit } = cell
 
-    for (let i = 0; i < ncerts; i++) {
-      const type = cursor.readUint8()
-      const length = cursor.readUint16()
+    if (command !== this.command)
+      throw new InvalidCommand(this.name, command)
+    if (circuit)
+      throw new InvalidCircuit(this.name, circuit)
 
-      if (type === RsaCert.types.RSA_SELF) {
-        if (certs.rsa_self) throw new Duplicated(type)
-        certs.rsa_self = RsaCert.read(cursor, type, length)
-        continue
-      }
-
-      if (type === RsaCert.types.RSA_TO_AUTH) {
-        if (certs.rsa_to_auth) throw new Duplicated(type)
-        certs.rsa_to_auth = RsaCert.read(cursor, type, length)
-        continue
-      }
-
-      if (type === RsaCert.types.RSA_TO_TLS) {
-        if (certs.rsa_to_tls) throw new Duplicated(type)
-        certs.rsa_to_tls = RsaCert.read(cursor, type, length)
-        continue
-      }
-
-      if (type === CrossCert.types.RSA_TO_ED) {
-        if (certs.rsa_to_ed) throw new Duplicated(type)
-        certs.rsa_to_ed = CrossCert.read(cursor, type, length)
-        continue
-      }
-
-      if (type === Ed25519Cert.types.ED_TO_SIGN) {
-        if (certs.ed_to_sign) throw new Duplicated(type)
-        certs.ed_to_sign = Ed25519Cert.read(cursor, type, length)
-        continue
-      }
-
-      if (type === Ed25519Cert.types.SIGN_TO_TLS) {
-        if (certs.sign_to_tls) throw new Duplicated(type)
-        certs.sign_to_tls = Ed25519Cert.read(cursor, type, length)
-        continue
-      }
-
-      if (type === Ed25519Cert.types.SIGN_TO_AUTH) {
-        if (certs.sign_to_auth) throw new Duplicated(type)
-        certs.sign_to_auth = Ed25519Cert.read(cursor, type, length)
-        continue
-      }
-
-      throw new Error(`Unknown CERTS cell cert type ${type}`)
-    }
-
-    return { certs }
-  }
-
-  static uncell(cell: Cell<Opaque>) {
-    if (cell.command !== this.command)
-      throw new InvalidCommand(this.name, cell.command)
-    if (cell.circuit)
-      throw new InvalidCircuit(this.name, cell.circuit)
-
-    const { certs } = cell.payload.into(this)
-    return new this(cell.circuit, certs)
+    return cell.payload.tryInto(this).mapSync(x => new CertsCell(circuit, x.certs))
   }
 
 }

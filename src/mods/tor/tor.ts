@@ -368,14 +368,14 @@ export class SecretTorClientDuplex {
     if (this.#state.type !== "versioned")
       throw new Error(`State is not versioned`)
 
-    const data = CertsCell.uncell(cell)
+    const data = CertsCell.tryUncell(cell)
 
     console.debug(`CERTS`, data)
 
     const cellEvent = new MessageEvent("CERTS", { data })
     await this.events.dispatchEvent(cellEvent, "CERTS")
 
-    const idh = await data.getIdHash()
+    const idh = await data.certs.rsa_self?.tryHash().then(r => r.unwrap())
 
     Certs.tryVerify(data.certs, this)
 

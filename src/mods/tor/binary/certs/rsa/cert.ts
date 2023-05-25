@@ -3,7 +3,7 @@ import { BinaryWriteError } from "@hazae41/binary";
 import { Bytes } from "@hazae41/bytes";
 import { Cursor } from "@hazae41/cursor";
 import { Err, Ok, Result } from "@hazae41/result";
-import { Certificate, X509 } from "@hazae41/x509";
+import { X509 } from "@hazae41/x509";
 
 export class ExpiredCertError extends Error {
   readonly #class = ExpiredCertError
@@ -37,8 +37,17 @@ export class RsaCert {
   constructor(
     readonly type: number,
     readonly bytes: Bytes,
-    readonly x509: Certificate
+    readonly x509: X509.Certificate
   ) { }
+
+  async tryHash(): Promise<Result<Bytes, BinaryWriteError>> {
+    return await Result.unthrow(async t => {
+      const key = X509.tryWriteToBytes(this.x509.tbsCertificate.subjectPublicKeyInfo).throw(t)
+      const hash = new Uint8Array(await crypto.subtle.digest("SHA-1", key))
+
+      return new Ok(hash)
+    })
+  }
 
   tryVerify(): Result<void, ExpiredCertError | PrematureCertError> {
     const now = new Date()
@@ -70,7 +79,7 @@ export class RsaCert {
       const start = cursor.offset
 
       const data = cursor.tryRead(length).throw(t)
-      const x509 = X509.tryReadFromBytes(Certificate, data).throw(t)
+      const x509 = X509.tryReadFromBytes(X509.Certificate, data).throw(t)
 
       if (cursor.offset - start !== length)
         throw new Error(`Invalid RSA cert length ${length}`)

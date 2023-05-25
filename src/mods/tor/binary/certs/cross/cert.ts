@@ -1,7 +1,9 @@
-import { Cursor } from "@hazae41/binary";
-import { Cert as ICert } from "mods/tor/binary/certs/cert.js";
+import { BinaryReadError } from "@hazae41/binary"
+import { Cursor } from "@hazae41/cursor"
+import { Err, Ok, Result } from "@hazae41/result"
+import { ExpiredCertError } from "../index.js"
 
-export class CrossCert implements ICert {
+export class CrossCert {
   readonly #class = CrossCert
 
   static types = {
@@ -16,34 +18,35 @@ export class CrossCert implements ICert {
     readonly signature: Uint8Array
   ) { }
 
-  check() {
+  tryVerify(): Result<void, ExpiredCertError> {
     const now = new Date()
 
     if (now > this.expiration)
-      throw new Error(`Late certificate`)
+      return new Err(new ExpiredCertError())
+
+    return Ok.void()
   }
 
-  write(cursor: Cursor) {
-    throw new Error(`Unimplemented`)
-  }
+  static tryRead(cursor: Cursor, type: number, length: number): Result<CrossCert, BinaryReadError> {
+    return Result.unthrowSync(t => {
+      const start = cursor.offset
 
-  static read(cursor: Cursor, type: number, length: number) {
-    const start = cursor.offset
+      const key = cursor.tryRead(32).throw(t)
 
-    const key = cursor.read(32)
+      const expDateHours = cursor.tryReadUint32().throw(t)
+      const expiration = new Date(expDateHours * 60 * 60 * 1000)
 
-    const expDateHours = cursor.readUint32()
-    const expiration = new Date(expDateHours * 60 * 60 * 1000)
+      const content = cursor.offset - start
+      cursor.offset = start
+      const payload = cursor.tryRead(content).throw(t)
 
-    const content = cursor.offset - start
-    cursor.offset = start
-    const payload = cursor.read(content)
+      const sigLength = cursor.tryReadUint8().throw(t)
+      const signature = cursor.tryRead(sigLength).throw(t)
 
-    const sigLength = cursor.readUint8()
-    const signature = cursor.read(sigLength)
+      if (cursor.offset - start !== length)
+        throw new Error(`Invalid Cross cert length ${length}`)
 
-    if (cursor.offset - start !== length)
-      throw new Error(`Invalid Cross cert length ${length}`)
-    return new this(type, key, expiration, payload, signature)
+      return new Ok(new CrossCert(type, key, expiration, payload, signature))
+    })
   }
 }

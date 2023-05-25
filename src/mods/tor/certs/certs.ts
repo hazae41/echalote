@@ -27,32 +27,44 @@ export class InvalidSignatureError extends Error {
 }
 
 export interface Certs {
-  rsa_self?: RsaCert,
-  rsa_to_tls?: RsaCert,
+  rsa_self: RsaCert,
+  rsa_to_tls: RsaCert,
   rsa_to_auth?: RsaCert,
-  rsa_to_ed?: CrossCert,
-  ed_to_sign?: Ed25519Cert,
-  sign_to_tls?: Ed25519Cert,
+  rsa_to_ed: CrossCert,
+  ed_to_sign: Ed25519Cert,
+  sign_to_tls: Ed25519Cert,
   sign_to_auth?: Ed25519Cert,
 }
 
 export namespace Certs {
 
-  export async function tryVerify(certs: Certs, ed25519: Ed25519.Adapter): Promise<Result<void, ExpectedCertError | BinaryWriteError | InvalidSignatureError | ExpiredCertError | PrematureCertError>> {
+  export async function tryVerify(certs: Partial<Certs>, ed25519: Ed25519.Adapter): Promise<Result<Certs, ExpectedCertError | BinaryWriteError | InvalidSignatureError | ExpiredCertError | PrematureCertError>> {
+    const { rsa_self, rsa_to_tls, rsa_to_ed, ed_to_sign, sign_to_tls } = certs
+
+    if (!rsa_self)
+      return new Err(new ExpectedCertError())
+    if (!rsa_to_tls)
+      return new Err(new ExpectedCertError())
+    if (!rsa_to_ed)
+      return new Err(new ExpectedCertError())
+    if (!ed_to_sign)
+      return new Err(new ExpectedCertError())
+    if (!sign_to_tls)
+      return new Err(new ExpectedCertError())
+
+    const certs2 = { rsa_self, rsa_to_tls, rsa_to_ed, ed_to_sign, sign_to_tls }
+
     return Result.all(await Promise.all([
-      tryVerifyRsaSelf(certs),
-      tryVerifyRsaToTls(certs),
-      tryVerifyRsaToEd(certs),
-      tryVerifyEdToSigning(certs, ed25519),
-      tryVerifySigningToTls(certs, ed25519),
-    ])).mapSync(() => { })
+      tryVerifyRsaSelf(certs2),
+      tryVerifyRsaToTls(certs2),
+      tryVerifyRsaToEd(certs2),
+      tryVerifyEdToSigning(certs2, ed25519),
+      tryVerifySigningToTls(certs2, ed25519),
+    ])).mapSync(() => certs2)
   }
 
-  async function tryVerifyRsaSelf(certs: Certs): Promise<Result<void, ExpectedCertError | BinaryWriteError | InvalidSignatureError | ExpiredCertError | PrematureCertError>> {
+  async function tryVerifyRsaSelf(certs: Certs): Promise<Result<void, ExpiredCertError | PrematureCertError | BinaryWriteError | InvalidSignatureError>> {
     return await Result.unthrow(async t => {
-      if (!certs.rsa_self)
-        return new Err(new ExpectedCertError())
-
       certs.rsa_self.tryVerify().throw(t)
 
       const signed = X509.tryWriteToBytes(certs.rsa_self.x509.tbsCertificate).throw(t)
@@ -71,13 +83,8 @@ export namespace Certs {
     })
   }
 
-  async function tryVerifyRsaToTls(certs: Certs): Promise<Result<void, ExpectedCertError | BinaryWriteError | InvalidSignatureError | ExpiredCertError | PrematureCertError>> {
+  async function tryVerifyRsaToTls(certs: Certs): Promise<Result<void, ExpiredCertError | PrematureCertError | BinaryWriteError | InvalidSignatureError>> {
     return await Result.unthrow(async t => {
-      if (!certs.rsa_self)
-        return new Err(new ExpectedCertError())
-      if (!certs.rsa_to_tls)
-        return new Err(new ExpectedCertError())
-
       certs.rsa_to_tls.tryVerify().throw(t)
 
       const signed = X509.tryWriteToBytes(certs.rsa_to_tls.x509.tbsCertificate).throw(t)
@@ -97,14 +104,9 @@ export namespace Certs {
     })
   }
 
-  async function tryVerifyRsaToEd(certs: Certs): Promise<Result<void, ExpectedCertError | BinaryWriteError | InvalidSignatureError>> {
+  async function tryVerifyRsaToEd(certs: Certs): Promise<Result<void, ExpiredCertError | BinaryWriteError | InvalidSignatureError>> {
     return await Result.unthrow(async t => {
-      if (!certs.rsa_self)
-        return new Err(new ExpectedCertError())
-      if (!certs.rsa_to_ed)
-        return new Err(new ExpectedCertError())
-
-      certs.rsa_to_ed.check()
+      certs.rsa_to_ed.tryVerify().throw(t)
 
       const publicKey = X509.tryWriteToBytes(certs.rsa_self.x509.tbsCertificate.subjectPublicKeyInfo).throw(t)
       const identity = RsaPublicKey.from_public_key_der(publicKey)
@@ -122,13 +124,8 @@ export namespace Certs {
     })
   }
 
-  async function tryVerifyEdToSigning(certs: Certs, ed25519: Ed25519.Adapter): Promise<Result<void, ExpectedCertError | ExpiredCertError | BinaryWriteError | InvalidSignatureError>> {
+  async function tryVerifyEdToSigning(certs: Certs, ed25519: Ed25519.Adapter): Promise<Result<void, ExpiredCertError | BinaryWriteError | InvalidSignatureError>> {
     return Result.unthrowSync(t => {
-      if (!certs.rsa_to_ed)
-        return new Err(new ExpectedCertError())
-      if (!certs.ed_to_sign)
-        return new Err(new ExpectedCertError())
-
       certs.ed_to_sign.tryVerify(ed25519).throw(t)
 
       const { PublicKey, Signature } = ed25519
@@ -144,13 +141,8 @@ export namespace Certs {
     })
   }
 
-  async function tryVerifySigningToTls(certs: Certs, ed25519: Ed25519.Adapter): Promise<Result<void, ExpectedCertError | ExpiredCertError | BinaryWriteError | InvalidSignatureError>> {
+  async function tryVerifySigningToTls(certs: Certs, ed25519: Ed25519.Adapter): Promise<Result<void, ExpiredCertError | BinaryWriteError | InvalidSignatureError>> {
     return Result.unthrowSync(t => {
-      if (!certs.ed_to_sign)
-        return new Err(new ExpectedCertError())
-      if (!certs.sign_to_tls)
-        return new Err(new ExpectedCertError())
-
       certs.sign_to_tls.tryVerify(ed25519).throw(t)
 
       const { PublicKey, Signature } = ed25519
