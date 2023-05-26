@@ -244,7 +244,7 @@ export class SecretTorClientDuplex {
     await this.#init()
 
     const version = new VersionsCell([5])
-    this.writer.enqueue(OldCell.Circuitless.from(version))
+    this.writer.enqueue(OldCell.Circuitless.from(undefined, version))
 
     await Plume.tryWaitStream(this.events, "handshaked", () => {
       return new Ok(new Some(Ok.void()))

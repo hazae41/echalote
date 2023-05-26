@@ -4,7 +4,28 @@ import { Err, Ok, Result } from "@hazae41/result";
 import { SecretCircuit } from "mods/tor/circuit.js";
 import { SecretTorClientDuplex } from "mods/tor/tor.js";
 import { InvalidCircuitError, InvalidCommandError } from "./cell.js";
-import { Cellable } from "./cellable.js";
+
+export interface OldCellable {
+  readonly old: false
+  readonly circuit: boolean,
+  readonly command: number
+}
+
+export namespace OldCellable {
+
+  export interface Circuitful {
+    readonly old: false
+    readonly circuit: true,
+    readonly command: number
+  }
+
+  export interface Circuitless {
+    readonly old: false
+    readonly circuit: false,
+    readonly command: number
+  }
+
+}
 
 export type OldCell<T extends Writable.Infer<T>> =
   | OldCell.Circuitful<T>
@@ -15,7 +36,7 @@ export namespace OldCell {
   export type PAYLOAD_LEN = 509
   export const PAYLOAD_LEN = 509
 
-  export function tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: OldCell<Opaque>, readable: Cellable & Readable<ReadOutput, ReadError>): Result<OldCell<ReadOutput>, ReadError | BinaryReadError | InvalidCommandError | InvalidCircuitError> {
+  export function tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: OldCell<Opaque>, readable: OldCellable & Readable<ReadOutput, ReadError>): Result<OldCell<ReadOutput>, ReadError | BinaryReadError | InvalidCommandError | InvalidCircuitError> {
     if (readable.command !== cell.command)
       return new Err(new InvalidCommandError())
     if (readable.circuit !== Boolean(cell.circuit))
@@ -110,7 +131,7 @@ export namespace OldCell {
       this.#raw = new Raw<Fragment>(circuit.id, command, fragment)
     }
 
-    static from<T extends Cellable.Circuitful & Writable.Infer<T>>(circuit: SecretCircuit, cellable: T) {
+    static from<T extends OldCellable.Circuitful & Writable.Infer<T>>(circuit: SecretCircuit, cellable: T) {
       return new Circuitful(circuit, cellable.command, cellable)
     }
 
@@ -139,7 +160,7 @@ export namespace OldCell {
       this.#raw = new Raw<Fragment>(0, command, fragment)
     }
 
-    static from<T extends Cellable.Circuitless & Writable.Infer<T>>(circuit: undefined, cellable: T) {
+    static from<T extends OldCellable.Circuitless & Writable.Infer<T>>(circuit: undefined, cellable: T) {
       return new Circuitless(circuit, cellable.command, cellable)
     }
 

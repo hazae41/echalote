@@ -3,7 +3,6 @@ import { Cursor } from "@hazae41/cursor";
 import { Err, Ok, Result } from "@hazae41/result";
 import { SecretCircuit } from "mods/tor/circuit.js";
 import { SecretTorClientDuplex } from "mods/tor/tor.js";
-import { Cellable } from "./cellable.js";
 
 export class InvalidCommandError extends Error {
   readonly #class = InvalidCommandError
@@ -21,6 +20,28 @@ export class InvalidCircuitError extends Error {
 
   constructor() {
     super(`Invalid circuit`)
+  }
+
+}
+
+export interface Cellable {
+  readonly old: false
+  readonly circuit: boolean,
+  readonly command: number
+}
+
+export namespace Cellable {
+
+  export interface Circuitful {
+    readonly old: false
+    readonly circuit: true,
+    readonly command: number
+  }
+
+  export interface Circuitless {
+    readonly old: false
+    readonly circuit: false,
+    readonly command: number
   }
 
 }
