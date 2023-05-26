@@ -1,13 +1,15 @@
-import { Cursor, Opaque, Writable } from "@hazae41/binary";
+import { BinaryError, BinaryReadError, Opaque, Writable } from "@hazae41/binary";
+import { Cursor } from "@hazae41/cursor";
+import { Ok, Result } from "@hazae41/result";
 import { SecretCircuit } from "mods/tor/circuit.js";
 import { SecretTorClientDuplex } from "mods/tor/tor.js";
 
-export interface Cellable extends Writable {
+export interface Cellable<T extends Writable> extends Writable.Infer<T> {
   circuit: SecretCircuit | undefined,
   command: number
 }
 
-export class RawOldCell<T extends Writable> {
+export class RawOldCell<T extends Writable.Infer<T>> {
 
   constructor(
     readonly circuit: number,
@@ -15,7 +17,7 @@ export class RawOldCell<T extends Writable> {
     readonly payload: T
   ) { }
 
-  unpack(tor: SecretTorClientDuplex) {
+  tryUnpack(tor: SecretTorClientDuplex) {
     if (!this.circuit)
       return new OldCell(undefined, this.command, this.payload)
 
@@ -27,52 +29,62 @@ export class RawOldCell<T extends Writable> {
     return new OldCell(circuit, this.command, this.payload)
   }
 
-  size() {
-    if (this.command === 7) {
-      return 2 + 1 + 2 + this.payload.size()
-    } else {
-      return 2 + 1 + Cell.PAYLOAD_LEN
-    }
+  trySize(): Result<number, Writable.SizeError<T>> {
+    if (this.command === 7)
+      return this.payload.trySize().mapSync(x => 2 + 1 + 2 + x)
+    else
+      return new Ok(2 + 1 + Cell.PAYLOAD_LEN)
   }
 
-  write(cursor: Cursor) {
-    if (this.command === 7) {
-      cursor.writeUint16(this.circuit)
-      cursor.writeUint8(this.command)
-      cursor.writeUint16(this.payload.size())
-      this.payload.write(cursor)
-    } else {
-      cursor.writeUint16(this.circuit)
-      cursor.writeUint8(this.command)
+  tryWrite(cursor: Cursor): Result<void, BinaryError | Writable.SizeError<T> | Writable.WriteError<T>> {
+    return Result.unthrowSync(t => {
+      if (this.command === 7) {
+        cursor.tryWriteUint16(this.circuit).throw(t)
+        cursor.tryWriteUint8(this.command).throw(t)
 
-      const payload = cursor.read(Cell.PAYLOAD_LEN)
-      const subcursor = new Cursor(payload)
-      this.payload.write(subcursor)
-      subcursor.fill(0, subcursor.remaining)
-    }
+        const size = this.payload.trySize().throw(t)
+        cursor.tryWriteUint16(size).throw(t)
+
+        this.payload.tryWrite(cursor).throw(t)
+
+        return Ok.void()
+      } else {
+        cursor.tryWriteUint16(this.circuit).throw(t)
+        cursor.tryWriteUint8(this.command).throw(t)
+
+        const payload = cursor.tryRead(Cell.PAYLOAD_LEN).throw(t)
+        const subcursor = new Cursor(payload)
+        this.payload.tryWrite(subcursor).throw(t)
+        subcursor.fill(0, subcursor.remaining)
+
+        return Ok.void()
+      }
+    })
   }
 
-  static read(cursor: Cursor) {
-    const circuit = cursor.readUint16()
-    const command = cursor.readUint8()
+  static tryRead(cursor: Cursor): Result<RawOldCell<Opaque>, BinaryReadError> {
+    return Result.unthrowSync(t => {
+      const circuit = cursor.tryReadUint16().throw(t)
+      const command = cursor.tryReadUint8().throw(t)
 
-    if (command === 7) {
-      const length = cursor.readUint16()
-      const bytes = cursor.read(length)
-      const payload = new Opaque(bytes)
+      if (command === 7) {
+        const length = cursor.tryReadUint16().throw(t)
+        const bytes = cursor.tryRead(length).throw(t)
+        const payload = new Opaque(bytes)
 
-      return new this(circuit, command, payload)
-    } else {
-      const bytes = cursor.read(Cell.PAYLOAD_LEN)
-      const payload = new Opaque(bytes)
+        return new Ok(new RawOldCell(circuit, command, payload))
+      } else {
+        const bytes = cursor.tryRead(Cell.PAYLOAD_LEN).throw(t)
+        const payload = new Opaque(bytes)
 
-      return new this(circuit, command, payload)
-    }
+        return new Ok(new RawOldCell(circuit, command, payload))
+      }
+    })
   }
 
 }
 
-export class OldCell<T extends Writable> {
+export class OldCell<T extends Writable.Infer<T>> {
 
   readonly #raw: RawOldCell<T>
 
@@ -86,21 +98,21 @@ export class OldCell<T extends Writable> {
     this.#raw = new RawOldCell<T>(id, command, payload)
   }
 
-  static from<T extends Cellable>(cellable: T) {
-    return new this(cellable.circuit, cellable.command, cellable)
+  static from<T extends Cellable<T>>(cellable: T) {
+    return new OldCell(cellable.circuit, cellable.command, cellable)
   }
 
-  size() {
-    return this.#raw.size()
+  trySize(): Result<number, Writable.SizeError<T>> {
+    return this.#raw.trySize()
   }
 
-  write(cursor: Cursor) {
-    return this.#raw.write(cursor)
+  tryWrite(cursor: Cursor): Result<void, Writable.SizeError<T> | Writable.WriteError<T> | BinaryError> {
+    return this.#raw.tryWrite(cursor)
   }
 
 }
 
-export class RawCell<T extends Writable> {
+export class RawCell<T extends Writable.Infer<T>> {
 
   constructor(
     readonly circuit: number,
@@ -120,54 +132,62 @@ export class RawCell<T extends Writable> {
     return new Cell(circuit, this.command, this.payload)
   }
 
-  size() {
+  trySize(): Result<number, Writable.SizeError<T>> {
     if (this.command >= 128)
-      return 4 + 1 + 2 + this.payload.size()
+      return this.payload.trySize().mapSync(x => 4 + 1 + 2 + x)
     else
-      return 4 + 1 + Cell.PAYLOAD_LEN
+      return new Ok(4 + 1 + Cell.PAYLOAD_LEN)
   }
 
-  write(cursor: Cursor) {
-    if (this.command >= 128) {
-      cursor.writeUint32(this.circuit)
-      cursor.writeUint8(this.command)
-      cursor.writeUint16(this.payload.size())
-      this.payload.write(cursor)
-    } else {
-      cursor.writeUint32(this.circuit)
-      cursor.writeUint8(this.command)
+  tryWrite(cursor: Cursor): Result<void, Writable.SizeError<T> | Writable.WriteError<T> | BinaryError> {
+    return Result.unthrowSync(t => {
+      if (this.command >= 128) {
+        cursor.tryWriteUint32(this.circuit).throw(t)
+        cursor.tryWriteUint8(this.command).throw(t)
 
-      const payload = cursor.read(Cell.PAYLOAD_LEN)
-      const subcursor = new Cursor(payload)
-      this.payload.write(subcursor)
-      subcursor.fill(0, subcursor.remaining)
-    }
+        const size = this.payload.trySize().throw(t)
+        cursor.tryWriteUint16(size).throw(t)
+
+        this.payload.tryWrite(cursor).throw(t)
+
+        return Ok.void()
+      } else {
+        cursor.tryWriteUint32(this.circuit).throw(t)
+        cursor.tryWriteUint8(this.command).throw(t)
+
+        const payload = cursor.tryRead(Cell.PAYLOAD_LEN).throw(t)
+        const subcursor = new Cursor(payload)
+        this.payload.tryWrite(subcursor).throw(t)
+        subcursor.fill(0, subcursor.remaining)
+
+        return Ok.void()
+      }
+    })
   }
 
-  static read(cursor: Cursor) {
-    const circuit = cursor.readUint32()
-    const command = cursor.readUint8()
+  static tryRead(cursor: Cursor): Result<RawCell<Opaque>, BinaryReadError> {
+    return Result.unthrowSync(t => {
+      const circuit = cursor.tryReadUint32().throw(t)
+      const command = cursor.tryReadUint8().throw(t)
 
-    if (command >= 128) {
-      const length = cursor.readUint16()
-      const bytes = cursor.read(length)
-      const payload = new Opaque(bytes)
+      if (command >= 128) {
+        const length = cursor.tryReadUint16().throw(t)
+        const bytes = cursor.tryRead(length).throw(t)
+        const payload = new Opaque(bytes)
 
-      return new this<Opaque>(circuit, command, payload)
-    } else {
-      const bytes = cursor.read(Cell.PAYLOAD_LEN)
-      const payload = new Opaque(bytes)
+        return new Ok(new RawCell<Opaque>(circuit, command, payload))
+      } else {
+        const bytes = cursor.tryRead(Cell.PAYLOAD_LEN).throw(t)
+        const payload = new Opaque(bytes)
 
-      return new this<Opaque>(circuit, command, payload)
-    }
+        return new Ok(new RawCell<Opaque>(circuit, command, payload))
+      }
+    })
   }
 
 }
 
-export class Cell<T extends Writable> {
-
-  static PAYLOAD_LEN = 509
-
+export class Cell<T extends Writable.Infer<T>> {
   readonly #raw: RawCell<T>
 
   constructor(
@@ -180,16 +200,21 @@ export class Cell<T extends Writable> {
     this.#raw = new RawCell<T>(id, command, payload)
   }
 
-  static from<T extends Cellable>(cellable: T) {
+  static from<T extends Cellable<T>>(cellable: T) {
     return new this(cellable.circuit, cellable.command, cellable)
   }
 
-  size() {
-    return this.#raw.size()
+  trySize(): Result<number, Writable.SizeError<T>> {
+    return this.#raw.trySize()
   }
 
-  write(cursor: Cursor) {
-    return this.#raw.write(cursor)
+  tryWrite(cursor: Cursor): Result<void, BinaryError | Writable.SizeError<T> | Writable.WriteError<T>> {
+    return this.#raw.tryWrite(cursor)
   }
 
+}
+
+export namespace Cell {
+  export type PAYLOAD_LEN = 509
+  export const PAYLOAD_LEN = 509
 }
