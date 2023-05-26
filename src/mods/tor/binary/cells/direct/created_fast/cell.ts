@@ -1,48 +1,45 @@
-import { Cursor, Opaque } from "@hazae41/binary";
-import { Cell } from "mods/tor/binary/cells/cell.js";
-import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js";
-import { SecretCircuit } from "mods/tor/circuit.js";
+import { BinaryReadError, BinaryWriteError } from "@hazae41/binary";
+import { Bytes } from "@hazae41/bytes";
+import { Cursor } from "@hazae41/cursor";
+import { Ok, Result } from "@hazae41/result";
 
 export class CreatedFastCell {
   readonly #class = CreatedFastCell
 
-  static command = 6
+  static readonly circuit = true
+  static readonly command = 6
 
   constructor(
-    readonly circuit: SecretCircuit,
-    readonly material: Uint8Array,
-    readonly derivative: Uint8Array
+    readonly material: Bytes<20>,
+    readonly derivative: Bytes<20>
   ) { }
 
   get command() {
     return this.#class.command
   }
 
-  size() {
-    return this.material.length + this.derivative.length
+  trySize(): Result<number, never> {
+    return new Ok(this.material.length + this.derivative.length)
   }
 
-  write(cursor: Cursor) {
-    cursor.write(this.material)
-    cursor.write(this.derivative)
+  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
+    return Result.unthrowSync(t => {
+      cursor.tryWrite(this.material).throw(t)
+      cursor.tryWrite(this.derivative).throw(t)
+
+      return Ok.void()
+    })
   }
 
-  static read(cursor: Cursor) {
-    const material = new Uint8Array(cursor.read(20))
-    const derivative = new Uint8Array(cursor.read(20))
+  static tryRead(cursor: Cursor): Result<CreatedFastCell, BinaryReadError> {
+    return Result.unthrowSync(t => {
+      const material = Bytes.from(cursor.tryRead(20).throw(t))
+      const derivative = Bytes.from(cursor.tryRead(20).throw(t))
 
-    cursor.offset += cursor.remaining
+      cursor.offset += cursor.remaining
 
-    return { material, derivative }
+      return new Ok(new CreatedFastCell(material, derivative))
+    })
   }
 
-  static uncell(cell: Cell<Opaque>) {
-    if (cell.command !== this.command)
-      throw new InvalidCommand(this.name, cell.command)
-    if (!cell.circuit)
-      throw new InvalidCircuit(this.name, cell.circuit)
-
-    const { material, derivative } = cell.payload.into(this)
-    return new this(cell.circuit, material, derivative)
-  }
 }

@@ -24,33 +24,24 @@ export class UnknownCertError extends Error {
 
 }
 
-export interface CertsCellInit {
-  readonly certs: Partial<Certs>
-}
-
 export class CertsCell {
   readonly #class = CertsCell
 
-  static command = 129
+  static readonly circuit = false
+  static readonly command = 129
 
   constructor(
-    readonly circuit: undefined,
     readonly certs: Partial<Certs>
   ) { }
-
-  static init(circuit: undefined, init: CertsCellInit) {
-    const { certs } = init
-
-    return new CertsCell(circuit, certs)
-  }
 
   get command() {
     return this.#class.command
   }
 
-  static tryRead(cursor: Cursor): Result<CertsCellInit, DERReadError | ASN1Error | DuplicatedCertError | UnknownCertError> {
+  static tryRead(cursor: Cursor): Result<CertsCell, DERReadError | ASN1Error | DuplicatedCertError | UnknownCertError> {
     return Result.unthrowSync(t => {
       const ncerts = cursor.tryReadUint8().throw(t)
+
       const certs: Partial<Certs> = {}
 
       for (let i = 0; i < ncerts; i++) {
@@ -116,7 +107,7 @@ export class CertsCell {
         return new Err(new UnknownCertError())
       }
 
-      return new Ok({ certs })
+      return new Ok(new CertsCell(certs))
     })
   }
 

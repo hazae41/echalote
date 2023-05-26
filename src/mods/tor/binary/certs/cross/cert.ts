@@ -1,4 +1,5 @@
 import { BinaryReadError } from "@hazae41/binary"
+import { Bytes } from "@hazae41/bytes"
 import { Cursor } from "@hazae41/cursor"
 import { Err, Ok, Result } from "@hazae41/result"
 import { ExpiredCertError } from "../index.js"
@@ -12,7 +13,7 @@ export class CrossCert {
 
   constructor(
     readonly type: number,
-    readonly key: Uint8Array,
+    readonly key: Bytes<32>,
     readonly expiration: Date,
     readonly payload: Uint8Array,
     readonly signature: Uint8Array

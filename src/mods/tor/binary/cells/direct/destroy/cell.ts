@@ -1,4 +1,4 @@
-import { Cursor, Opaque } from "@hazae41/binary"
+import { Opaque } from "@hazae41/binary"
 import { Cell } from "mods/tor/binary/cells/cell.js"
 import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
 import { SecretCircuit } from "mods/tor/circuit.js"

@@ -1,4 +1,5 @@
 import { BinaryReadError } from "@hazae41/binary";
+import { Bytes } from "@hazae41/bytes";
 import { Cursor } from "@hazae41/cursor";
 import { Ed25519 } from "@hazae41/ed25519";
 import { Err, Ok, Result } from "@hazae41/result";
@@ -28,10 +29,10 @@ export class Ed25519Cert {
     readonly certType: number,
     readonly expiration: Date,
     readonly certKeyType: number,
-    readonly certKey: Uint8Array,
+    readonly certKey: Bytes<32>,
     readonly extensions: Extensions,
     readonly payload: Uint8Array,
-    readonly signature: Uint8Array
+    readonly signature: Bytes<64>
   ) { }
 
   tryVerify(ed25519: Ed25519.Adapter): Result<void, ExpiredCertError | InvalidSignatureError> {

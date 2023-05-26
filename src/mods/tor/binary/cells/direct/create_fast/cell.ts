@@ -2,7 +2,6 @@ import { BinaryReadError, BinaryWriteError } from "@hazae41/binary";
 import { Bytes } from "@hazae41/bytes";
 import { Cursor } from "@hazae41/cursor";
 import { Ok, Result } from "@hazae41/result";
-import { SecretCircuit } from "mods/tor/circuit.js";
 
 export interface CreateFastCellInit {
   readonly material: Bytes<20>
@@ -11,22 +10,16 @@ export interface CreateFastCellInit {
 export class CreateFastCell {
   readonly #class = CreateFastCell
 
-  static command = 5
+  static readonly circuit = true
+  static readonly command = 5
 
   /**
    * The CREATE_FAST cell
    * @param material Key material (X) [20]
    */
   constructor(
-    readonly circuit: SecretCircuit,
     readonly material: Bytes<20>
   ) { }
-
-  static init(circuit: SecretCircuit, init: CreateFastCellInit) {
-    const { material } = init
-
-    return new CreateFastCell(circuit, material)
-  }
 
   get command() {
     return this.#class.command
@@ -40,14 +33,13 @@ export class CreateFastCell {
     return cursor.tryWrite(this.material)
   }
 
-  static tryRead(cursor: Cursor): Result<CreateFastCellInit, BinaryReadError> {
+  static tryRead(cursor: Cursor): Result<CreateFastCell, BinaryReadError> {
     return Result.unthrowSync(t => {
-      const slice = cursor.tryRead(20).throw(t)
-      const material = Bytes.from(slice)
+      const material = Bytes.from(cursor.tryRead(20).throw(t))
 
       cursor.offset += cursor.remaining
 
-      return new Ok({ material })
+      return new Ok(new CreateFastCell(material))
     })
   }
 
