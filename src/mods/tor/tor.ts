@@ -121,10 +121,10 @@ export type SecretTorEvents = StreamEvents & {
   "CREATED_FAST": Cell.Circuitful<CreatedFastCell>
   "DESTROY": Cell.Circuitful<DestroyCell>
   "RELAY_CONNECTED": RelayCell.Streamful<RelayConnectedCell>
-  "RELAY_DATA": RelayDataCell<Opaque>
+  "RELAY_DATA": RelayCell.Streamful<RelayDataCell<Opaque>>
   "RELAY_EXTENDED2": RelayCell.Streamless<RelayExtended2Cell<Opaque>>
-  "RELAY_TRUNCATED": RelayTruncatedCell
-  "RELAY_END": RelayEndCell
+  "RELAY_TRUNCATED": RelayCell.Streamless<RelayTruncatedCell>
+  "RELAY_END": RelayCell.Streamful<RelayEndCell>
 }
 
 export class SecretTorClientDuplex {
@@ -486,9 +486,9 @@ export class SecretTorClientDuplex {
 
   async #onRelayExtended2Cell(cell: RelayCell<Opaque>): Promise<Result<void, Panic | BinaryError | InvalidCommandError | InvalidStreamError | EventError>> {
     return await Result.unthrow(async t => {
-      const data = RelayCell.Streamless.tryInto(cell, RelayExtended2Cell).inspectSync(console.debug).throw(t)
+      const cell2 = RelayCell.Streamless.tryInto(cell, RelayExtended2Cell).inspectSync(console.debug).throw(t)
 
-      await this.events.tryEmit("RELAY_EXTENDED2", data).then(r => r.throw(t))
+      await this.events.tryEmit("RELAY_EXTENDED2", cell2).then(r => r.throw(t))
 
       return Ok.void()
     })
@@ -496,32 +496,33 @@ export class SecretTorClientDuplex {
 
   async #onRelayConnectedCell(cell: RelayCell<Opaque>): Promise<Result<void, Panic | BinaryError | InvalidCommandError | InvalidStreamError | EventError>> {
     return await Result.unthrow(async t => {
-      const data = RelayCell.Streamful.tryInto(cell, RelayConnectedCell).inspectSync(console.debug).throw(t)
+      const cell2 = RelayCell.Streamful.tryInto(cell, RelayConnectedCell).inspectSync(console.debug).throw(t)
 
-      await this.events.tryEmit("RELAY_CONNECTED", data).then(r => r.throw(t))
+      await this.events.tryEmit("RELAY_CONNECTED", cell2).then(r => r.throw(t))
 
       return Ok.void()
     })
   }
 
-  async #onRelayDataCell(cell: RelayCell<Opaque>): Promise<Result<void, Panic>> {
+  async #onRelayDataCell(cell: RelayCell<Opaque>): Promise<Result<void, Panic | BinaryError | InvalidCommandError | InvalidStreamError | EventError>> {
     return await Result.unthrow(async t => {
-      const data = RelayDataCell.uncell(cell)
+      const cell2 = RelayCell.Streamful.tryInto(cell, RelayDataCell).inspectSync(console.debug).throw(t)
 
-      console.debug(`RELAY_DATA`, data)
+      await this.events.tryEmit("RELAY_DATA", cell2).then(r => r.throw(t))
 
-      const cellEvent = new MessageEvent("RELAY_DATA", { data })
-      await this.events.dispatchEvent(cellEvent, "RELAY_DATA")
+      return Ok.void()
     })
   }
 
   async #onRelayEndCell(cell: RelayCell<Opaque>): Promise<Result<void, Panic>> {
-    const data = RelayEndCell.uncell(cell)
+    return await Result.unthrow(async t => {
+      const data = RelayEndCell.uncell(cell)
 
-    console.debug(`RELAY_END`, data)
+      console.debug(`RELAY_END`, data)
 
-    const cellEvent = new MessageEvent("RELAY_END", { data })
-    await this.events.dispatchEvent(cellEvent, "RELAY_END")
+      const cellEvent = new MessageEvent("RELAY_END", { data })
+      await this.events.dispatchEvent(cellEvent, "RELAY_END")
+    })
   }
 
   async #onRelayDropCell(cell: RelayCell<Opaque>): Promise<Result<void, Panic>> {

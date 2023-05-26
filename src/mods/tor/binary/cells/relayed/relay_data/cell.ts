@@ -1,8 +1,6 @@
-import { Writable } from "@hazae41/binary";
+import { BinaryReadError, Opaque, UnsafeOpaque, Writable } from "@hazae41/binary";
 import { Cursor } from "@hazae41/cursor";
 import { Result } from "@hazae41/result";
-import { SecretCircuit } from "mods/tor/circuit.js";
-import { SecretTorStreamDuplex } from "mods/tor/stream.js";
 
 export class RelayDataCell<T extends Writable.Infer<T>> {
   readonly #class = RelayDataCell
@@ -11,8 +9,6 @@ export class RelayDataCell<T extends Writable.Infer<T>> {
   static readonly rcommand = 2
 
   constructor(
-    readonly circuit: SecretCircuit,
-    readonly stream: SecretTorStreamDuplex,
     readonly data: T
   ) { }
 
@@ -26,6 +22,10 @@ export class RelayDataCell<T extends Writable.Infer<T>> {
 
   tryWrite(cursor: Cursor): Result<void, Writable.WriteError<T>> {
     return this.data.tryWrite(cursor)
+  }
+
+  static tryRead(cursor: Cursor): Result<RelayDataCell<Opaque>, BinaryReadError> {
+    return UnsafeOpaque.tryRead(cursor).mapSync(x => new RelayDataCell(x))
   }
 
 }
