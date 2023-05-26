@@ -6,7 +6,7 @@ import { SecretTorClientDuplex } from "mods/tor/tor.js";
 import { InvalidCircuitError, InvalidCommandError } from "./cell.js";
 
 export interface OldCellable {
-  readonly old: false
+  readonly old: true
   readonly circuit: boolean,
   readonly command: number
 }
@@ -14,13 +14,13 @@ export interface OldCellable {
 export namespace OldCellable {
 
   export interface Circuitful {
-    readonly old: false
+    readonly old: true
     readonly circuit: true,
     readonly command: number
   }
 
   export interface Circuitless {
-    readonly old: false
+    readonly old: true
     readonly circuit: false,
     readonly command: number
   }
