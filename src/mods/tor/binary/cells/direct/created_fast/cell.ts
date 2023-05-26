@@ -6,6 +6,7 @@ import { Ok, Result } from "@hazae41/result";
 export class CreatedFastCell {
   readonly #class = CreatedFastCell
 
+  static readonly old = false
   static readonly circuit = true
   static readonly command = 6
 

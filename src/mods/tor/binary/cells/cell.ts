@@ -153,13 +153,13 @@ export namespace Cell {
       return this.#raw.tryWrite(cursor)
     }
 
-    static tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: Cell<Opaque>, readable: Cellable.Circuitless & Readable<ReadOutput, ReadError>): Result<Circuitless<ReadOutput>, ReadError | BinaryReadError | InvalidCommandError | InvalidCircuitError> {
+    static tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: Cell<Opaque>, readable: Cellable.Circuitful & Readable<ReadOutput, ReadError>): Result<Circuitful<ReadOutput>, ReadError | BinaryReadError | InvalidCommandError | InvalidCircuitError> {
       if (cell.command !== readable.command)
         return new Err(new InvalidCommandError())
-      if (cell.circuit !== undefined)
+      if (cell.circuit === undefined)
         return new Err(new InvalidCircuitError())
 
-      return cell.fragment.tryInto(readable).mapSync(fragment => new Circuitless(cell.circuit, readable.command, fragment))
+      return cell.fragment.tryInto(readable).mapSync(fragment => new Circuitful(cell.circuit, readable.command, fragment))
     }
 
   }

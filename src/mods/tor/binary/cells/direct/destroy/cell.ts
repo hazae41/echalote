@@ -5,6 +5,7 @@ import { Ok, Result } from "@hazae41/result"
 export class DestroyCell {
   readonly #class = DestroyCell
 
+  static readonly old = false
   static readonly circuit = true
   static readonly command = 4
 

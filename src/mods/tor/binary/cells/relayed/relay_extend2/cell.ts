@@ -40,7 +40,7 @@ export class RelayExtend2Cell<T extends Writable.Infer<T>> {
       + x)
   }
 
-  write(cursor: Cursor): Result<void, BinaryWriteError | Writable.SizeError<T> | Writable.WriteError<T>> {
+  tryWrite(cursor: Cursor): Result<void, BinaryWriteError | Writable.SizeError<T> | Writable.WriteError<T>> {
     return Result.unthrowSync(t => {
       cursor.tryWriteUint8(this.links.length).throw(t)
 

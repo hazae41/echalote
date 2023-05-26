@@ -1,16 +1,39 @@
 import { Arrays } from "@hazae41/arrays";
-import { BinaryError, BinaryWriteError, Opaque, Writable } from "@hazae41/binary";
+import { BinaryError, BinaryReadError, BinaryWriteError, Opaque, Readable, Writable } from "@hazae41/binary";
 import { Bytes } from "@hazae41/bytes";
 import { Cursor } from "@hazae41/cursor";
-import { Ok, Result } from "@hazae41/result";
-import { Cell } from "mods/tor/binary/cells/cell.js";
+import { Err, Ok, Result } from "@hazae41/result";
+import { Cell, InvalidCircuitError, InvalidCommandError } from "mods/tor/binary/cells/cell.js";
 import { SecretCircuit } from "mods/tor/circuit.js";
 import { SecretTorStreamDuplex } from "mods/tor/stream.js";
 
-export interface RelayCellable<T extends Writable.Infer<T>> extends Writable.Infer<T> {
+export interface RelayCellable {
   rcommand: number,
-  circuit: SecretCircuit,
-  stream?: SecretTorStreamDuplex
+  stream: boolean
+}
+
+export namespace RelayCellable {
+
+  export interface Streamful {
+    rcommand: number,
+    stream: true
+  }
+
+  export interface Streamless {
+    rcommand: number,
+    stream: false
+  }
+
+}
+
+export class InvalidStreamError extends Error {
+  readonly #class = InvalidStreamError
+  readonly name = this.#class.name
+
+  constructor() {
+    super(`Invalid stream`)
+  }
+
 }
 
 // export class RelayCell<T extends Writable.Infer<T>>  {
@@ -133,14 +156,14 @@ export namespace RelayCell {
       readonly fragment: Fragment
     ) { }
 
-    tryUnpack(): Result<RelayCell<Fragment>, never> {
+    tryUnpack(): Result<RelayCell<Fragment>, InvalidStreamError> {
       if (this.stream === 0)
-        return new Ok(new Streamless(this.circuit, this.rcommand, this.fragment))
+        return new Ok(new Streamless(this.circuit, undefined, this.rcommand, this.fragment))
 
       const stream = this.circuit.streams.get(this.stream)
 
       if (stream === undefined)
-        throw new Error(`Invalid stream`)
+        return new Err(new InvalidStreamError())
 
       return new Ok(new Streamful(this.circuit, stream, this.rcommand, this.fragment))
     }
@@ -180,8 +203,11 @@ export namespace RelayCell {
       })
     }
 
-    static tryUncell(cell: Cell.Circuitful<Opaque>): Result<Raw<Opaque>, BinaryError> {
+    static tryUncell(cell: Cell<Opaque>): Result<Raw<Opaque>, BinaryError | InvalidCircuitError> {
       return Result.unthrowSync(t => {
+        if (cell instanceof Cell.Circuitless)
+          return new Err(new InvalidCircuitError())
+
         for (const target of cell.circuit.targets) {
           target.backward_key.apply_keystream(cell.fragment.bytes)
 
@@ -234,6 +260,15 @@ export namespace RelayCell {
       return this.#raw.tryCell()
     }
 
+    static tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: RelayCell<Opaque>, readable: RelayCellable.Streamful & Readable<ReadOutput, ReadError>): Result<Streamful<ReadOutput>, ReadError | BinaryReadError | InvalidCommandError | InvalidStreamError> {
+      if (cell.rcommand !== readable.rcommand)
+        return new Err(new InvalidCommandError())
+      if (cell.stream === undefined)
+        return new Err(new InvalidStreamError())
+
+      return cell.fragment.tryInto(readable).mapSync(fragment => new Streamful(cell.circuit, cell.stream, readable.rcommand, fragment))
+    }
+
   }
 
   export class Streamless<Fragment extends Writable.Infer<Fragment>> {
@@ -241,6 +276,7 @@ export namespace RelayCell {
 
     constructor(
       readonly circuit: SecretCircuit,
+      readonly stream: undefined,
       readonly rcommand: number,
       readonly fragment: Fragment
     ) {
@@ -249,6 +285,15 @@ export namespace RelayCell {
 
     tryCell(): Result<Cell.Circuitful<Opaque>, BinaryWriteError | Writable.SizeError<Fragment> | Writable.WriteError<Fragment>> {
       return this.#raw.tryCell()
+    }
+
+    static tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: RelayCell<Opaque>, readable: RelayCellable.Streamless & Readable<ReadOutput, ReadError>): Result<Streamless<ReadOutput>, ReadError | BinaryReadError | InvalidCommandError | InvalidStreamError> {
+      if (cell.rcommand !== readable.rcommand)
+        return new Err(new InvalidCommandError())
+      if (cell.stream !== undefined)
+        return new Err(new InvalidStreamError())
+
+      return cell.fragment.tryInto(readable).mapSync(fragment => new Streamless(cell.circuit, cell.stream, readable.rcommand, fragment))
     }
 
   }

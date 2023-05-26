@@ -1,6 +1,6 @@
 import { BinaryReadError } from "@hazae41/binary"
 import { Cursor } from "@hazae41/cursor"
-import { Ok, Result } from "@hazae41/result"
+import { Ok, Panic, Result, Unimplemented } from "@hazae41/result"
 import { Dates } from "libs/dates/dates.js"
 import { Address4, Address6 } from "mods/tor/binary/address.js"
 
@@ -17,6 +17,14 @@ export class RelayConnectedCell {
 
   get rcommand() {
     return this.#class.rcommand
+  }
+
+  trySize(): Result<never, never> {
+    throw Panic.from(new Unimplemented())
+  }
+
+  tryWrite(cursor: Cursor): Result<never, never> {
+    throw Panic.from(new Unimplemented())
   }
 
   static tryRead(cursor: Cursor): Result<RelayConnectedCell, BinaryReadError> {
