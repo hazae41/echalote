@@ -1,19 +1,17 @@
-import { Cursor, Opaque } from "@hazae41/binary";
+import { BinaryReadError, BinaryWriteError } from "@hazae41/binary";
+import { Cursor } from "@hazae41/cursor";
+import { Ok, Result } from "@hazae41/result";
 import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
-import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
-import { InvalidRelayCommand, InvalidStream } from "mods/tor/binary/cells/errors.js";
-import { SecretCircuit } from "mods/tor/circuit.js";
 
 export class RelayTruncateCell {
   readonly #class = RelayTruncateCell
 
-  static rcommand = 8
+  static readonly stream = false
+  static readonly rcommand = 8
 
-  static reasons = DestroyCell.reasons
+  static readonly reasons = DestroyCell.reasons
 
   constructor(
-    readonly circuit: SecretCircuit,
-    readonly stream: undefined,
     readonly reason: number
   ) { }
 
@@ -21,27 +19,16 @@ export class RelayTruncateCell {
     return this.#class.rcommand
   }
 
-  size() {
-    return 1
+  trySize(): Result<number, never> {
+    return new Ok(1)
   }
 
-  write(cursor: Cursor) {
-    cursor.writeUint8(this.reason)
+  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
+    return cursor.tryWriteUint8(this.reason)
   }
 
-  static read(cursor: Cursor) {
-    const reason = cursor.readUint8()
-
-    return { reason }
+  static tryRead(cursor: Cursor): Result<RelayTruncateCell, BinaryReadError> {
+    return cursor.tryReadUint8().mapSync(x => new RelayTruncateCell(x))
   }
 
-  static uncell(cell: RelayCell<Opaque>) {
-    if (cell.rcommand !== this.rcommand)
-      throw new InvalidRelayCommand(this.name, cell.rcommand)
-    if (cell.stream)
-      throw new InvalidStream(this.name, cell.stream)
-
-    const { reason } = cell.fragment.into(this)
-    return new this(cell.circuit, cell.stream, reason)
-  }
 }

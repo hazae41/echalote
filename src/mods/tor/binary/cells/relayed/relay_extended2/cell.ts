@@ -1,16 +1,14 @@
-import { Cursor, Opaque, Writable } from "@hazae41/binary";
-import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
-import { InvalidRelayCommand, InvalidStream } from "mods/tor/binary/cells/errors.js";
-import { SecretCircuit } from "mods/tor/circuit.js";
+import { BinaryReadError, Opaque, Writable } from "@hazae41/binary";
+import { Cursor } from "@hazae41/cursor";
+import { Ok, Result } from "@hazae41/result";
 
-export class RelayExtended2Cell<T extends Writable> {
+export class RelayExtended2Cell<T extends Writable.Infer<T>> {
   readonly #class = RelayExtended2Cell
 
-  static rcommand = 15
+  static readonly stream = false
+  static readonly rcommand = 15
 
   constructor(
-    readonly circuit: SecretCircuit,
-    readonly stream: undefined,
     readonly data: T
   ) { }
 
@@ -18,21 +16,14 @@ export class RelayExtended2Cell<T extends Writable> {
     return this.#class.rcommand
   }
 
-  static read(cursor: Cursor) {
-    const length = cursor.readUint16()
-    const bytes = cursor.read(length)
-    const data = new Opaque(bytes)
+  static tryRead(cursor: Cursor): Result<RelayExtended2Cell<Opaque>, BinaryReadError> {
+    return Result.unthrowSync(t => {
+      const length = cursor.tryReadUint16().throw(t)
+      const bytes = cursor.tryRead(length).throw(t)
+      const data = new Opaque(bytes)
 
-    return { data }
+      return new Ok(new RelayExtended2Cell(data))
+    })
   }
 
-  static uncell(cell: RelayCell<Opaque>) {
-    if (cell.rcommand !== this.rcommand)
-      throw new InvalidRelayCommand(this.name, cell.rcommand)
-    if (cell.stream)
-      throw new InvalidStream(this.name, cell.stream)
-
-    const { data } = cell.fragment.into(this)
-    return new this(cell.circuit, cell.stream, data)
-  }
 }
