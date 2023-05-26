@@ -3,8 +3,8 @@ import { Bytes } from "@hazae41/bytes";
 import { Cursor } from "@hazae41/cursor";
 import { Ed25519 } from "@hazae41/ed25519";
 import { Err, Ok, Result } from "@hazae41/result";
-import { ExpiredCertError, InvalidSignatureError } from "index.js";
 import { SignedWithEd25519Key } from "mods/tor/binary/certs/ed25519/extensions/signer.js";
+import { ExpiredCertError, InvalidSignatureError } from "mods/tor/certs/certs.js";
 
 export interface Extensions {
   signer?: SignedWithEd25519Key

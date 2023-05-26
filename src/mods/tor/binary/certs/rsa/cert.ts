@@ -4,7 +4,7 @@ import { Bytes } from "@hazae41/bytes";
 import { Cursor } from "@hazae41/cursor";
 import { Err, Ok, Result } from "@hazae41/result";
 import { X509 } from "@hazae41/x509";
-import { ExpiredCertError, PrematureCertError } from "../errors.js";
+import { ExpiredCertError, PrematureCertError } from "mods/tor/certs/certs.js";
 
 export class RsaCert {
   readonly #class = RsaCert

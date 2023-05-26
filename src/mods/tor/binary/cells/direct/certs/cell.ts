@@ -1,7 +1,9 @@
 import { ASN1Error, DERReadError } from "@hazae41/asn1"
 import { Cursor } from "@hazae41/cursor"
 import { Err, Ok, Panic, Result, Unimplemented } from "@hazae41/result"
-import { CrossCert, Ed25519Cert, RsaCert } from "mods/tor/binary/certs/index.js"
+import { CrossCert } from "mods/tor/binary/certs/cross/cert.js"
+import { Ed25519Cert } from "mods/tor/binary/certs/ed25519/cert.js"
+import { RsaCert } from "mods/tor/binary/certs/rsa/cert.js"
 import { Certs, DuplicatedCertError, UnknownCertError } from "mods/tor/certs/certs.js"
 
 export class CertsCell {

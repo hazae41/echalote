@@ -4,7 +4,7 @@ import { Bitset } from "@hazae41/bitset";
 import { Bytes } from "@hazae41/bytes";
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
 import { fetch } from "@hazae41/fleche";
-import { AsyncEventTarget, CloseAndErrorEvents, Plume } from "@hazae41/plume";
+import { Plume, StreamEvents, SuperEventTarget } from "@hazae41/plume";
 import { Aes128Ctr128BEKey } from "@hazae41/zepar";
 import { Ntor } from "mods/tor/algorithms/ntor/index.js";
 import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
@@ -38,7 +38,7 @@ export interface CircuitOpenParams {
 
 export class Circuit {
 
-  readonly events = new AsyncEventTarget<CloseAndErrorEvents>()
+  readonly events = new SuperEventTarget<StreamEvents>()
 
   readonly #secret: SecretCircuit
 

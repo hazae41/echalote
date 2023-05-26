@@ -2,7 +2,7 @@ import { BinaryReadError } from "@hazae41/binary"
 import { Bytes } from "@hazae41/bytes"
 import { Cursor } from "@hazae41/cursor"
 import { Err, Ok, Result } from "@hazae41/result"
-import { ExpiredCertError } from "../index.js"
+import { ExpiredCertError } from "mods/tor/certs/certs.js"
 
 export class CrossCert {
   readonly #class = CrossCert

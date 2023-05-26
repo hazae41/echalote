@@ -40,7 +40,7 @@ import { Authority, parseAuthorities } from "mods/tor/consensus/authorities.js";
 import { Target } from "mods/tor/target.js";
 import { LoopParams } from "mods/tor/types/loop.js";
 import { OldCell } from "./binary/cells/old.js";
-import { CertError, Certs } from "./index.js";
+import { CertError, Certs } from "./certs/certs.js";
 
 export type TorState =
   | TorNoneState
