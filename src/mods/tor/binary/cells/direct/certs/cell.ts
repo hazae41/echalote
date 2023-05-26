@@ -1,6 +1,6 @@
 import { ASN1Error, DERReadError } from "@hazae41/asn1"
 import { Cursor } from "@hazae41/cursor"
-import { Err, Ok, Result } from "@hazae41/result"
+import { Err, Ok, Panic, Result, Unimplemented } from "@hazae41/result"
 import { CrossCert, Ed25519Cert, RsaCert } from "mods/tor/binary/certs/index.js"
 import { Certs } from "mods/tor/certs/certs.js"
 
@@ -34,8 +34,20 @@ export class CertsCell {
     readonly certs: Partial<Certs>
   ) { }
 
-  get command() {
+  get circuit(): false {
+    return this.#class.circuit
+  }
+
+  get command(): 129 {
     return this.#class.command
+  }
+
+  trySize(): Result<never, never> {
+    throw Panic.from(new Unimplemented())
+  }
+
+  tryWrite(cursor: Cursor): Result<never, never> {
+    throw Panic.from(new Unimplemented())
   }
 
   static tryRead(cursor: Cursor): Result<CertsCell, DERReadError | ASN1Error | DuplicatedCertError | UnknownCertError> {

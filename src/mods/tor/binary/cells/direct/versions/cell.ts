@@ -5,6 +5,7 @@ import { Ok, Result } from "@hazae41/result"
 export class VersionsCell {
   readonly #class = VersionsCell
 
+  static readonly old = true
   static readonly circuit = false
   static readonly command = 7
 
@@ -12,7 +13,15 @@ export class VersionsCell {
     readonly versions: number[]
   ) { }
 
-  get command() {
+  get old(): true {
+    return this.#class.old
+  }
+
+  get circuit(): false {
+    return this.#class.circuit
+  }
+
+  get command(): 7 {
     return this.#class.command
   }
 

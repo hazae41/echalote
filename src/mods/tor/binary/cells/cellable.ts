@@ -1,18 +1,17 @@
-import { Writable } from "@hazae41/binary"
 
-export interface Cellable<T extends Writable.Infer<T>> extends Writable.Infer<T> {
+export interface Cellable {
   readonly circuit: boolean,
   readonly command: number
 }
 
 export namespace Cellable {
 
-  export interface Circuitful<T extends Writable.Infer<T>> extends Writable.Infer<T> {
+  export interface Circuitful {
     readonly circuit: true,
     readonly command: number
   }
 
-  export interface Circuitless<T extends Writable.Infer<T>> extends Writable.Infer<T> {
+  export interface Circuitless {
     readonly circuit: false,
     readonly command: number
   }

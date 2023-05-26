@@ -10,13 +10,12 @@ import { Mutex } from "@hazae41/mutex";
 import { Some } from "@hazae41/option";
 import { Paimon } from "@hazae41/paimon";
 import { Plume, StreamEvents, SuperEventTarget } from "@hazae41/plume";
-import { Ok } from "@hazae41/result";
+import { Ok, Result } from "@hazae41/result";
 import type { Sha1 } from "@hazae41/sha1";
 import type { X25519 } from "@hazae41/x25519";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
-import { kdftor } from "mods/tor/algorithms/kdftor.js";
 import { TypedAddress } from "mods/tor/binary/address.js";
-import { Cell, OldCell, RawCell, RawOldCell } from "mods/tor/binary/cells/cell.js";
+import { Cell } from "mods/tor/binary/cells/cell.js";
 import { AuthChallengeCell } from "mods/tor/binary/cells/direct/auth_challenge/cell.js";
 import { CertsCell } from "mods/tor/binary/cells/direct/certs/cell.js";
 import { CreateFastCell } from "mods/tor/binary/cells/direct/create_fast/cell.js";
@@ -39,6 +38,7 @@ import { Circuit, SecretCircuit } from "mods/tor/circuit.js";
 import { Authority, parseAuthorities } from "mods/tor/consensus/authorities.js";
 import { Target } from "mods/tor/target.js";
 import { LoopParams } from "mods/tor/types/loop.js";
+import { OldCell } from "./binary/cells/old.js";
 import { Certs } from "./index.js";
 
 export type TorState =
@@ -243,8 +243,8 @@ export class SecretTorClientDuplex {
   async #onWriteStart() {
     await this.#init()
 
-    const version = new VersionsCell(undefined, [5])
-    this.writer.enqueue(OldCell.from(version))
+    const version = new VersionsCell([5])
+    this.writer.enqueue(OldCell.Circuitless.from(version))
 
     await Plume.tryWaitStream(this.events, "handshaked", () => {
       return new Ok(new Some(Ok.void()))
@@ -283,24 +283,28 @@ export class SecretTorClientDuplex {
    * @returns 
    */
   async #onReadDirect(chunk: Uint8Array) {
-    const cursor = new Cursor(chunk)
+    return await Result.unthrow(async t => {
+      const cursor = new Cursor(chunk)
 
-    while (cursor.remaining) {
-      const raw = this.#state.type === "none"
-        ? Readable.tryRead(RawOldCell, cursor)
-        : Readable.tryRead(RawCell, cursor)
+      while (cursor.remaining) {
+        const raw = this.#state.type === "none"
+          ? Readable.tryReadOrRollback(OldCell.Raw, cursor).ignore()
+          : Readable.tryReadOrRollback(Cell.Raw, cursor).ignore()
 
-      if (!raw) {
-        this.#buffer.write(cursor.after)
-        break
+        if (raw.isErr()) {
+          this.#buffer.tryWrite(cursor.after).throw(t)
+          break
+        }
+
+        const cell = raw.get().tryUnpack(this).throw(t)
+        await this.#onCell(cell).then(r => r.throw(t))
       }
 
-      const cell = raw.unpack(this)
-      await this.#onCell(cell)
-    }
+      return Ok.void()
+    })
   }
 
-  async #onCell(cell: Cell<Opaque> | OldCell<Opaque>) {
+  async #onCell(cell: Cell<Opaque> | OldCell<Opaque>): Promise<Result<void, any>> {
     if (cell.command === PaddingCell.command)
       return console.debug(`PADDING`, cell)
     if (cell.command === VariablePaddingCell.command)
@@ -387,7 +391,7 @@ export class SecretTorClientDuplex {
     if (this.#state.type !== "versioned")
       throw new Error(`State is not versioned`)
 
-    const data = CertsCell.tryUncell(cell).unwrap()
+    const data = Cell.tryInto(cell, CertsCell).unwrap()
 
     console.debug(`CERTS`, data)
 
