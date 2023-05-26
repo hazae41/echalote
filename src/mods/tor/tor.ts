@@ -117,18 +117,18 @@ export class TorClientDuplex {
 export type SecretTorEvents = StreamEvents & {
   "handshaked": Event,
 
-  "VERSIONS": MessageEvent<VersionsCell>
-  "CERTS": MessageEvent<CertsCell>
-  "AUTH_CHALLENGE": MessageEvent<AuthChallengeCell>
-  "NETINFO": MessageEvent<NetinfoCell>
-  "CREATED_FAST": MessageEvent<CreatedFastCell>,
-  "DESTROY": MessageEvent<DestroyCell>,
-  "RELAY_CONNECTED": MessageEvent<RelayConnectedCell>,
-  "RELAY_DATA": MessageEvent<RelayDataCell<Opaque>>,
-  "RELAY_DROP": MessageEvent<RelayDropCell<Opaque>>
-  "RELAY_EXTENDED2": MessageEvent<RelayExtended2Cell<Opaque>>,
-  "RELAY_TRUNCATED": MessageEvent<RelayTruncatedCell>,
-  "RELAY_END": MessageEvent<RelayEndCell>
+  "VERSIONS": VersionsCell
+  "CERTS": CertsCell
+  "AUTH_CHALLENGE": AuthChallengeCell
+  "NETINFO": NetinfoCell
+  "CREATED_FAST": CreatedFastCell
+  "DESTROY": DestroyCell
+  "RELAY_CONNECTED": RelayConnectedCell
+  "RELAY_DATA": RelayDataCell<Opaque>
+  "RELAY_DROP": RelayDropCell<Opaque>
+  "RELAY_EXTENDED2": RelayExtended2Cell<Opaque>
+  "RELAY_TRUNCATED": RelayTruncatedCell
+  "RELAY_END": RelayEndCell
 }
 
 export class SecretTorClientDuplex {
