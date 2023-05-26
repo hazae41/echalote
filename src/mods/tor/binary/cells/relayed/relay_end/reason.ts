@@ -1,4 +1,6 @@
-import { Cursor } from "@hazae41/binary";
+import { BinaryReadError, BinaryWriteError } from "@hazae41/binary";
+import { Cursor } from "@hazae41/cursor";
+import { Ok, Result } from "@hazae41/result";
 import { Dates } from "libs/dates/dates.js";
 import { Address4, Address6 } from "mods/tor/binary/address.js";
 
@@ -13,14 +15,12 @@ export class RelayEndReasonOther {
     readonly id: number
   ) { }
 
-  size() {
-    return 0
+  trySize(): Result<number, never> {
+    return new Ok(0)
   }
 
-  write(cursor: Cursor) {
-    /**
-     * NOOP
-     */
+  tryWrite(cursor: Cursor): Result<void, never> {
+    return Ok.void()
   }
 
 }
@@ -39,22 +39,31 @@ export class RelayEndReasonExitPolicy {
     return this.#class.id
   }
 
-  size() {
-    return this.address.size() + 4
+  trySize(): Result<number, never> {
+    return new Ok(this.address.trySize().get() + 4)
   }
 
-  write(cursor: Cursor) {
-    this.address.write(cursor)
-    cursor.writeUint32(Dates.toSecondsDelay(this.ttl))
+  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
+    return Result.unthrowSync(t => {
+      this.address.tryWrite(cursor).throw(t)
+      const ttlv = Dates.toSecondsDelay(this.ttl)
+      cursor.tryWriteUint32(ttlv).throw(t)
+
+      return Ok.void()
+    })
   }
 
-  static read(cursor: Cursor) {
-    const address = cursor.remaining === 8
-      ? Address4.read(cursor)
-      : Address6.read(cursor)
+  static tryRead(cursor: Cursor): Result<RelayEndReasonExitPolicy, BinaryReadError> {
+    return Result.unthrowSync(t => {
+      const address = cursor.remaining === 8
+        ? Address4.tryRead(cursor).throw(t)
+        : Address6.tryRead(cursor).throw(t)
 
-    const ttl = Dates.fromSecondsDelay(cursor.readUint32())
+      const ttlv = cursor.tryReadUint32().throw(t)
+      const ttl = Dates.fromSecondsDelay(ttlv)
 
-    return new this(address, ttl)
+      return new Ok(new RelayEndReasonExitPolicy(address, ttl))
+    })
   }
+
 }

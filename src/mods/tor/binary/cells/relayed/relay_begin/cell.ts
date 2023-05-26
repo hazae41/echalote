@@ -1,13 +1,12 @@
-import { Cursor, Opaque } from "@hazae41/binary";
-import { RelayCell } from "mods/tor/binary/cells/direct/relay/index.js";
-import { InvalidRelayCommand, InvalidStream } from "mods/tor/binary/cells/errors.js";
-import { SecretCircuit } from "mods/tor/circuit.js";
-import { SecretTorStreamDuplex } from "mods/tor/stream.js";
+import { BinaryReadError, BinaryWriteError } from "@hazae41/binary"
+import { Cursor } from "@hazae41/cursor"
+import { Ok, Result } from "@hazae41/result"
 
 export class RelayBeginCell {
   readonly #class = RelayBeginCell
 
-  static rcommand = 1
+  static readonly stream = true
+  static readonly rcommand = 1
 
   static flags = {
     IPV6_OK: 0,
@@ -16,8 +15,6 @@ export class RelayBeginCell {
   }
 
   constructor(
-    readonly circuit: SecretCircuit,
-    readonly stream: SecretTorStreamDuplex,
     readonly address: string,
     readonly flags: number
   ) { }
@@ -26,29 +23,26 @@ export class RelayBeginCell {
     return this.#class.rcommand
   }
 
-  size() {
-    return (this.address.length + 1) + 4
+  trySize(): Result<number, never> {
+    return new Ok((this.address.length + 1) + 4)
   }
 
-  write(cursor: Cursor) {
-    cursor.writeNulledString(this.address)
-    cursor.writeUint32(this.flags)
+  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
+    return Result.unthrowSync(t => {
+      cursor.tryWriteNulledString(this.address).throw(t)
+      cursor.tryWriteUint32(this.flags).throw(t)
+
+      return Ok.void()
+    })
   }
 
-  static read(cursor: Cursor) {
-    const address = cursor.readNulledString()
-    const flags = cursor.readUint32()
+  static tryRead(cursor: Cursor): Result<RelayBeginCell, BinaryReadError> {
+    return Result.unthrowSync(t => {
+      const address = cursor.tryReadNulledString().throw(t)
+      const flags = cursor.tryReadUint32().throw(t)
 
-    return { address, flags }
+      return new Ok(new RelayBeginCell(address, flags))
+    })
   }
 
-  static uncell(cell: RelayCell<Opaque>) {
-    if (cell.rcommand !== this.rcommand)
-      throw new InvalidRelayCommand(this.name, cell.rcommand)
-    if (!cell.stream)
-      throw new InvalidStream(this.name, cell.stream)
-
-    const { address, flags } = cell.fragment.into(this)
-    return new this(cell.circuit, cell.stream, address, flags)
-  }
 }

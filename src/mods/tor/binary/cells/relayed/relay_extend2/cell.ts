@@ -1,13 +1,15 @@
-import { Cursor, Writable } from "@hazae41/binary"
+import { BinaryWriteError, Writable } from "@hazae41/binary"
+import { Cursor } from "@hazae41/cursor"
+import { Ok, Result } from "@hazae41/result"
 import { RelayExtend2Link } from "mods/tor/binary/cells/relayed/relay_extend2/link.js"
-import { SecretCircuit } from "mods/tor/circuit.js"
 
-export class RelayExtend2Cell<T extends Writable> {
+export class RelayExtend2Cell<T extends Writable.Infer<T>> {
   readonly #class = RelayExtend2Cell
 
-  static rcommand = 14
+  static readonly stream = false
+  static readonly rcommand = 14
 
-  static types = {
+  static readonly types = {
     /**
      * The old, slow, and insecure handshake
      * @deprecated
@@ -17,11 +19,9 @@ export class RelayExtend2Cell<T extends Writable> {
      * The new, quick, and secure handshake
      */
     NTOR: 2
-  }
+  } as const
 
   constructor(
-    readonly circuit: SecretCircuit,
-    readonly stream: undefined,
     readonly type: number,
     readonly links: RelayExtend2Link[],
     readonly data: T
@@ -31,24 +31,31 @@ export class RelayExtend2Cell<T extends Writable> {
     return this.#class.rcommand
   }
 
-  size() {
-    return 0
+  trySize(): Result<number, Writable.SizeError<T>> {
+    return this.data.trySize().mapSync(x => 0
       + 1
-      + this.links.reduce((p, c) => p + c.size(), 0)
+      + this.links.reduce((p, c) => p + c.trySize().get(), 0)
       + 2
       + 2
-      + this.data.size()
+      + x)
   }
 
-  write(cursor: Cursor) {
-    cursor.writeUint8(this.links.length)
+  write(cursor: Cursor): Result<void, BinaryWriteError | Writable.SizeError<T> | Writable.WriteError<T>> {
+    return Result.unthrowSync(t => {
+      cursor.tryWriteUint8(this.links.length).throw(t)
 
-    for (const link of this.links)
-      link.write(cursor)
+      for (const link of this.links)
+        link.tryWrite(cursor).throw(t)
 
-    cursor.writeUint16(this.type)
-    cursor.writeUint16(this.data.size())
-    this.data.write(cursor)
+      cursor.tryWriteUint16(this.type).throw(t)
+
+      const size = this.data.trySize().throw(t)
+      cursor.tryWriteUint16(size).throw(t)
+
+      this.data.tryWrite(cursor)
+
+      return Ok.void()
+    })
   }
 
 }

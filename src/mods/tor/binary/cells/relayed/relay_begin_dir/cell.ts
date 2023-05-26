@@ -1,37 +1,26 @@
-import { Cursor, Opaque } from "@hazae41/binary";
-import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
-import { InvalidRelayCommand, InvalidStream } from "mods/tor/binary/cells/errors.js";
-import { SecretCircuit } from "mods/tor/circuit.js";
-import { SecretTorStreamDuplex } from "mods/tor/stream.js";
+import { Cursor } from "@hazae41/cursor";
+import { Ok, Result } from "@hazae41/result";
 
 export class RelayBeginDirCell {
   readonly #class = RelayBeginDirCell
 
-  static rcommand = 13
+  static readonly stream = true
+  static readonly rcommand = 13
 
-  constructor(
-    readonly circuit: SecretCircuit,
-    readonly stream: SecretTorStreamDuplex
-  ) { }
+  constructor() { }
 
   get rcommand() {
     return this.#class.rcommand
   }
 
-  size() {
-    return 0
+  trySize(): Result<number, never> {
+    return new Ok(0)
   }
 
-  write(cursor: Cursor) {
+  tryWrite(cursor: Cursor): Result<void, never> {
     cursor.fill(0, cursor.remaining)
+
+    return Ok.void()
   }
 
-  static uncell(cell: RelayCell<Opaque>) {
-    if (cell.rcommand !== this.rcommand)
-      throw new InvalidRelayCommand(this.name, cell.rcommand)
-    if (!cell.stream)
-      throw new InvalidStream(this.name, cell.stream)
-
-    return new this(cell.circuit, cell.stream)
-  }
 }

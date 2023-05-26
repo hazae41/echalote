@@ -1,4 +1,6 @@
-import { Cursor } from "@hazae41/binary"
+import { BinaryWriteError } from "@hazae41/binary"
+import { Cursor } from "@hazae41/cursor"
+import { Ok, Result } from "@hazae41/result"
 
 export type RelayExtend2Link =
   | RelayExtend2LinkIPv4
@@ -26,27 +28,33 @@ export class RelayExtend2LinkIPv4 {
     readonly port: number,
   ) { }
 
-  size() {
-    return 1 + 1 + (4 * 1) + 2
-  }
-
-  write(cursor: Cursor) {
-    cursor.writeUint8(this.#class.type)
-    cursor.writeUint8(4 + 2)
-
-    const [a, b, c, d] = this.hostname.split(".")
-    cursor.writeUint8(Number(a))
-    cursor.writeUint8(Number(b))
-    cursor.writeUint8(Number(c))
-    cursor.writeUint8(Number(d))
-
-    cursor.writeUint16(this.port)
-  }
-
   static from(host: string) {
     const { hostname, port } = new URL(`http://${host}`)
-    return new this(hostname, Number(port))
+
+    return new RelayExtend2LinkIPv4(hostname, Number(port))
   }
+
+  trySize(): Result<number, never> {
+    return new Ok(1 + 1 + (4 * 1) + 2)
+  }
+
+  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
+    return Result.unthrowSync(t => {
+      cursor.tryWriteUint8(this.#class.type).throw(t)
+      cursor.tryWriteUint8(4 + 2).throw(t)
+
+      const [a, b, c, d] = this.hostname.split(".")
+      cursor.tryWriteUint8(Number(a)).throw(t)
+      cursor.tryWriteUint8(Number(b)).throw(t)
+      cursor.tryWriteUint8(Number(c)).throw(t)
+      cursor.tryWriteUint8(Number(d)).throw(t)
+
+      cursor.tryWriteUint16(this.port).throw(t)
+
+      return Ok.void()
+    })
+  }
+
 }
 
 export class RelayExtend2LinkIPv6 {
@@ -59,31 +67,37 @@ export class RelayExtend2LinkIPv6 {
     readonly port: number,
   ) { }
 
-  size() {
-    return 1 + 1 + (8 * 2) + 2
-  }
-
-  write(cursor: Cursor) {
-    cursor.writeUint8(this.#class.type)
-    cursor.writeUint8(16 + 2)
-
-    const [a, b, c, d, e, f, g, h] = this.hostname.split(":")
-    cursor.writeUint16(Number(`0x${a}`) || 0)
-    cursor.writeUint16(Number(`0x${b}`) || 0)
-    cursor.writeUint16(Number(`0x${c}`) || 0)
-    cursor.writeUint16(Number(`0x${d}`) || 0)
-    cursor.writeUint16(Number(`0x${e}`) || 0)
-    cursor.writeUint16(Number(`0x${f}`) || 0)
-    cursor.writeUint16(Number(`0x${g}`) || 0)
-    cursor.writeUint16(Number(`0x${h}`) || 0)
-
-    cursor.writeUint16(this.port)
-  }
-
   static from(host: string) {
     const { hostname, port } = new URL(`http://${host}`)
-    return new this(hostname.slice(1, -1), Number(port))
+
+    return new RelayExtend2LinkIPv6(hostname.slice(1, -1), Number(port))
   }
+
+  trySize(): Result<number, never> {
+    return new Ok(1 + 1 + (8 * 2) + 2)
+  }
+
+  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
+    return Result.unthrowSync(t => {
+      cursor.tryWriteUint8(this.#class.type).throw(t)
+      cursor.tryWriteUint8(16 + 2).throw(t)
+
+      const [a, b, c, d, e, f, g, h] = this.hostname.split(":")
+      cursor.tryWriteUint16(Number(`0x${a}`) || 0).throw(t)
+      cursor.tryWriteUint16(Number(`0x${b}`) || 0).throw(t)
+      cursor.tryWriteUint16(Number(`0x${c}`) || 0).throw(t)
+      cursor.tryWriteUint16(Number(`0x${d}`) || 0).throw(t)
+      cursor.tryWriteUint16(Number(`0x${e}`) || 0).throw(t)
+      cursor.tryWriteUint16(Number(`0x${f}`) || 0).throw(t)
+      cursor.tryWriteUint16(Number(`0x${g}`) || 0).throw(t)
+      cursor.tryWriteUint16(Number(`0x${h}`) || 0).throw(t)
+
+      cursor.tryWriteUint16(this.port).throw(t)
+
+      return Ok.void()
+    })
+  }
+
 }
 
 export class RelayExtend2LinkLegacyID {
@@ -95,15 +109,20 @@ export class RelayExtend2LinkLegacyID {
     readonly fingerprint: Uint8Array
   ) { }
 
-  size() {
-    return 1 + 1 + this.fingerprint.length
+  trySize(): Result<number, never> {
+    return new Ok(1 + 1 + this.fingerprint.length)
   }
 
-  write(cursor: Cursor) {
-    cursor.writeUint8(this.#class.type)
-    cursor.writeUint8(20)
-    cursor.write(this.fingerprint)
+  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
+    return Result.unthrowSync(t => {
+      cursor.tryWriteUint8(this.#class.type).throw(t)
+      cursor.tryWriteUint8(20).throw(t)
+      cursor.tryWrite(this.fingerprint).throw(t)
+
+      return Ok.void()
+    })
   }
+
 }
 
 export class RelayExtend2LinkModernID {
@@ -115,13 +134,18 @@ export class RelayExtend2LinkModernID {
     readonly fingerprint: Uint8Array
   ) { }
 
-  size() {
-    return 1 + 1 + this.fingerprint.length
+  trySize(): Result<number, never> {
+    return new Ok(1 + 1 + this.fingerprint.length)
   }
 
-  write(cursor: Cursor) {
-    cursor.writeUint8(this.#class.type)
-    cursor.writeUint8(32)
-    cursor.write(this.fingerprint)
+  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
+    return Result.unthrowSync(t => {
+      cursor.tryWriteUint8(this.#class.type).throw(t)
+      cursor.tryWriteUint8(32).throw(t)
+      cursor.tryWrite(this.fingerprint).throw(t)
+
+      return Ok.void()
+    })
   }
+
 }

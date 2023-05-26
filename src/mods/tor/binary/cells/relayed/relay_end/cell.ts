@@ -1,16 +1,15 @@
-import { Cursor, Opaque } from "@hazae41/binary";
-import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
-import { InvalidRelayCommand, InvalidStream } from "mods/tor/binary/cells/errors.js";
+import { BinaryReadError, BinaryWriteError } from "@hazae41/binary";
+import { Cursor } from "@hazae41/cursor";
+import { Ok, Result } from "@hazae41/result";
 import { RelayEndReason, RelayEndReasonExitPolicy, RelayEndReasonOther } from "mods/tor/binary/cells/relayed/relay_end/reason.js";
-import { SecretCircuit } from "mods/tor/circuit.js";
-import { SecretTorStreamDuplex } from "mods/tor/stream.js";
 
 export class RelayEndCell {
   readonly #class = RelayEndCell
 
-  static rcommand = 3
+  static readonly stream = true
+  static readonly rcommand = 3
 
-  static reasons = {
+  static readonly reasons = {
     REASON_UNKNOWN: 0,
     REASON_MISC: 1,
     REASON_RESOLVEFAILED: 2,
@@ -29,8 +28,6 @@ export class RelayEndCell {
   } as const
 
   constructor(
-    readonly circuit: SecretCircuit,
-    readonly stream: SecretTorStreamDuplex,
     readonly reason: RelayEndReason
   ) { }
 
@@ -38,32 +35,29 @@ export class RelayEndCell {
     return this.#class.rcommand
   }
 
-  size() {
-    return 1 + this.reason.size()
+  trySize(): Result<number, never> {
+    return new Ok(1 + this.reason.trySize().get())
   }
 
-  write(cursor: Cursor) {
-    cursor.writeUint8(this.reason.id)
-    this.reason.write(cursor)
+  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
+    return Result.unthrowSync(t => {
+      cursor.tryWriteUint8(this.reason.id).throw(t)
+      this.reason.tryWrite(cursor).throw(t)
+
+      return Ok.void()
+    })
   }
 
-  static read(cursor: Cursor) {
-    const reasonId = cursor.readUint8()
+  static tryRead(cursor: Cursor): Result<RelayEndCell, BinaryReadError> {
+    return Result.unthrowSync(t => {
+      const reasonId = cursor.tryReadUint8().throw(t)
 
-    const reason = reasonId === this.reasons.REASON_EXITPOLICY
-      ? RelayEndReasonExitPolicy.read(cursor)
-      : new RelayEndReasonOther(reasonId)
+      const reason = reasonId === this.reasons.REASON_EXITPOLICY
+        ? RelayEndReasonExitPolicy.tryRead(cursor).throw(t)
+        : new RelayEndReasonOther(reasonId)
 
-    return { reason }
+      return new Ok(new RelayEndCell(reason))
+    })
   }
 
-  static uncell(cell: RelayCell<Opaque>) {
-    if (cell.rcommand !== this.rcommand)
-      throw new InvalidRelayCommand(this.name, cell.rcommand)
-    if (!cell.stream)
-      throw new InvalidStream(this.name, cell.stream)
-
-    const { reason } = cell.fragment.into(this)
-    return new this(cell.circuit, cell.stream, reason)
-  }
 }
