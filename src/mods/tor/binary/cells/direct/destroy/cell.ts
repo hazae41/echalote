@@ -1,14 +1,14 @@
-import { Opaque } from "@hazae41/binary"
-import { Cell } from "mods/tor/binary/cells/cell.js"
-import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
-import { SecretCircuit } from "mods/tor/circuit.js"
+import { BinaryReadError, BinaryWriteError } from "@hazae41/binary"
+import { Cursor } from "@hazae41/cursor"
+import { Ok, Result } from "@hazae41/result"
 
 export class DestroyCell {
   readonly #class = DestroyCell
 
-  static command = 4
+  static readonly circuit = true
+  static readonly command = 4
 
-  static reasons = {
+  static readonly reasons = {
     NONE: 0,
     PROTOCOL: 1,
     INTERNAL: 2,
@@ -22,10 +22,9 @@ export class DestroyCell {
     TIMEOUT: 10,
     DESTROYED: 11,
     NOSUCHSERVICE: 12
-  }
+  } as const
 
   constructor(
-    readonly circuit: SecretCircuit,
     readonly reason: number
   ) { }
 
@@ -33,29 +32,22 @@ export class DestroyCell {
     return this.#class.command
   }
 
-  size() {
-    return 1
+  trySize(): Result<number, never> {
+    return new Ok(1)
   }
 
-  write(cursor: Cursor) {
-    cursor.writeUint8(this.reason)
+  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
+    return cursor.tryWriteUint8(this.reason)
   }
 
-  static read(cursor: Cursor) {
-    const code = cursor.readUint8()
+  static tryRead(cursor: Cursor): Result<DestroyCell, BinaryReadError> {
+    return Result.unthrowSync(t => {
+      const code = cursor.tryReadUint8().throw(t)
 
-    cursor.offset += cursor.remaining
+      cursor.offset += cursor.remaining
 
-    return { code }
+      return new Ok(new DestroyCell(code))
+    })
   }
 
-  static uncell(cell: Cell<Opaque>) {
-    if (cell.command !== this.command)
-      throw new InvalidCommand(this.name, cell.command)
-    if (!cell.circuit)
-      throw new InvalidCircuit(this.name, cell.circuit)
-
-    const { code } = cell.payload.into(this)
-    return new this(cell.circuit, code)
-  }
 }

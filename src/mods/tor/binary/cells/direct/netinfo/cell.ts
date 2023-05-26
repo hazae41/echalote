@@ -1,15 +1,15 @@
-import { Cursor, Opaque } from "@hazae41/binary";
+import { BinaryReadError, BinaryWriteError } from "@hazae41/binary";
+import { Cursor } from "@hazae41/cursor";
+import { Ok, Result } from "@hazae41/result";
 import { TypedAddress } from "mods/tor/binary/address.js";
-import { Cell } from "mods/tor/binary/cells/cell.js";
-import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js";
 
 export class NetinfoCell {
   readonly #class = NetinfoCell
 
-  static command = 8
+  static readonly circuit = false
+  static readonly command = 8
 
   constructor(
-    readonly circuit: undefined,
     readonly time: number,
     readonly other: TypedAddress,
     readonly owneds: TypedAddress[]
@@ -19,39 +19,40 @@ export class NetinfoCell {
     return this.#class.command
   }
 
-  size() {
-    return 4 + this.other.size() + 1 + this.owneds.reduce((p, c) => p + c.size(), 0)
+  trySize(): Result<number, never> {
+    return new Ok(0
+      + 4
+      + this.other.trySize().get()
+      + 1
+      + this.owneds.reduce((p, c) => p + c.trySize().get(), 0))
   }
 
-  write(cursor: Cursor) {
-    cursor.writeUint32(this.time)
-    this.other.write(cursor)
-    cursor.writeUint8(this.owneds.length)
+  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
+    return Result.unthrowSync(t => {
+      cursor.tryWriteUint32(this.time)
+      this.other.tryWrite(cursor)
+      cursor.tryWriteUint8(this.owneds.length)
 
-    for (const owned of this.owneds)
-      owned.write(cursor)
+      for (const owned of this.owneds)
+        owned.tryWrite(cursor)
+
+      return Ok.void()
+    })
   }
 
-  static read(cursor: Cursor) {
-    const time = cursor.readUint32()
-    const other = TypedAddress.read(cursor)
-    const owneds = new Array<TypedAddress>(cursor.readUint8())
+  static tryRead(cursor: Cursor): Result<NetinfoCell, BinaryReadError> {
+    return Result.unthrowSync(t => {
+      const time = cursor.tryReadUint32().throw(t)
+      const other = TypedAddress.tryRead(cursor).throw(t)
+      const owneds = new Array<TypedAddress>(cursor.tryReadUint8().throw(t))
 
-    for (let i = 0; i < owneds.length; i++)
-      owneds[i] = TypedAddress.read(cursor)
+      for (let i = 0; i < owneds.length; i++)
+        owneds[i] = TypedAddress.tryRead(cursor).throw(t)
 
-    cursor.offset += cursor.remaining
+      cursor.offset += cursor.remaining
 
-    return { time, other, owneds }
+      return new Ok(new NetinfoCell(time, other, owneds))
+    })
   }
 
-  static uncell(cell: Cell<Opaque>) {
-    if (cell.command !== this.command)
-      throw new InvalidCommand(this.name, cell.command)
-    if (cell.circuit)
-      throw new InvalidCircuit(this.name, cell.circuit)
-
-    const { time, other, owneds } = cell.payload.into(this)
-    return new this(cell.circuit, time, other, owneds)
-  }
 }
