@@ -1,8 +1,6 @@
-import { Opaque } from "@hazae41/binary"
+import { ASN1Error, DERReadError } from "@hazae41/asn1"
 import { Cursor } from "@hazae41/cursor"
 import { Err, Ok, Result } from "@hazae41/result"
-import { Cell } from "mods/tor/binary/cells/cell.js"
-import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
 import { CrossCert, Ed25519Cert, RsaCert } from "mods/tor/binary/certs/index.js"
 import { Certs } from "mods/tor/certs/certs.js"
 
@@ -26,6 +24,10 @@ export class UnknownCertError extends Error {
 
 }
 
+export interface CertsCellInit {
+  readonly certs: Partial<Certs>
+}
+
 export class CertsCell {
   readonly #class = CertsCell
 
@@ -36,11 +38,17 @@ export class CertsCell {
     readonly certs: Partial<Certs>
   ) { }
 
+  static init(circuit: undefined, init: CertsCellInit) {
+    const { certs } = init
+
+    return new CertsCell(circuit, certs)
+  }
+
   get command() {
     return this.#class.command
   }
 
-  static tryRead(cursor: Cursor) {
+  static tryRead(cursor: Cursor): Result<CertsCellInit, DERReadError | ASN1Error | DuplicatedCertError | UnknownCertError> {
     return Result.unthrowSync(t => {
       const ncerts = cursor.tryReadUint8().throw(t)
       const certs: Partial<Certs> = {}
@@ -110,17 +118,6 @@ export class CertsCell {
 
       return new Ok({ certs })
     })
-  }
-
-  static tryUncell(cell: Cell<Opaque>) {
-    const { command, circuit } = cell
-
-    if (command !== this.command)
-      throw new InvalidCommand(this.name, command)
-    if (circuit)
-      throw new InvalidCircuit(this.name, circuit)
-
-    return cell.payload.tryInto(this).mapSync(x => new CertsCell(circuit, x.certs))
   }
 
 }

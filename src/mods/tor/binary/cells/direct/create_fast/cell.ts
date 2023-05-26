@@ -1,7 +1,12 @@
-import { Cursor, Opaque } from "@hazae41/binary";
-import { Cell } from "mods/tor/binary/cells/cell.js";
-import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js";
+import { BinaryReadError, BinaryWriteError } from "@hazae41/binary";
+import { Bytes } from "@hazae41/bytes";
+import { Cursor } from "@hazae41/cursor";
+import { Ok, Result } from "@hazae41/result";
 import { SecretCircuit } from "mods/tor/circuit.js";
+
+export interface CreateFastCellInit {
+  readonly material: Bytes<20>
+}
 
 export class CreateFastCell {
   readonly #class = CreateFastCell
@@ -14,36 +19,36 @@ export class CreateFastCell {
    */
   constructor(
     readonly circuit: SecretCircuit,
-    readonly material: Uint8Array
+    readonly material: Bytes<20>
   ) { }
+
+  static init(circuit: SecretCircuit, init: CreateFastCellInit) {
+    const { material } = init
+
+    return new CreateFastCell(circuit, material)
+  }
 
   get command() {
     return this.#class.command
   }
 
-  size() {
-    return this.material.length
+  trySize(): Result<number, never> {
+    return new Ok(this.material.length)
   }
 
-  write(cursor: Cursor) {
-    cursor.write(this.material)
+  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
+    return cursor.tryWrite(this.material)
   }
 
-  static read(cursor: Cursor) {
-    const material = new Uint8Array(cursor.read(20))
+  static tryRead(cursor: Cursor): Result<CreateFastCellInit, BinaryReadError> {
+    return Result.unthrowSync(t => {
+      const slice = cursor.tryRead(20).throw(t)
+      const material = Bytes.from(slice)
 
-    cursor.offset += cursor.remaining
+      cursor.offset += cursor.remaining
 
-    return { material }
+      return new Ok({ material })
+    })
   }
 
-  static uncell(cell: Cell<Opaque>) {
-    if (cell.command !== this.command)
-      throw new InvalidCommand(this.name, cell.command)
-    if (!cell.circuit)
-      throw new InvalidCircuit(this.name, cell.circuit)
-
-    const { material } = cell.payload.into(this)
-    return new this(cell.circuit, material)
-  }
 }

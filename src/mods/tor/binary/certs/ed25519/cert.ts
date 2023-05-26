@@ -1,3 +1,4 @@
+import { BinaryReadError } from "@hazae41/binary";
 import { Cursor } from "@hazae41/cursor";
 import { Ed25519 } from "@hazae41/ed25519";
 import { Err, Ok, Result } from "@hazae41/result";
@@ -54,7 +55,7 @@ export class Ed25519Cert {
     return Ok.void()
   }
 
-  static tryRead(cursor: Cursor, type: number, length: number) {
+  static tryRead(cursor: Cursor, type: number, length: number): Result<Ed25519Cert, BinaryReadError> {
     return Result.unthrowSync(t => {
       const start = cursor.offset
 
@@ -95,7 +96,7 @@ export class Ed25519Cert {
       if (cursor.offset - start !== length)
         throw new Error(`Invalid Ed25519 cert length ${length}`)
 
-      return new Ok(new this(type, version, certType, expiration, certKeyType, certKey, extensions, payload, signature))
+      return new Ok(new Ed25519Cert(type, version, certType, expiration, certKeyType, certKey, extensions, payload, signature))
     })
   }
 
