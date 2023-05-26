@@ -3,7 +3,7 @@ import { Cursor } from "@hazae41/cursor";
 import { Err, Ok, Result } from "@hazae41/result";
 import { SecretCircuit } from "mods/tor/circuit.js";
 import { SecretTorClientDuplex } from "mods/tor/tor.js";
-import { Cell, InvalidCircuitError, InvalidCommandError } from "./cell.js";
+import { InvalidCircuitError, InvalidCommandError } from "./cell.js";
 import { Cellable } from "./cellable.js";
 
 export type OldCell<T extends Writable.Infer<T>> =
@@ -15,7 +15,7 @@ export namespace OldCell {
   export type PAYLOAD_LEN = 509
   export const PAYLOAD_LEN = 509
 
-  export function tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: Cell<Opaque>, readable: Cellable & Readable<ReadOutput, ReadError>): Result<Cell<ReadOutput>, ReadError | BinaryReadError | InvalidCommandError | InvalidCircuitError> {
+  export function tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: OldCell<Opaque>, readable: Cellable & Readable<ReadOutput, ReadError>): Result<OldCell<ReadOutput>, ReadError | BinaryReadError | InvalidCommandError | InvalidCircuitError> {
     if (readable.command !== cell.command)
       return new Err(new InvalidCommandError())
     if (readable.circuit !== Boolean(cell.circuit))
@@ -99,60 +99,60 @@ export namespace OldCell {
 
   }
 
-  export class Circuitful<T extends Writable.Infer<T>> {
-    readonly #raw: Raw<T>
+  export class Circuitful<Fragment extends Writable.Infer<Fragment>> {
+    readonly #raw: Raw<Fragment>
 
     constructor(
       readonly circuit: SecretCircuit,
       readonly command: number,
-      readonly payload: T
+      readonly fragment: Fragment
     ) {
-      this.#raw = new Raw<T>(circuit.id, command, payload)
+      this.#raw = new Raw<Fragment>(circuit.id, command, fragment)
     }
 
     static from<T extends Cellable.Circuitful & Writable.Infer<T>>(circuit: SecretCircuit, cellable: T) {
       return new Circuitful(circuit, cellable.command, cellable)
     }
 
-    trySize(): Result<number, Writable.SizeError<T>> {
+    trySize(): Result<number, Writable.SizeError<Fragment>> {
       return this.#raw.trySize()
     }
 
-    tryWrite(cursor: Cursor): Result<void, BinaryError | Writable.SizeError<T> | Writable.WriteError<T>> {
+    tryWrite(cursor: Cursor): Result<void, BinaryError | Writable.SizeError<Fragment> | Writable.WriteError<Fragment>> {
       return this.#raw.tryWrite(cursor)
     }
 
-    tryMap<MapOutput extends Writable.Infer<MapOutput>, MapError>(mapper: (payload: T) => Result<MapOutput, MapError>) {
-      return mapper(this.payload).mapSync(payload => new Circuitful(this.circuit, this.command, payload))
+    tryMap<MapOutput extends Writable.Infer<MapOutput>, MapError>(mapper: (payload: Fragment) => Result<MapOutput, MapError>) {
+      return mapper(this.fragment).mapSync(payload => new Circuitful(this.circuit, this.command, payload))
     }
 
   }
 
-  export class Circuitless<T extends Writable.Infer<T>> {
-    readonly #raw: Raw<T>
+  export class Circuitless<Fragment extends Writable.Infer<Fragment>> {
+    readonly #raw: Raw<Fragment>
 
     constructor(
       readonly circuit: undefined,
       readonly command: number,
-      readonly payload: T
+      readonly fragment: Fragment
     ) {
-      this.#raw = new Raw<T>(0, command, payload)
+      this.#raw = new Raw<Fragment>(0, command, fragment)
     }
 
     static from<T extends Cellable.Circuitless & Writable.Infer<T>>(circuit: undefined, cellable: T) {
       return new Circuitless(circuit, cellable.command, cellable)
     }
 
-    trySize(): Result<number, Writable.SizeError<T>> {
+    trySize(): Result<number, Writable.SizeError<Fragment>> {
       return this.#raw.trySize()
     }
 
-    tryWrite(cursor: Cursor): Result<void, BinaryError | Writable.SizeError<T> | Writable.WriteError<T>> {
+    tryWrite(cursor: Cursor): Result<void, BinaryError | Writable.SizeError<Fragment> | Writable.WriteError<Fragment>> {
       return this.#raw.tryWrite(cursor)
     }
 
-    tryMap<MapOutput extends Writable.Infer<MapOutput>, MapError>(mapper: (payload: T) => Result<MapOutput, MapError>) {
-      return mapper(this.payload).mapSync(payload => new Circuitless(this.circuit, this.command, payload))
+    tryMap<MapOutput extends Writable.Infer<MapOutput>, MapError>(mapper: (payload: Fragment) => Result<MapOutput, MapError>) {
+      return mapper(this.fragment).mapSync(payload => new Circuitless(this.circuit, this.command, payload))
     }
 
   }
