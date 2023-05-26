@@ -55,15 +55,6 @@ export namespace Cell {
   export type PAYLOAD_LEN = 509
   export const PAYLOAD_LEN = 509
 
-  export function tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: Cell<Opaque>, readable: Cellable & Readable<ReadOutput, ReadError>): Result<Cell<ReadOutput>, ReadError | BinaryReadError | InvalidCommandError | InvalidCircuitError> {
-    if (readable.command !== cell.command)
-      return new Err(new InvalidCommandError())
-    if (readable.circuit !== Boolean(cell.circuit))
-      return new Err(new InvalidCircuitError())
-
-    return cell.tryMap(payload => payload.tryInto(readable))
-  }
-
   export class Raw<Fragment extends Writable.Infer<Fragment>> {
 
     constructor(
@@ -162,8 +153,13 @@ export namespace Cell {
       return this.#raw.tryWrite(cursor)
     }
 
-    tryMap<MapOutput extends Writable.Infer<MapOutput>, MapError>(mapper: (payload: Fragment) => Result<MapOutput, MapError>) {
-      return mapper(this.fragment).mapSync(payload => new Circuitful(this.circuit, this.command, payload))
+    static tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: Cell<Opaque>, readable: Cellable.Circuitless & Readable<ReadOutput, ReadError>): Result<Circuitless<ReadOutput>, ReadError | BinaryReadError | InvalidCommandError | InvalidCircuitError> {
+      if (cell.command !== readable.command)
+        return new Err(new InvalidCommandError())
+      if (cell.circuit !== undefined)
+        return new Err(new InvalidCircuitError())
+
+      return cell.fragment.tryInto(readable).mapSync(fragment => new Circuitless(cell.circuit, readable.command, fragment))
     }
 
   }
@@ -191,9 +187,15 @@ export namespace Cell {
       return this.#raw.tryWrite(cursor)
     }
 
-    tryMap<MapOutput extends Writable.Infer<MapOutput>, MapError>(mapper: (payload: Fragment) => Result<MapOutput, MapError>) {
-      return mapper(this.fragment).mapSync(payload => new Circuitless(this.circuit, this.command, payload))
+    static tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: Cell<Opaque>, readable: Cellable.Circuitless & Readable<ReadOutput, ReadError>): Result<Circuitless<ReadOutput>, ReadError | BinaryReadError | InvalidCommandError | InvalidCircuitError> {
+      if (cell.command !== readable.command)
+        return new Err(new InvalidCommandError())
+      if (cell.circuit !== undefined)
+        return new Err(new InvalidCircuitError())
+
+      return cell.fragment.tryInto(readable).mapSync(fragment => new Circuitless(cell.circuit, readable.command, fragment))
     }
+
 
   }
 

@@ -6,6 +6,7 @@ import { Ok, Panic, Result, Unimplemented } from "@hazae41/result"
 export class AuthChallengeCell {
   readonly #class = AuthChallengeCell
 
+  static readonly old = false
   static readonly circuit = false
   static readonly command = 130
 

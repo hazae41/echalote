@@ -5,6 +5,7 @@ import { Ok, Result } from "@hazae41/result"
 export class PaddingNegociateCell {
   readonly #class = PaddingNegociateCell
 
+  static readonly old = false
   static readonly circuit = false
   static readonly command = 12
 
@@ -23,6 +24,14 @@ export class PaddingNegociateCell {
     readonly ito_low_ms: number,
     readonly ito_high_ms: number
   ) { }
+
+  get old(): false {
+    return this.#class.old
+  }
+
+  get circuit(): false {
+    return this.#class.circuit
+  }
 
   get command() {
     return this.#class.command

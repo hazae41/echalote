@@ -4,7 +4,35 @@ import { Ed25519 } from "@hazae41/ed25519";
 import { RsaPublicKey } from "@hazae41/paimon";
 import { Err, Ok, Result } from "@hazae41/result";
 import { X509 } from "@hazae41/x509";
-import { CrossCert, Ed25519Cert, ExpiredCertError, PrematureCertError, RsaCert } from "../index.js";
+import { CrossCert, Ed25519Cert, RsaCert } from "../index.js";
+
+export type CertError =
+  | DuplicatedCertError
+  | UnknownCertError
+  | ExpectedCertError
+  | ExpiredCertError
+  | PrematureCertError
+  | InvalidSignatureError
+
+export class DuplicatedCertError extends Error {
+  readonly #class = DuplicatedCertError
+  readonly name = this.#class.name
+
+  constructor() {
+    super(`Duplicated certificate`)
+  }
+
+}
+
+export class UnknownCertError extends Error {
+  readonly #class = UnknownCertError
+  readonly name = this.#class.name
+
+  constructor() {
+    super(`Unknown certificate`)
+  }
+
+}
 
 export class ExpectedCertError extends Error {
   readonly #class = ExpectedCertError
@@ -12,6 +40,26 @@ export class ExpectedCertError extends Error {
 
   constructor() {
     super(`Expected a certificate`)
+  }
+
+}
+
+export class ExpiredCertError extends Error {
+  readonly #class = ExpiredCertError
+  readonly name = this.#class.name
+
+  constructor() {
+    super(`Expired certificate`)
+  }
+
+}
+
+export class PrematureCertError extends Error {
+  readonly #class = PrematureCertError
+  readonly name = this.#class.name
+
+  constructor() {
+    super(`Premature certificate`)
   }
 
 }

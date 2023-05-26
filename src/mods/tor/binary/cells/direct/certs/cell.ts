@@ -2,31 +2,12 @@ import { ASN1Error, DERReadError } from "@hazae41/asn1"
 import { Cursor } from "@hazae41/cursor"
 import { Err, Ok, Panic, Result, Unimplemented } from "@hazae41/result"
 import { CrossCert, Ed25519Cert, RsaCert } from "mods/tor/binary/certs/index.js"
-import { Certs } from "mods/tor/certs/certs.js"
-
-export class DuplicatedCertError extends Error {
-  readonly #class = DuplicatedCertError
-  readonly name = this.#class.name
-
-  constructor() {
-    super(`Duplicated certificate`)
-  }
-
-}
-
-export class UnknownCertError extends Error {
-  readonly #class = UnknownCertError
-  readonly name = this.#class.name
-
-  constructor() {
-    super(`Unknown certificate`)
-  }
-
-}
+import { Certs, DuplicatedCertError, UnknownCertError } from "mods/tor/certs/certs.js"
 
 export class CertsCell {
   readonly #class = CertsCell
 
+  static readonly old = false
   static readonly circuit = false
   static readonly command = 129
 

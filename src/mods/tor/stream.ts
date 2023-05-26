@@ -1,4 +1,4 @@
-import { Cursor, Opaque, Writable } from "@hazae41/binary";
+import { Opaque, Writable } from "@hazae41/binary";
 import { SuperReadableStream, SuperWritableStream } from "@hazae41/cascade";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
@@ -92,7 +92,7 @@ export class SecretTorStreamDuplex {
     } catch (e: unknown) { }
   }
 
-  async #onRelayEndCell(event: MessageEvent<RelayEndCell>) {
+  async #onRelayEndCell(event: RelayCell.Streamful<RelayEndCell>) {
     if (event.data.stream !== this) return
 
     console.debug(`${this.#class.name}.onRelayEndCell`, event)

@@ -6,6 +6,7 @@ import { TypedAddress } from "mods/tor/binary/address.js";
 export class NetinfoCell {
   readonly #class = NetinfoCell
 
+  static readonly old = false
   static readonly circuit = false
   static readonly command = 8
 
@@ -14,6 +15,14 @@ export class NetinfoCell {
     readonly other: TypedAddress,
     readonly owneds: TypedAddress[]
   ) { }
+
+  get old(): false {
+    return this.#class.old
+  }
+
+  get circuit(): false {
+    return this.#class.circuit
+  }
 
   get command() {
     return this.#class.command
