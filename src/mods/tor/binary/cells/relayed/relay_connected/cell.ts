@@ -48,7 +48,7 @@ export class RelayConnectedCell {
     if (!cell.stream)
       throw new InvalidStream(this.name, cell.stream)
 
-    const { address, ttl } = cell.data.into(this)
+    const { address, ttl } = cell.fragment.into(this)
     return new this(cell.circuit, cell.stream, address, ttl)
   }
 }

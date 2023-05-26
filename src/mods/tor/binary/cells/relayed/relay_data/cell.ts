@@ -33,6 +33,6 @@ export class RelayDataCell<T extends Writable> {
     if (!cell.stream)
       throw new InvalidStream(this.name, cell.stream)
 
-    return new this(cell.circuit, cell.stream, cell.data)
+    return new this(cell.circuit, cell.stream, cell.fragment)
   }
 }

@@ -63,7 +63,7 @@ export class RelayEndCell {
     if (!cell.stream)
       throw new InvalidStream(this.name, cell.stream)
 
-    const { reason } = cell.data.into(this)
+    const { reason } = cell.fragment.into(this)
     return new this(cell.circuit, cell.stream, reason)
   }
 }

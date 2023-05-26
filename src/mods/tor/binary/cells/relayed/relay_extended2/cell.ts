@@ -32,7 +32,7 @@ export class RelayExtended2Cell<T extends Writable> {
     if (cell.stream)
       throw new InvalidStream(this.name, cell.stream)
 
-    const { data } = cell.data.into(this)
+    const { data } = cell.fragment.into(this)
     return new this(cell.circuit, cell.stream, data)
   }
 }

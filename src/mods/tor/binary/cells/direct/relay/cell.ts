@@ -124,28 +124,28 @@ export namespace RelayCell {
 
   export const command = 3
 
-  export class Raw<T extends Writable.Infer<T>> {
+  export class Raw<Fragment extends Writable.Infer<Fragment>> {
 
     constructor(
       readonly circuit: SecretCircuit,
       readonly stream: number,
       readonly rcommand: number,
-      readonly data: T
+      readonly fragment: Fragment
     ) { }
 
-    tryUnpack(): Result<RelayCell<T>, never> {
+    tryUnpack(): Result<RelayCell<Fragment>, never> {
       if (this.stream === 0)
-        return new Ok(new Streamless(this.circuit, this.rcommand, this.data))
+        return new Ok(new Streamless(this.circuit, this.rcommand, this.fragment))
 
       const stream = this.circuit.streams.get(this.stream)
 
       if (stream === undefined)
         throw new Error(`Invalid stream`)
 
-      return new Ok(new Streamful(this.circuit, stream, this.rcommand, this.data))
+      return new Ok(new Streamful(this.circuit, stream, this.rcommand, this.fragment))
     }
 
-    tryCell(): Result<Cell.Circuitful<Opaque>, BinaryWriteError | Writable.SizeError<T> | Writable.WriteError<T>> {
+    tryCell(): Result<Cell.Circuitful<Opaque>, BinaryWriteError | Writable.SizeError<Fragment> | Writable.WriteError<Fragment>> {
       return Result.unthrowSync(t => {
         const cursor = Cursor.allocUnsafe(Cell.PAYLOAD_LEN)
 
@@ -157,9 +157,9 @@ export namespace RelayCell {
 
         cursor.tryWriteUint32(0).throw(t)
 
-        const size = this.data.trySize().throw(t)
+        const size = this.fragment.trySize().throw(t)
         cursor.tryWriteUint16(size).throw(t)
-        this.data.tryWrite(cursor).throw(t)
+        this.fragment.tryWrite(cursor).throw(t)
 
         cursor.fill(0, Math.min(cursor.remaining, 4))
         cursor.tryWrite(Bytes.random(cursor.remaining)).throw(t)
@@ -183,9 +183,9 @@ export namespace RelayCell {
     static tryUncell(cell: Cell.Circuitful<Opaque>): Result<Raw<Opaque>, BinaryError> {
       return Result.unthrowSync(t => {
         for (const target of cell.circuit.targets) {
-          target.backward_key.apply_keystream(cell.payload.bytes)
+          target.backward_key.apply_keystream(cell.fragment.bytes)
 
-          const cursor = new Cursor(cell.payload.bytes)
+          const cursor = new Cursor(cell.fragment.bytes)
 
           const rcommand = cursor.tryReadUint8().throw(t)
           const recognised = cursor.tryReadUint16().throw(t)
@@ -218,36 +218,36 @@ export namespace RelayCell {
 
   }
 
-  export class Streamful<T extends Writable.Infer<T>> {
-    readonly #raw: Raw<T>
+  export class Streamful<Fragment extends Writable.Infer<Fragment>> {
+    readonly #raw: Raw<Fragment>
 
     constructor(
       readonly circuit: SecretCircuit,
       readonly stream: SecretTorStreamDuplex,
       readonly rcommand: number,
-      readonly data: T
+      readonly fragment: Fragment
     ) {
-      this.#raw = new Raw(circuit, stream.id, rcommand, data)
+      this.#raw = new Raw(circuit, stream.id, rcommand, fragment)
     }
 
-    tryCell(): Result<Cell.Circuitful<Opaque>, BinaryWriteError | Writable.SizeError<T> | Writable.WriteError<T>> {
+    tryCell(): Result<Cell.Circuitful<Opaque>, BinaryWriteError | Writable.SizeError<Fragment> | Writable.WriteError<Fragment>> {
       return this.#raw.tryCell()
     }
 
   }
 
-  export class Streamless<T extends Writable.Infer<T>> {
-    readonly #raw: Raw<T>
+  export class Streamless<Fragment extends Writable.Infer<Fragment>> {
+    readonly #raw: Raw<Fragment>
 
     constructor(
       readonly circuit: SecretCircuit,
       readonly rcommand: number,
-      readonly data: T
+      readonly fragment: Fragment
     ) {
-      this.#raw = new Raw(circuit, 0, rcommand, data)
+      this.#raw = new Raw(circuit, 0, rcommand, fragment)
     }
 
-    tryCell(): Result<Cell.Circuitful<Opaque>, BinaryWriteError | Writable.SizeError<T> | Writable.WriteError<T>> {
+    tryCell(): Result<Cell.Circuitful<Opaque>, BinaryWriteError | Writable.SizeError<Fragment> | Writable.WriteError<Fragment>> {
       return this.#raw.tryCell()
     }
 

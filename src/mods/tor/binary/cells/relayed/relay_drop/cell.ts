@@ -31,6 +31,6 @@ export class RelayDropCell<T extends Writable> {
     if (cell.rcommand !== this.rcommand)
       throw new InvalidRelayCommand(this.name, cell.rcommand)
 
-    return new this(cell.circuit, cell.stream, cell.data)
+    return new this(cell.circuit, cell.stream, cell.fragment)
   }
 }
