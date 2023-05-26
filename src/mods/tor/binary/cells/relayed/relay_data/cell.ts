@@ -1,4 +1,4 @@
-import { BinaryReadError, Opaque, UnsafeOpaque, Writable } from "@hazae41/binary";
+import { BinaryReadError, Opaque, Writable } from "@hazae41/binary";
 import { Cursor } from "@hazae41/cursor";
 import { Result } from "@hazae41/result";
 
@@ -25,7 +25,7 @@ export class RelayDataCell<T extends Writable.Infer<T>> {
   }
 
   static tryRead(cursor: Cursor): Result<RelayDataCell<Opaque>, BinaryReadError> {
-    return UnsafeOpaque.tryRead(cursor).mapSync(x => new RelayDataCell(x))
+    return cursor.tryRead(cursor.remaining).mapSync(x => new RelayDataCell(new Opaque(x)))
   }
 
 }
