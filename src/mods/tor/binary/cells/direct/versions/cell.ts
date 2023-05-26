@@ -1,14 +1,14 @@
-import { Cursor, Opaque } from "@hazae41/binary"
-import { OldCell } from "mods/tor/binary/cells/cell.js"
-import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
+import { BinaryReadError, BinaryWriteError } from "@hazae41/binary"
+import { Cursor } from "@hazae41/cursor"
+import { Ok, Result } from "@hazae41/result"
 
 export class VersionsCell {
   readonly #class = VersionsCell
 
-  static command = 7
+  static readonly circuit = false
+  static readonly command = 7
 
   constructor(
-    readonly circuit: undefined,
     readonly versions: number[]
   ) { }
 
@@ -16,32 +16,29 @@ export class VersionsCell {
     return this.#class.command
   }
 
-  size() {
-    return 2 * this.versions.length
+  trySize(): Result<number, never> {
+    return new Ok(2 * this.versions.length)
   }
 
-  write(cursor: Cursor) {
-    for (const version of this.versions)
-      cursor.writeUint16(version)
+  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
+    return Result.unthrowSync(t => {
+
+      for (const version of this.versions)
+        cursor.tryWriteUint16(version).throw(t)
+
+      return Ok.void()
+    })
   }
 
-  static read(cursor: Cursor) {
-    const versions = new Array<number>(cursor.remaining / 2)
+  static tryRead(cursor: Cursor): Result<VersionsCell, BinaryReadError> {
+    return Result.unthrowSync(t => {
+      const versions = new Array<number>(cursor.remaining / 2)
 
-    for (let i = 0; i < versions.length; i++)
-      versions[i] = cursor.readUint16()
+      for (let i = 0; i < versions.length; i++)
+        versions[i] = cursor.tryReadUint16().throw(t)
 
-    return { versions }
-  }
-
-  static uncell(cell: OldCell<Opaque>) {
-    if (cell.command !== this.command)
-      throw new InvalidCommand(this.name, cell.command)
-    if (cell.circuit)
-      throw new InvalidCircuit(this.name, cell.circuit)
-
-    const { versions } = cell.payload.into(this)
-    return new this(cell.circuit, versions)
+      return new Ok(new VersionsCell(versions))
+    })
   }
 
 }

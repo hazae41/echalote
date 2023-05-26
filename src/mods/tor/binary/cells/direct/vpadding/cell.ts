@@ -1,14 +1,14 @@
-import { Cursor, Opaque } from "@hazae41/binary"
-import { Cell } from "mods/tor/binary/cells/cell.js"
-import { InvalidCircuit, InvalidCommand } from "mods/tor/binary/cells/errors.js"
+import { BinaryReadError, BinaryWriteError } from "@hazae41/binary"
+import { Cursor } from "@hazae41/cursor"
+import { Ok, Result } from "@hazae41/result"
 
 export class VariablePaddingCell {
   readonly #class = VariablePaddingCell
 
-  static command = 128
+  static readonly circuit = false
+  static readonly command = 128
 
   constructor(
-    readonly circuit: undefined,
     readonly data: Uint8Array
   ) { }
 
@@ -16,27 +16,16 @@ export class VariablePaddingCell {
     return this.#class.command
   }
 
-  size() {
-    return this.data.length
+  trySize(): Result<number, never> {
+    return new Ok(this.data.length)
   }
 
-  write(cursor: Cursor) {
-    cursor.write(this.data)
+  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
+    return cursor.tryWrite(this.data)
   }
 
-  static read(cursor: Cursor) {
-    const data = cursor.read(cursor.remaining)
-
-    return { data }
+  static tryRead(cursor: Cursor): Result<VariablePaddingCell, BinaryReadError> {
+    return cursor.tryRead(cursor.remaining).mapSync(x => new VariablePaddingCell(x))
   }
 
-  static uncell(cell: Cell<Opaque>) {
-    if (cell.command !== this.command)
-      throw new InvalidCommand(this.name, cell.command)
-    if (cell.circuit)
-      throw new InvalidCircuit(this.name, cell.circuit)
-
-    const { data } = cell.payload.into(this)
-    return new this(cell.circuit, data)
-  }
 }
