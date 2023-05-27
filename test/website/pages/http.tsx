@@ -54,7 +54,6 @@ export default function Page() {
     const fallbacks = await fallbacksRes.json()
 
     const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
-    // const tcp = await tryCreateWebSocketStream("ws://localhost:8080")
 
     return new TorClientDuplex(tcp, { fallbacks, ed25519, x25519, sha1 })
   }, [])
@@ -67,14 +66,6 @@ export default function Page() {
 
   const mutex = useRef(new Mutex(undefined))
 
-  // const onClick = useCallback(async () => {
-  //   if (!tor) return
-
-  //   const circuit = await tor.tryCreateAndExtendLoop().then(r => r.unwrap())
-
-  //   superfetch(circuit)
-  // }, [tor])
-
   const onClick = useCallback(async () => {
     if (!circuits) return
 
@@ -86,7 +77,11 @@ export default function Page() {
       return circuit
     })
 
-    superfetch(circuit)
+    try {
+      await superfetch(circuit)
+    } catch (e: unknown) {
+      console.error({ e })
+    }
   }, [circuits])
 
   const [_, setCounter] = useState(0)
