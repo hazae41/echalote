@@ -57,18 +57,30 @@ export class BatchedFetchStream {
         timeout = setTimeout(async () => {
 
           interval = setInterval(async () => {
-            const res = await fetch(request, { method: "POST" })
-            const data = new Uint8Array(await res.arrayBuffer())
-            rcontroller.enqueue(new Opaque(data))
+            try {
+              const res = await fetch(request, { method: "POST" })
+              const data = new Uint8Array(await res.arrayBuffer())
+              rcontroller.enqueue(new Opaque(data))
+            } catch (e: unknown) {
+              clearInterval(interval)
+              rcontroller.error(e)
+              wcontroller.error(e)
+            }
           }, highDelay)
 
-          const body = Bytes.concat(batch)
+          try {
+            const body = Bytes.concat(batch)
 
-          batch = new Array<Uint8Array>()
+            batch = new Array<Uint8Array>()
 
-          const res = await fetch(request, { method: "POST", body })
-          const data = new Uint8Array(await res.arrayBuffer())
-          rcontroller.enqueue(new Opaque(data))
+            const res = await fetch(request, { method: "POST", body })
+            const data = new Uint8Array(await res.arrayBuffer())
+            rcontroller.enqueue(new Opaque(data))
+          } catch (e: unknown) {
+            clearInterval(interval)
+            rcontroller.error(e)
+            wcontroller.error(e)
+          }
         }, lowDelay)
       },
       async abort(e) {

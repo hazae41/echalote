@@ -1,5 +1,5 @@
 import { Berith } from "@hazae41/berith";
-import { Circuit, createCircuitPool, createWebSocketSnowflakeStream, TorClientDuplex } from "@hazae41/echalote";
+import { Circuit, createCircuitPool, createMeekStream, TorClientDuplex } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
 import { Morax } from "@hazae41/morax";
 import { Mutex } from "@hazae41/mutex";
@@ -53,7 +53,8 @@ export default function Page() {
 
     const fallbacks = await fallbacksRes.json()
 
-    const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
+    // const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
+    const tcp = await createMeekStream("https://meek.bamsoftware.com/")
 
     return new TorClientDuplex(tcp, { fallbacks, ed25519, x25519, sha1 })
   }, [])
