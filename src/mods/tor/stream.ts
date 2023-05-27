@@ -1,5 +1,7 @@
-import { Opaque, Writable } from "@hazae41/binary";
-import { SuperReadableStream, SuperWritableStream } from "@hazae41/cascade";
+import { BinaryError, BinaryWriteError, Opaque, Writable } from "@hazae41/binary";
+import { ControllerError, SuperReadableStream, SuperWritableStream } from "@hazae41/cascade";
+import { Cursor } from "@hazae41/cursor";
+import { Ok, Result } from "@hazae41/result";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
@@ -59,65 +61,79 @@ export class SecretTorStreamDuplex {
     this.writable = this.#writer.start()
   }
 
-  #close(reason?: any) {
-    try {
-      this.#reader.close()
-    } catch (e: unknown) { }
+  #tryClose(reason?: unknown): Result<void, ControllerError> {
+    return Result.unthrowSync(t => {
+      this.#reader.tryClose().throw(t)
+      this.#writer.tryError(reason).throw(t)
 
-    this.#writer.error(reason)
+      this.#reader.closed = { reason }
+      this.#writer.closed = { reason }
 
-    this.#reader.closed = { reason }
-    this.#writer.closed = { reason }
+      return Ok.void()
+    })
   }
 
-  async #onCircuitClose(event: CloseEvent) {
-    console.debug(`${this.#class.name}.onCircuitClose`, event)
+  async #onCircuitClose() {
+    console.debug(`${this.#class.name}.onCircuitClose`)
 
-    this.#close(new Error(`Closed`, { cause: event }))
+    this.#tryClose().inspectErrSync(console.warn).ignore()
   }
 
-  async #onCircuitError(event: ErrorEvent) {
-    console.debug(`${this.#class.name}.onCircuitError`, event)
+  async #onCircuitError(reason?: unknown) {
+    console.debug(`${this.#class.name}.onCircuitError`, reason)
 
-    this.#close(new Error(`Errored`, { cause: event.error }))
+    this.#tryClose(reason).inspectErrSync(console.warn).ignore()
   }
 
-  async #onRelayDataCell(event: MessageEvent<RelayDataCell<Opaque>>) {
-    if (event.data.stream !== this) return
+  async #onRelayDataCell(cell: RelayCell.Streamful<RelayDataCell<Opaque>>) {
+    if (cell.stream !== this) return
 
-    console.debug(`${this.#class.name}.onRelayDataCell`, event)
+    console.debug(`${this.#class.name}.onRelayDataCell`, cell)
 
-    try {
-      this.#reader.enqueue(event.data.fragment)
-    } catch (e: unknown) { }
+    this.#reader.enqueue(cell.fragment.fragment)
   }
 
-  async #onRelayEndCell(event: RelayCell.Streamful<RelayEndCell>) {
-    if (event.data.stream !== this) return
+  async #onRelayEndCell(cell: RelayCell.Streamful<RelayEndCell>) {
+    if (cell.stream !== this) return
 
-    console.debug(`${this.#class.name}.onRelayEndCell`, event)
+    console.debug(`${this.#class.name}.onRelayEndCell`, cell)
 
-    this.#close(new Error(`Closed`, { cause: event.data.reason }))
+    this.#tryClose(cell.fragment.reason)
   }
 
-  async #onWrite(writable: Writable) {
-    if (writable.size() <= RelayCell.DATA_LEN)
-      return this.#onWriteDirect(writable)
-    else
-      return this.#onWriteChunked(writable)
+  #onWrite<T extends Writable.Infer<T>>(writable: T): Result<void, BinaryError | Writable.SizeError<T> | Writable.WriteError<T>> {
+    return Result.unthrowSync(t => {
+      if (writable.trySize().throw(t) <= RelayCell.DATA_LEN)
+        return this.#onWriteDirect(writable)
+      else
+        return this.#onWriteChunked(writable)
+    })
   }
 
-  async #onWriteDirect(writable: Writable) {
-    const cell = new RelayDataCell(this.circuit, this, writable)
-    return this.circuit.tor.writer.enqueue(RelayCell.from(cell).cell())
+  #onWriteDirect<T extends Writable.Infer<T>>(writable: T): Result<void, BinaryWriteError | Writable.SizeError<T> | Writable.WriteError<T>> {
+    return Result.unthrowSync(t => {
+      const relay_data_cell = new RelayDataCell(writable)
+      const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_data_cell)
+      const cell = relay_cell.tryCell().throw(t)
+      this.circuit.tor.writer.enqueue(cell)
+
+      return Ok.void()
+    })
   }
 
-  async #onWriteChunked(writable: Writable) {
-    const bytes = Writable.toBytes(writable)
-    const cursor = new Cursor(bytes)
+  #onWriteChunked<T extends Writable.Infer<T>>(writable: T): Result<void, BinaryError | Writable.SizeError<T> | Writable.WriteError<T>> {
+    return Result.unthrowSync(t => {
+      const bytes = Writable.tryWriteToBytes(writable).throw(t)
+      const cursor = new Cursor(bytes)
 
-    for (const chunk of cursor.split(RelayCell.DATA_LEN)) {
-      this.#onWriteDirect(new Opaque(chunk))
-    }
+      const iterator = cursor.trySplit(RelayCell.DATA_LEN)
+
+      let next = iterator.next()
+
+      for (; !next.done; next = iterator.next())
+        this.#onWriteDirect(new Opaque(next.value)).throw(t)
+
+      return next.value
+    })
   }
 }

@@ -12,7 +12,11 @@ export class RelayDataCell<Fragment extends Writable.Infer<Fragment>> {
     readonly fragment: Fragment
   ) { }
 
-  get rcommand() {
+  get stream(): true {
+    return this.#class.stream
+  }
+
+  get rcommand(): 2 {
     return this.#class.rcommand
   }
 

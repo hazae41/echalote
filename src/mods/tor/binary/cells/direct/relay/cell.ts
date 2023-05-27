@@ -145,6 +145,9 @@ export type RelayCell<T extends Writable.Infer<T>> =
 
 export namespace RelayCell {
 
+  export const HEAD_LEN = 1 + 2 + 2 + 4 + 2
+  export const DATA_LEN = Cell.PAYLOAD_LEN - HEAD_LEN
+
   export const command = 3
 
   export class Raw<Fragment extends Writable.Infer<Fragment>> {
@@ -256,6 +259,10 @@ export namespace RelayCell {
       this.#raw = new Raw(circuit, stream.id, rcommand, fragment)
     }
 
+    static from<Fragment extends RelayCellable.Streamful & Writable.Infer<Fragment>>(circuit: SecretCircuit, stream: SecretTorStreamDuplex, fragment: Fragment) {
+      return new Streamful(circuit, stream, fragment.rcommand, fragment)
+    }
+
     tryCell(): Result<Cell.Circuitful<Opaque>, BinaryWriteError | Writable.SizeError<Fragment> | Writable.WriteError<Fragment>> {
       return this.#raw.tryCell()
     }
@@ -281,6 +288,10 @@ export namespace RelayCell {
       readonly fragment: Fragment
     ) {
       this.#raw = new Raw(circuit, 0, rcommand, fragment)
+    }
+
+    static from<Fragment extends RelayCellable.Streamless & Writable.Infer<Fragment>>(circuit: SecretCircuit, stream: undefined, fragment: Fragment) {
+      return new Streamless(circuit, stream, fragment.rcommand, fragment)
     }
 
     tryCell(): Result<Cell.Circuitful<Opaque>, BinaryWriteError | Writable.SizeError<Fragment> | Writable.WriteError<Fragment>> {
