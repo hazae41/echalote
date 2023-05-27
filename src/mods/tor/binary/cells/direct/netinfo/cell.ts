@@ -38,12 +38,12 @@ export class NetinfoCell {
 
   tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
     return Result.unthrowSync(t => {
-      cursor.tryWriteUint32(this.time)
-      this.other.tryWrite(cursor)
-      cursor.tryWriteUint8(this.owneds.length)
+      cursor.tryWriteUint32(this.time).throw(t)
+      this.other.tryWrite(cursor).throw(t)
+      cursor.tryWriteUint8(this.owneds.length).throw(t)
 
       for (const owned of this.owneds)
-        owned.tryWrite(cursor)
+        owned.tryWrite(cursor).throw(t)
 
       return Ok.void()
     })
