@@ -242,17 +242,15 @@ export class SecretCircuit {
   // }
 
   async tryExtendLoop(exit: boolean, signal?: AbortSignal) {
-    const signal2 = AbortSignals.timeout(30_000, signal)
-
-    while (!this.closed && !signal2.aborted) {
-      const result = await this.tryExtend(exit, signal2)
+    while (!this.closed && !signal?.aborted) {
+      const result = await this.tryExtend(exit, signal)
 
       if (result.isOk())
         return result
 
       if (this.closed)
         return result
-      if (signal2.aborted)
+      if (signal?.aborted)
         return result
 
       if (result.inner.name === AbortError.name) {
@@ -272,8 +270,8 @@ export class SecretCircuit {
       return new Err(ErrorError.from(this.closed.reason))
     if (this.closed !== undefined)
       return new Err(CloseError.from(this.closed.reason))
-    if (signal2.aborted)
-      return new Err(AbortError.from(signal2.reason))
+    if (signal?.aborted)
+      return new Err(AbortError.from(signal.reason))
     throw new Panic()
   }
 

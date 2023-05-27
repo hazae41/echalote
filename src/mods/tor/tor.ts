@@ -103,6 +103,9 @@ export class TorClientDuplex {
   }
 
   async tryWait(signal: AbortSignal) {
+    if (this.#secret.state.type === "handshaked")
+      return Ok.void()
+
     return await Plume.tryWaitStream(this.#secret.events, "handshaked", (e) => {
       return new Ok(new Some(Ok.void()))
     }, signal)
@@ -203,6 +206,10 @@ export class SecretTorClientDuplex {
     await Zepar.initBundledOnce()
   }
 
+  get state() {
+    return this.#state
+  }
+
   get closed() {
     return this.reader.closed
   }
@@ -253,7 +260,7 @@ export class SecretTorClientDuplex {
 
     return await Plume.tryWaitStream(this.events, "handshaked", () => {
       return new Ok(new Some(Ok.void()))
-    }, AbortSignal.timeout(5_000))
+    }, AbortSignal.timeout(10_000))
   }
 
   async #onRead(chunk: Opaque): Promise<Result<void, Panic | BinaryError | InvalidCommandError | InvalidCircuitError | InvalidStreamError | DERReadError | ASN1Error | CertError | EventError>> {
@@ -570,6 +577,7 @@ export class SecretTorClientDuplex {
           continue
 
         const circuit = new SecretCircuit(circuitId, this)
+
         circuits.set(circuitId, circuit)
 
         return new Ok(circuit)
@@ -578,7 +586,7 @@ export class SecretTorClientDuplex {
   }
 
   async #tryWaitCreatedFast(circuit: SecretCircuit, signal: AbortSignal): Promise<Result<Cell.Circuitful<CreatedFastCell>, AbortError | ErrorError | CloseError>> {
-    return await Plume.tryWaitStream(this.events, "CREATED_FAST", e => {
+    return await Plume.tryWaitStream(this.events, "CREATED_FAST", async e => {
       if (e.circuit !== circuit)
         return new Ok(new None())
       return new Ok(new Some(new Ok(e)))
@@ -600,7 +608,8 @@ export class SecretTorClientDuplex {
             return new Ok(circuit)
 
           if (circuit.closed && !this.closed && !signal?.aborted) {
-            console.warn("Create and extend failed", extend2.get())
+            console.error("Create and extend failed", extend2.get())
+            await new Promise(ok => setTimeout(ok, 1000))
             continue
           }
 
@@ -608,7 +617,8 @@ export class SecretTorClientDuplex {
         }
 
         if (circuit.closed && !this.closed && !signal?.aborted) {
-          console.warn("Create and extend failed", extend1.get())
+          console.error("Create and extend failed", extend1.get())
+          await new Promise(ok => setTimeout(ok, 1000))
           continue
         }
 
@@ -626,17 +636,15 @@ export class SecretTorClientDuplex {
   }
 
   async tryCreateLoop(signal?: AbortSignal): Promise<Result<Circuit, BinaryError | AbortError | ErrorError | CloseError>> {
-    const signal2 = AbortSignals.timeout(30_000, signal)
-
-    while (!this.closed && !signal2.aborted) {
-      const result = await this.tryCreate(signal2)
+    while (!this.closed && !signal?.aborted) {
+      const result = await this.tryCreate(signal)
 
       if (result.isOk())
         return result
 
       if (this.closed)
         return result
-      if (signal2.aborted)
+      if (signal?.aborted)
         return result
 
       if (result.inner.name === AbortError.name) {
@@ -656,8 +664,8 @@ export class SecretTorClientDuplex {
       return new Err(ErrorError.from(this.closed.reason))
     if (this.closed !== undefined)
       return new Err(CloseError.from(this.closed.reason))
-    if (signal2.aborted)
-      return new Err(AbortError.from(signal2.reason))
+    if (signal?.aborted)
+      return new Err(AbortError.from(signal.reason))
     throw new Panic()
   }
 
