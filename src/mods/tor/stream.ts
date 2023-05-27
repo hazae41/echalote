@@ -40,16 +40,16 @@ export class SecretTorStreamDuplex {
     readonly signal?: AbortSignal
   ) {
     const onClose = this.#onCircuitClose.bind(this)
-    this.circuit.events.addEventListener("close", onClose, { passive: true })
+    this.circuit.events.on("close", onClose, { passive: true })
 
     const onError = this.#onCircuitError.bind(this)
-    this.circuit.events.addEventListener("error", onError, { passive: true })
+    this.circuit.events.on("error", onError, { passive: true })
 
     const onRelayDataCell = this.#onRelayDataCell.bind(this)
-    this.circuit.events.addEventListener("RELAY_DATA", onRelayDataCell, { passive: true })
+    this.circuit.events.on("RELAY_DATA", onRelayDataCell, { passive: true })
 
     const onRelayEndCell = this.#onRelayEndCell.bind(this)
-    this.circuit.events.addEventListener("RELAY_END", onRelayEndCell, { passive: true })
+    this.circuit.events.on("RELAY_END", onRelayEndCell, { passive: true })
 
     this.#reader = new SuperReadableStream({})
 
@@ -77,28 +77,38 @@ export class SecretTorStreamDuplex {
     console.debug(`${this.#class.name}.onCircuitClose`)
 
     this.#tryClose().inspectErrSync(console.warn).ignore()
+
+    return Ok.void()
   }
 
   async #onCircuitError(reason?: unknown) {
     console.debug(`${this.#class.name}.onCircuitError`, reason)
 
     this.#tryClose(reason).inspectErrSync(console.warn).ignore()
+
+    return Ok.void()
   }
 
   async #onRelayDataCell(cell: RelayCell.Streamful<RelayDataCell<Opaque>>) {
-    if (cell.stream !== this) return
+    if (cell.stream !== this)
+      return Ok.void()
 
     console.debug(`${this.#class.name}.onRelayDataCell`, cell)
 
-    this.#reader.enqueue(cell.fragment.fragment)
+    this.#reader.tryEnqueue(cell.fragment.fragment).inspectErrSync(console.warn).ignore()
+
+    return Ok.void()
   }
 
   async #onRelayEndCell(cell: RelayCell.Streamful<RelayEndCell>) {
-    if (cell.stream !== this) return
+    if (cell.stream !== this)
+      return Ok.void()
 
     console.debug(`${this.#class.name}.onRelayEndCell`, cell)
 
-    this.#tryClose(cell.fragment.reason)
+    this.#tryClose(cell.fragment.reason).inspectErrSync(console.warn).ignore()
+
+    return Ok.void()
   }
 
   #onWrite<T extends Writable.Infer<T>>(writable: T): Result<void, BinaryError | Writable.SizeError<T> | Writable.WriteError<T>> {

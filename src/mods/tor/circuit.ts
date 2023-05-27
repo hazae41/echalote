@@ -5,6 +5,7 @@ import { Bytes } from "@hazae41/bytes";
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
 import { fetch } from "@hazae41/fleche";
 import { Plume, StreamEvents, SuperEventTarget } from "@hazae41/plume";
+import { Ok } from "@hazae41/result";
 import { Aes128Ctr128BEKey } from "@hazae41/zepar";
 import { Ntor } from "mods/tor/algorithms/ntor/index.js";
 import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
@@ -23,6 +24,7 @@ import { Fallback, SecretTorClientDuplex } from "mods/tor/tor.js";
 import { LoopParams } from "mods/tor/types/loop.js";
 import { RelayCell } from "./binary/cells/direct/relay/cell.js";
 import { RelayEarlyCell } from "./binary/cells/direct/relay_early/cell.js";
+import { Cell } from "./index.js";
 
 export const IPv6 = {
   always: 3,
@@ -52,12 +54,12 @@ export class Circuit {
     this.#secret.events.addEventListener("error", onError)
   }
 
-  async #onClose(event: CloseEvent) {
-    this.events.dispatchEvent(event, "close")
+  async #onClose() {
+    return this.events.tryEmit("close", undefined)
   }
 
-  async #onError(event: ErrorEvent) {
-    this.events.dispatchEvent(event, "error")
+  async #onError(reason?: unknown) {
+    return this.events.tryEmit("error", reason)
   }
 
   get id() {
@@ -72,7 +74,7 @@ export class Circuit {
     return await this.#secret.open(hostname, port, params)
   }
 
-  async tryExtend(exit: boolean, params: LoopParams = {}) {
+  async tryExtend(exit: boolean, params: LoopParams) {
     return await this.#secret.tryExtend(exit, params)
   }
 
@@ -86,17 +88,17 @@ export class Circuit {
 
 }
 
-export type SecretCircuitEvents = CloseAndErrorEvents & {
-  "RELAY_EXTENDED2": MessageEvent<RelayExtended2Cell<Opaque>>,
-  "RELAY_DATA": MessageEvent<RelayDataCell<Opaque>>
-  "RELAY_END": MessageEvent<RelayEndCell>,
-  "RELAY_TRUNCATED": MessageEvent<RelayTruncatedCell>
+export type SecretCircuitEvents = StreamEvents & {
+  "RELAY_EXTENDED2": RelayCell.Streamless<RelayExtended2Cell<Opaque>>,
+  "RELAY_TRUNCATED": RelayCell.Streamless<RelayTruncatedCell>
+  "RELAY_DATA": RelayCell.Streamful<RelayDataCell<Opaque>>
+  "RELAY_END": RelayCell.Streamful<RelayEndCell>,
 }
 
 export class SecretCircuit {
   readonly #class = SecretCircuit
 
-  readonly events = new AsyncEventTarget<SecretCircuitEvents>()
+  readonly events = new SuperEventTarget<SecretCircuitEvents>()
 
   readonly targets = new Array<Target>()
   readonly streams = new Map<number, SecretTorStreamDuplex>()
@@ -110,78 +112,78 @@ export class SecretCircuit {
     readonly tor: SecretTorClientDuplex
   ) {
     const onClose = this.#onTorClose.bind(this)
-    this.tor.events.addEventListener("close", onClose, { passive: true })
+    this.tor.events.on("close", onClose, { passive: true })
 
     const onError = this.#onTorError.bind(this)
-    this.tor.events.addEventListener("error", onError, { passive: true })
+    this.tor.events.on("error", onError, { passive: true })
 
     const onDestroyCell = this.#onDestroyCell.bind(this)
-    this.tor.events.addEventListener("DESTROY", onDestroyCell, { passive: true })
+    this.tor.events.on("DESTROY", onDestroyCell, { passive: true })
 
     const onRelayExtended2Cell = this.#onRelayExtended2Cell.bind(this)
-    this.tor.events.addEventListener("RELAY_EXTENDED2", onRelayExtended2Cell, { passive: true })
+    this.tor.events.on("RELAY_EXTENDED2", onRelayExtended2Cell, { passive: true })
 
     const onRelayTruncatedCell = this.#onRelayTruncatedCell.bind(this)
-    this.tor.events.addEventListener("RELAY_TRUNCATED", onRelayTruncatedCell, { passive: true })
+    this.tor.events.on("RELAY_TRUNCATED", onRelayTruncatedCell, { passive: true })
 
     const onRelayConnectedCell = this.#onRelayConnectedCell.bind(this)
-    this.tor.events.addEventListener("RELAY_CONNECTED", onRelayConnectedCell, { passive: true })
+    this.tor.events.on("RELAY_CONNECTED", onRelayConnectedCell, { passive: true })
 
     const onRelayDataCell = this.#onRelayDataCell.bind(this)
-    this.tor.events.addEventListener("RELAY_DATA", onRelayDataCell, { passive: true })
+    this.tor.events.on("RELAY_DATA", onRelayDataCell, { passive: true })
 
     const onRelayEndCell = this.#onRelayEndCell.bind(this)
-    this.tor.events.addEventListener("RELAY_END", onRelayEndCell, { passive: true })
+    this.tor.events.on("RELAY_END", onRelayEndCell, { passive: true })
   }
 
   get closed() {
     return this.#closed
   }
 
-  async #onTorClose(event: CloseEvent) {
-    console.debug(`${this.#class.name}.onReadClose`, event)
+  async #onTorClose() {
+    console.debug(`${this.#class.name}.onTorClose`)
 
     this.#closed = {}
 
-    await this.events.dispatchEvent(event, "close")
+    return await this.events.tryEmit("close", undefined).then(r => r.clear())
   }
 
-  async #onTorError(event: ErrorEvent) {
-    console.debug(`${this.#class.name}.onReadError`, event)
+  async #onTorError(reason?: unknown) {
+    console.debug(`${this.#class.name}.onReadError`, reason)
 
-    this.#closed = { reason: event.error }
+    this.#closed = { reason }
 
-    await this.events.dispatchEvent(event, "error")
+    return await this.events.tryEmit("error", reason).then(r => r.clear())
   }
 
-  async #onDestroyCell(event: MessageEvent<DestroyCell>) {
-    if (event.data.circuit !== this) return
+  async #onDestroyCell(cell: Cell.Circuitful<DestroyCell>) {
+    if (cell.circuit !== this)
+      return Ok.void()
 
-    console.debug(`${this.#class.name}.onDestroyCell`, event)
+    console.debug(`${this.#class.name}.onDestroyCell`, cell)
 
-    this.#closed = {}
+    this.#closed = { reason: cell }
 
-    const error = new Error(`Destroyed`, { cause: event.data })
-    const errorEvent = new ErrorEvent("error", { error })
-    await this.events.dispatchEvent(errorEvent, "error")
+    return await this.events.tryEmit("error", cell).then(r => r.clear())
   }
 
-  async #onRelayExtended2Cell(event: MessageEvent<RelayExtended2Cell<Opaque>>) {
-    if (event.data.circuit !== this) return
+  async #onRelayExtended2Cell(cell: RelayCell.Streamless<RelayExtended2Cell<Opaque>>) {
+    if (cell.circuit !== this)
+      return Ok.void()
 
-    console.debug(`${this.#class.name}.onRelayExtended2Cell`, event)
+    console.debug(`${this.#class.name}.onRelayExtended2Cell`, cell)
 
-    await this.events.dispatchEvent(event, "RELAY_EXTENDED2")
+    return await this.events.tryEmit("RELAY_EXTENDED2", cell).then(r => r.clear())
   }
 
-  async #onRelayTruncatedCell(event: MessageEvent<RelayTruncatedCell>) {
-    if (event.data.circuit !== this) return
+  async #onRelayTruncatedCell(event: RelayCell.Streamless<RelayTruncatedCell>) {
+    if (event.circuit !== this) return
 
     console.debug(`${this.#class.name}.onRelayTruncatedCell`, event)
 
     this.#closed = {}
 
-    this.events.dispatchEvent(event, "RELAY_TRUNCATED")
+    this.events.tryEmit(event, "RELAY_TRUNCATED")
 
     const error = new Error(`Errored`, { cause: event.data })
     const errorEvent = new ErrorEvent("error", { error })

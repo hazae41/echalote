@@ -102,15 +102,15 @@ export class TorClientDuplex {
     this.#secret = new SecretTorClientDuplex(tcp, params)
   }
 
-  async tryCreateAndExtend(params: LoopParams = {}) {
+  async tryCreateAndExtendLoop(params: LoopParams) {
     return await this.#secret.tryCreateAndExtendLoop(params)
   }
 
-  async tryCreate(params: LoopParams = {}) {
+  async tryCreateLoop(params: LoopParams) {
     return await this.#secret.tryCreateLoop(params)
   }
 
-  async create(signal?: AbortSignal) {
+  async tryCreate(signal: AbortSignal) {
     return await this.#secret.tryCreate(signal)
   }
 
