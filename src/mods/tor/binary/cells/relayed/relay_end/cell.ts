@@ -6,6 +6,7 @@ import { RelayEndReason, RelayEndReasonExitPolicy, RelayEndReasonOther } from "m
 export class RelayEndCell {
   readonly #class = RelayEndCell
 
+  static readonly early = false
   static readonly stream = true
   static readonly rcommand = 3
 
@@ -31,7 +32,15 @@ export class RelayEndCell {
     readonly reason: RelayEndReason
   ) { }
 
-  get rcommand() {
+  get early(): false {
+    return this.#class.early
+  }
+
+  get stream(): true {
+    return this.#class.stream
+  }
+
+  get rcommand(): 3 {
     return this.#class.rcommand
   }
 

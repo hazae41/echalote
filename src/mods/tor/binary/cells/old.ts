@@ -3,7 +3,7 @@ import { Cursor } from "@hazae41/cursor";
 import { Err, Ok, Result } from "@hazae41/result";
 import { SecretCircuit } from "mods/tor/circuit.js";
 import { SecretTorClientDuplex } from "mods/tor/tor.js";
-import { InvalidCircuitError, InvalidCommandError } from "./cell.js";
+import { InvalidCircuitError, InvalidCommandError } from "./errors.js";
 
 export interface OldCellable {
   readonly old: true

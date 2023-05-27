@@ -5,14 +5,23 @@ import { Ok, Panic, Result, Unimplemented } from "@hazae41/result";
 export class RelayExtended2Cell<T extends Writable.Infer<T>> {
   readonly #class = RelayExtended2Cell
 
+  static readonly early = false
   static readonly stream = false
   static readonly rcommand = 15
 
   constructor(
-    readonly data: T
+    readonly fragment: T
   ) { }
 
-  get rcommand() {
+  get early(): false {
+    return this.#class.early
+  }
+
+  get stream(): false {
+    return this.#class.stream
+  }
+
+  get rcommand(): 15 {
     return this.#class.rcommand
   }
 

@@ -5,6 +5,7 @@ import { Ok, Result } from "@hazae41/result"
 export class RelayBeginCell {
   readonly #class = RelayBeginCell
 
+  static readonly early = false
   static readonly stream = true
   static readonly rcommand = 1
 
@@ -18,6 +19,14 @@ export class RelayBeginCell {
     readonly address: string,
     readonly flags: number
   ) { }
+
+  get early(): false {
+    return this.#class.early
+  }
+
+  get stream(): true {
+    return this.#class.stream
+  }
 
   get rcommand() {
     return this.#class.rcommand

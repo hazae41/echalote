@@ -1,5 +1,14 @@
 export namespace AbortSignals {
 
+  export function timeout(delay: number, parent?: AbortSignal) {
+    const signal = AbortSignal.timeout(delay)
+
+    if (parent === undefined)
+      return signal
+
+    return merge(signal, parent)
+  }
+
   export function merge(a: AbortSignal, b: AbortSignal) {
     const c = new AbortController()
 

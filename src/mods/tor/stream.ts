@@ -15,11 +15,11 @@ export class TorStreamDuplex {
     this.#secret = secret
   }
 
-  get readable() {
+  get readable(): ReadableStream<Opaque> {
     return this.#secret.readable
   }
 
-  get writable() {
+  get writable(): WritableStream<Writable> {
     return this.#secret.writable
   }
 

@@ -1,5 +1,5 @@
 import { BinaryError, BinaryReadError, BinaryWriteError } from "@hazae41/binary"
-import { Bytes } from "@hazae41/bytes"
+import { Bytes, BytesCastError } from "@hazae41/bytes"
 import { Cursor } from "@hazae41/cursor"
 import { Ok, Result } from "@hazae41/result"
 import { HASH_LEN, KEY_LEN } from "mods/tor/constants.js"
@@ -25,8 +25,8 @@ export class NtorResponse {
 export class NtorRequest {
 
   constructor(
-    readonly public_x: Bytes<20>,
-    readonly relayid_rsa: Bytes<32>,
+    readonly public_x: Bytes<32>,
+    readonly relayid_rsa: Bytes<20>,
     readonly ntor_onion_key: Bytes<32>
   ) { }
 
@@ -50,8 +50,8 @@ export class NtorRequest {
 }
 
 export interface NtorResult {
-  auth: Uint8Array,
-  nonce: Uint8Array,
+  auth: Bytes<32>,
+  nonce: Bytes<HASH_LEN>,
   forwardDigest: Bytes<HASH_LEN>,
   backwardDigest: Bytes<HASH_LEN>,
   forwardKey: Bytes<KEY_LEN>,
@@ -67,7 +67,7 @@ export namespace NtorResult {
     public_b: Bytes<32>,
     public_x: Bytes<32>,
     public_y: Bytes<32>
-  ): Promise<Result<NtorResult, BinaryError>> {
+  ): Promise<Result<NtorResult, BinaryError | BytesCastError>> {
     return await Result.unthrow(async t => {
       const protoid = "ntor-curve25519-sha256-1"
 
@@ -99,7 +99,7 @@ export namespace NtorResult {
       auth_input.tryWriteString(server).throw(t)
 
       const t_mac_key = await crypto.subtle.importKey("raw", t_mac, { name: "HMAC", hash: "SHA-256" }, false, ["sign"])
-      const auth = new Uint8Array(await crypto.subtle.sign("HMAC", t_mac_key, auth_input.bytes))
+      const auth = Bytes.tryCast(new Uint8Array(await crypto.subtle.sign("HMAC", t_mac_key, auth_input.bytes)), 32).throw(t)
 
       const m_expand = Bytes.fromUtf8(`${protoid}:key_expand`)
 

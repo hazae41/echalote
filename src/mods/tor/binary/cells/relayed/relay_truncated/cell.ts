@@ -6,6 +6,7 @@ import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
 export class RelayTruncatedCell {
   readonly #class = RelayTruncatedCell
 
+  static readonly early = false
   static readonly stream = false
   static readonly rcommand = 9
 
@@ -15,7 +16,15 @@ export class RelayTruncatedCell {
     readonly reason: number
   ) { }
 
-  get rcommand() {
+  get early(): false {
+    return this.#class.early
+  }
+
+  get stream(): false {
+    return this.#class.stream
+  }
+
+  get rcommand(): 9 {
     return this.#class.rcommand
   }
 

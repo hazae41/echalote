@@ -16,7 +16,7 @@ import type { X25519 } from "@hazae41/x25519";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
 import { AbortSignals } from "libs/signals/signals.js";
 import { TypedAddress } from "mods/tor/binary/address.js";
-import { Cell, InvalidCircuitError, InvalidCommandError } from "mods/tor/binary/cells/cell.js";
+import { Cell } from "mods/tor/binary/cells/cell.js";
 import { AuthChallengeCell } from "mods/tor/binary/cells/direct/auth_challenge/cell.js";
 import { CertsCell } from "mods/tor/binary/cells/direct/certs/cell.js";
 import { CreateFastCell } from "mods/tor/binary/cells/direct/create_fast/cell.js";
@@ -25,7 +25,7 @@ import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
 import { NetinfoCell } from "mods/tor/binary/cells/direct/netinfo/cell.js";
 import { PaddingCell } from "mods/tor/binary/cells/direct/padding/cell.js";
 import { PaddingNegociateCell } from "mods/tor/binary/cells/direct/padding_negociate/cell.js";
-import { InvalidStreamError, RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
+import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { VersionsCell } from "mods/tor/binary/cells/direct/versions/cell.js";
 import { VariablePaddingCell } from "mods/tor/binary/cells/direct/vpadding/cell.js";
 import { RelayConnectedCell } from "mods/tor/binary/cells/relayed/relay_connected/cell.js";
@@ -38,10 +38,10 @@ import { TorCiphers } from "mods/tor/ciphers.js";
 import { Circuit, SecretCircuit } from "mods/tor/circuit.js";
 import { Authority, parseAuthorities } from "mods/tor/consensus/authorities.js";
 import { Target } from "mods/tor/target.js";
-import { LoopParams } from "mods/tor/types/loop.js";
+import { KDFTorResult } from "./algorithms/kdftor.js";
+import { InvalidCircuitError, InvalidCommandError, InvalidStreamError } from "./binary/cells/errors.js";
 import { OldCell } from "./binary/cells/old.js";
 import { CertError, Certs } from "./certs/certs.js";
-import { KDFTorResult } from "./index.js";
 
 export type TorState =
   | TorNoneState
@@ -102,15 +102,15 @@ export class TorClientDuplex {
     this.#secret = new SecretTorClientDuplex(tcp, params)
   }
 
-  async tryCreateAndExtendLoop(params: LoopParams) {
-    return await this.#secret.tryCreateAndExtendLoop(params)
+  async tryCreateAndExtendLoop(signal?: AbortSignal) {
+    return await this.#secret.tryCreateAndExtendLoop(signal)
   }
 
-  async tryCreateLoop(params: LoopParams) {
-    return await this.#secret.tryCreateLoop(params)
+  async tryCreateLoop(signal?: AbortSignal) {
+    return await this.#secret.tryCreateLoop(signal)
   }
 
-  async tryCreate(signal: AbortSignal) {
+  async tryCreate(signal?: AbortSignal) {
     return await this.#secret.tryCreate(signal)
   }
 
@@ -577,70 +577,88 @@ export class SecretTorClientDuplex {
     }, signal)
   }
 
-  async tryCreateAndExtendLoop(params: LoopParams) {
-    const { signal, delay = 1000 } = params
-    // TODO
-    while (!this.closed) {
-      try {
-        const circuit = await this.tryCreateLoop(params)
-        await circuit.tryExtend(false, params)
-        await circuit.tryExtend(true, params)
-        return circuit
-      } catch (e: unknown) {
-        if (signal?.aborted) throw e
+  async tryCreateAndExtendLoop(signal?: AbortSignal) {
+    return await Result.unthrow(async t => {
 
-        console.warn("Create and extend failed", e)
-        await new Promise(ok => setTimeout(ok, delay))
+      while (!this.closed && !signal?.aborted) {
+        const circuit = await this.tryCreateLoop(signal).then(r => r.throw(t))
+
+        const extend1 = await circuit.tryExtendLoop(false, signal)
+
+        if (extend1.isOk()) {
+          const extend2 = await circuit.tryExtendLoop(true, signal)
+
+          if (extend2.isOk())
+            return new Ok(circuit)
+
+          if (circuit.closed && !this.closed && !signal?.aborted) {
+            console.warn("Create and extend failed")
+            continue
+          }
+
+          return extend2
+        }
+
+        if (circuit.closed && !this.closed && !signal?.aborted) {
+          console.warn("Create and extend failed")
+          continue
+        }
+
+        return extend1
       }
-    }
 
-    throw new Error(`Closed`, { cause: this.closed.reason })
+      if (this.closed?.reason !== undefined)
+        return new Err(ErrorError.from(this.closed.reason))
+      if (this.closed !== undefined)
+        return new Err(CloseError.from(this.closed.reason))
+      if (signal?.aborted)
+        return new Err(AbortError.from(signal.reason))
+      throw new Panic()
+    })
   }
 
-  async tryCreateLoop(params: LoopParams): Promise<Result<Circuit, BinaryError | AbortError | ErrorError | CloseError>> {
-    const { timeout = 5000, delay = 1000 } = params
+  async tryCreateLoop(signal?: AbortSignal): Promise<Result<Circuit, BinaryError | AbortError | ErrorError | CloseError>> {
+    const signal2 = AbortSignals.timeout(30_000, signal)
 
-    while (!this.reader.closed && !params.signal.aborted) {
-      const signal = AbortSignals.merge(params.signal, AbortSignal.timeout(timeout))
-
-      const result = await this.tryCreate(signal)
+    while (!this.closed && !signal2.aborted) {
+      const result = await this.tryCreate(signal2)
 
       if (result.isOk())
         return result
 
-      if (this.reader.closed)
+      if (this.closed)
         return result
-      if (params.signal.aborted)
+      if (signal2.aborted)
         return result
 
       if (result.inner.name === AbortError.name) {
         console.warn("Create aborted", result.get())
-        await new Promise(ok => setTimeout(ok, delay))
         continue
       }
 
       if (result.inner.name === "TODO") {
         console.warn("Create failed", result.get())
-        await new Promise(ok => setTimeout(ok, delay))
         continue
       }
 
       return result
     }
 
-    if (this.reader.closed?.reason)
-      return new Err(ErrorError.from(this.reader.closed.reason))
-    if (this.reader.closed)
-      return new Err(CloseError.from(this.reader.closed.reason))
-    if (params.signal.aborted)
-      return new Err(AbortError.from(params.signal.reason))
+    if (this.closed?.reason !== undefined)
+      return new Err(ErrorError.from(this.closed.reason))
+    if (this.closed !== undefined)
+      return new Err(CloseError.from(this.closed.reason))
+    if (signal2.aborted)
+      return new Err(AbortError.from(signal2.reason))
     throw new Panic()
   }
 
-  async tryCreate(signal: AbortSignal): Promise<Result<Circuit, BinaryError | AbortError | ErrorError | CloseError>> {
+  async tryCreate(signal?: AbortSignal): Promise<Result<Circuit, BinaryError | AbortError | ErrorError | CloseError>> {
     return await Result.unthrow(async t => {
       if (this.#state.type !== "handshaked")
         throw new Error(`Can't create a circuit yet`)
+
+      const signal2 = AbortSignals.timeout(5_000, signal)
 
       const circuit = await this.#tryCreateCircuit().then(r => r.throw(t))
       const material = Bytes.random(20)
@@ -648,7 +666,7 @@ export class SecretTorClientDuplex {
       const create_fast = new CreateFastCell(material)
       this.writer.enqueue(Cell.Circuitful.from(circuit, create_fast))
 
-      const created_fast = await this.#tryWaitCreatedFast(circuit, signal).then(r => r.throw(t))
+      const created_fast = await this.#tryWaitCreatedFast(circuit, signal2).then(r => r.throw(t))
 
       const k0 = Bytes.concat([material, created_fast.fragment.material])
       const result = await KDFTorResult.tryCompute(k0).then(r => r.throw(t))

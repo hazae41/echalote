@@ -5,12 +5,17 @@ import { Result } from "@hazae41/result";
 export class RelayDataCell<Fragment extends Writable.Infer<Fragment>> {
   readonly #class = RelayDataCell
 
+  static readonly early = false
   static readonly stream = true
   static readonly rcommand = 2
 
   constructor(
     readonly fragment: Fragment
   ) { }
+
+  get early(): false {
+    return this.#class.early
+  }
 
   get stream(): true {
     return this.#class.stream

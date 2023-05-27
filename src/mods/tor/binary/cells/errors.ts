@@ -1,12 +1,29 @@
-import { SecretTorStreamDuplex } from "mods/tor/stream.js"
+export class InvalidCommandError extends Error {
+  readonly #class = InvalidCommandError
+  readonly name = this.#class.name
 
-export class InvalidStream extends Error {
+  constructor() {
+    super(`Invalid command`)
+  }
 
-  constructor(
-    readonly name: string,
-    readonly stream?: SecretTorStreamDuplex
-  ) {
-    super(`Invalid ${name} circuit ${stream?.id}`)
+}
+
+export class InvalidCircuitError extends Error {
+  readonly #class = InvalidCircuitError
+  readonly name = this.#class.name
+
+  constructor() {
+    super(`Invalid circuit`)
+  }
+
+}
+
+export class InvalidStreamError extends Error {
+  readonly #class = InvalidStreamError
+  readonly name = this.#class.name
+
+  constructor() {
+    super(`Invalid stream`)
   }
 
 }

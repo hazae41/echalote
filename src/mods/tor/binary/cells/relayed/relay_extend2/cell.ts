@@ -6,6 +6,7 @@ import { RelayExtend2Link } from "mods/tor/binary/cells/relayed/relay_extend2/li
 export class RelayExtend2Cell<T extends Writable.Infer<T>> {
   readonly #class = RelayExtend2Cell
 
+  static readonly early = true
   static readonly stream = false
   static readonly rcommand = 14
 
@@ -27,7 +28,15 @@ export class RelayExtend2Cell<T extends Writable.Infer<T>> {
     readonly data: T
   ) { }
 
-  get rcommand() {
+  get early(): true {
+    return this.#class.early
+  }
+
+  get stream(): false {
+    return this.#class.stream
+  }
+
+  get rcommand(): 14 {
     return this.#class.rcommand
   }
 

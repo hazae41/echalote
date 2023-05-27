@@ -97,8 +97,6 @@ export class SecretTurboDuplex {
   }
 
   async #onReadError(reason?: unknown) {
-    const error = Cascade.filter(reason)
-
     console.debug(`${this.#class.name}.onReadError`, { reason })
 
     this.reader.stream.closed = { reason }
@@ -106,12 +104,10 @@ export class SecretTurboDuplex {
 
     await this.reader.events.emit("error", reason)
 
-    return Cascade.rethrow(error)
+    return Cascade.rethrow(reason)
   }
 
   async #onWriteError(reason?: unknown) {
-    const error = Cascade.filter(reason)
-
     console.debug(`${this.#class.name}.onWriteError`, { reason })
 
     this.writer.stream.closed = { reason }
@@ -119,7 +115,7 @@ export class SecretTurboDuplex {
 
     await this.writer.events.emit("error", reason)
 
-    return Cascade.rethrow(error)
+    return Cascade.rethrow(reason)
   }
 
 }

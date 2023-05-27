@@ -1,12 +1,14 @@
 import { Arrays } from "@hazae41/arrays";
-import { Opaque } from "@hazae41/binary";
+import { BinaryError, BinaryWriteError, Opaque } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
-import { Bytes } from "@hazae41/bytes";
+import { Bytes, BytesCastError } from "@hazae41/bytes";
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
-import { fetch } from "@hazae41/fleche";
-import { Plume, StreamEvents, SuperEventTarget } from "@hazae41/plume";
-import { Ok } from "@hazae41/result";
+import { PipeError, tryFetch } from "@hazae41/fleche";
+import { Option, Some } from "@hazae41/option";
+import { AbortError, CloseError, ErrorError, EventError, Plume, StreamEvents, SuperEventTarget } from "@hazae41/plume";
+import { Err, Ok, Panic, Result } from "@hazae41/result";
 import { Aes128Ctr128BEKey } from "@hazae41/zepar";
+import { AbortSignals } from "libs/signals/signals.js";
 import { Ntor } from "mods/tor/algorithms/ntor/index.js";
 import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
 import { RelayBeginCell } from "mods/tor/binary/cells/relayed/relay_begin/cell.js";
@@ -21,10 +23,11 @@ import { RelayTruncatedCell } from "mods/tor/binary/cells/relayed/relay_truncate
 import { SecretTorStreamDuplex, TorStreamDuplex } from "mods/tor/stream.js";
 import { Target } from "mods/tor/target.js";
 import { Fallback, SecretTorClientDuplex } from "mods/tor/tor.js";
-import { LoopParams } from "mods/tor/types/loop.js";
+import { NtorResult } from "./algorithms/ntor/ntor.js";
+import { Cell } from "./binary/cells/cell.js";
 import { RelayCell } from "./binary/cells/direct/relay/cell.js";
 import { RelayEarlyCell } from "./binary/cells/direct/relay_early/cell.js";
-import { Cell } from "./index.js";
+import { HASH_LEN } from "./constants.js";
 
 export const IPv6 = {
   always: 3,
@@ -48,42 +51,46 @@ export class Circuit {
     this.#secret = secret
 
     const onClose = this.#onClose.bind(this)
-    this.#secret.events.addEventListener("close", onClose)
+    this.#secret.events.on("close", onClose)
 
     const onError = this.#onError.bind(this)
-    this.#secret.events.addEventListener("error", onError)
-  }
-
-  async #onClose() {
-    return this.events.tryEmit("close", undefined)
-  }
-
-  async #onError(reason?: unknown) {
-    return this.events.tryEmit("error", reason)
+    this.#secret.events.on("error", onError)
   }
 
   get id() {
     return this.#secret.id
   }
 
-  async destroy() {
-    return await this.#secret.destroy()
+  get closed() {
+    return Boolean(this.#secret.closed)
   }
 
-  async open(hostname: string, port: number, params?: CircuitOpenParams) {
-    return await this.#secret.open(hostname, port, params)
+  async #onClose() {
+    return this.events.tryEmit("close", undefined).then(r => r.clear())
   }
 
-  async tryExtend(exit: boolean, params: LoopParams) {
-    return await this.#secret.tryExtend(exit, params)
+  async #onError(reason?: unknown) {
+    return this.events.tryEmit("error", reason).then(r => r.clear())
   }
 
-  async extend(exit: boolean, signal?: AbortSignal) {
-    return await this.#secret.extend(exit, signal)
+  async tryExtend(exit: boolean, signal: AbortSignal) {
+    return await this.#secret.tryExtend(exit, signal)
   }
 
-  async fetch(input: RequestInfo | URL, init: RequestInit & CircuitOpenParams = {}) {
-    return await this.#secret.fetch(input, init)
+  async tryExtendLoop(exit: boolean, signal?: AbortSignal) {
+    return await this.#secret.tryExtendLoop(exit, signal)
+  }
+
+  async tryOpen(hostname: string, port: number, params?: CircuitOpenParams) {
+    return await this.#secret.tryOpen(hostname, port, params)
+  }
+
+  async tryFetch(input: RequestInfo | URL, init: RequestInit & CircuitOpenParams = {}) {
+    return await this.#secret.tryFetch(input, init)
+  }
+
+  async tryDestroy() {
+    return await this.#secret.tryDestroy()
   }
 
 }
@@ -105,7 +112,7 @@ export class SecretCircuit {
 
   #streamId = 1
 
-  #closed?: { reason?: any }
+  #closed?: { reason?: unknown }
 
   constructor(
     readonly id: number,
@@ -176,77 +183,101 @@ export class SecretCircuit {
     return await this.events.tryEmit("RELAY_EXTENDED2", cell).then(r => r.clear())
   }
 
-  async #onRelayTruncatedCell(event: RelayCell.Streamless<RelayTruncatedCell>) {
-    if (event.circuit !== this) return
+  async #onRelayTruncatedCell(cell: RelayCell.Streamless<RelayTruncatedCell>) {
+    return await Result.unthrow(async t => {
+      if (cell.circuit !== this)
+        return Ok.void()
 
-    console.debug(`${this.#class.name}.onRelayTruncatedCell`, event)
+      console.debug(`${this.#class.name}.onRelayTruncatedCell`, cell)
 
-    this.#closed = {}
+      this.#closed = {}
 
-    this.events.tryEmit(event, "RELAY_TRUNCATED")
+      await this.events.tryEmit("RELAY_TRUNCATED", cell).then(r => r.throw(t))
+      await this.events.tryEmit("error", cell).then(r => r.throw(t))
 
-    const error = new Error(`Errored`, { cause: event.data })
-    const errorEvent = new ErrorEvent("error", { error })
-    await this.events.dispatchEvent(errorEvent, "error")
-  }
-
-  async #onRelayConnectedCell(event: MessageEvent<RelayConnectedCell>) {
-    if (event.data.circuit !== this) return
-
-    console.debug(`${this.#class.name}.onRelayConnectedCell`, event)
-  }
-
-  async #onRelayDataCell(event: MessageEvent<RelayDataCell<Opaque>>) {
-    if (event.data.circuit !== this) return
-
-    console.debug(`${this.#class.name}.onRelayDataCell`, event)
-
-    await this.events.dispatchEvent(event, "RELAY_DATA")
-  }
-
-  async #onRelayEndCell(event: MessageEvent<RelayEndCell>) {
-    if (event.data.circuit !== this) return
-
-    console.debug(`${this.#class.name}.onRelayEndCell`, event)
-
-    await this.events.dispatchEvent(event, "RELAY_END")
-
-    this.streams.delete(event.data.stream.id)
-  }
-
-  async extendDir() {
-    const authority = Arrays.cryptoRandom(this.tor.authorities.filter(it => it.v3ident))
-
-    if (!authority)
-      throw new Error(`Could not find authority`)
-
-    await this.#extendTo({
-      hosts: [authority.ipv4],
-      id: authority.v3ident!,
-      onion: authority.fingerprint,
+      return Ok.void()
     })
   }
 
-  async tryExtend(exit: boolean, params: LoopParams = {}) {
-    const { signal, timeout = 5000, delay = 1000 } = params
+  async #onRelayConnectedCell(cell: RelayCell.Streamful<RelayConnectedCell>) {
+    if (cell.circuit !== this)
+      return Ok.void()
 
-    while (!this.closed) {
-      try {
-        const signal = AbortSignal.timeout(timeout)
-        return await this.extend(exit, signal)
-      } catch (e: unknown) {
-        if (this.closed) throw e
-        if (signal?.aborted) throw e
+    console.debug(`${this.#class.name}.onRelayConnectedCell`, cell)
 
-        console.warn("Extend failed", e)
-        await new Promise(ok => setTimeout(ok, delay))
-      }
-    }
-
-    throw new Error(`Closed`, { cause: this.closed.reason })
+    return Ok.void()
   }
 
-  async extend(exit: boolean, signal?: AbortSignal) {
+  async #onRelayDataCell(cell: RelayCell.Streamful<RelayDataCell<Opaque>>) {
+    if (cell.circuit !== this)
+      return Ok.void()
+
+    console.debug(`${this.#class.name}.onRelayDataCell`, cell)
+
+    return await this.events.tryEmit("RELAY_DATA", cell).then(r => r.clear())
+  }
+
+  async #onRelayEndCell(cell: RelayCell.Streamful<RelayEndCell>) {
+    if (cell.circuit !== this)
+      return Ok.void()
+
+    console.debug(`${this.#class.name}.onRelayEndCell`, cell)
+
+    this.streams.delete(cell.stream.id)
+
+    return await this.events.tryEmit("RELAY_END", cell).then(r => r.clear())
+  }
+
+  // async tryExtendDir(signal: AbortSignal) {
+  //   const authority = Arrays.cryptoRandom(this.tor.authorities.filter(it => it.v3ident))
+
+  //   if (!authority)
+  //     throw new Error(`Could not find authority`)
+
+  //   await this.#tryExtendTo({
+  //     hosts: [authority.ipv4],
+  //     id: authority.v3ident!,
+  //     onion: authority.fingerprint,
+  //   }, signal)
+  // }
+
+  async tryExtendLoop(exit: boolean, signal?: AbortSignal) {
+    const signal2 = AbortSignals.timeout(30_000, signal)
+
+    while (!this.closed && !signal2.aborted) {
+      const result = await this.tryExtend(exit, signal2)
+
+      if (result.isOk())
+        return result
+
+      if (this.closed)
+        return result
+      if (signal2.aborted)
+        return result
+
+      if (result.inner.name === AbortError.name) {
+        console.warn("Extend aborted", result.get())
+        continue
+      }
+
+      if (result.inner.name === "TODO") {
+        console.warn("Extend failed", result.get())
+        continue
+      }
+
+      return result
+    }
+
+    if (this.closed?.reason !== undefined)
+      return new Err(ErrorError.from(this.closed.reason))
+    if (this.closed !== undefined)
+      return new Err(CloseError.from(this.closed.reason))
+    if (signal2.aborted)
+      return new Err(AbortError.from(signal2.reason))
+    throw new Panic()
+  }
+
+  async tryExtend(exit: boolean, signal?: AbortSignal) {
     if (this.closed)
       throw new Error(`Circuit is closed`)
 
@@ -258,99 +289,115 @@ export class SecretCircuit {
     if (!fallback)
       throw new Error(`Could not find fallback`)
 
-    return await this.#extendTo(fallback, signal)
+    return await this.#tryExtendTo(fallback, signal)
   }
 
-  async #extendTo(fallback: Fallback, signal?: AbortSignal) {
-    const { StaticSecret, PublicKey } = this.tor.params.x25519
+  async #tryExtendTo(fallback: Fallback, signal?: AbortSignal): Promise<Result<void, BytesCastError | BinaryError | AbortError | ErrorError | CloseError>> {
+    return await Result.unthrow(async t => {
+      const { StaticSecret, PublicKey } = this.tor.params.x25519
 
-    if (this.closed)
-      throw new Error(`Circuit is closed`)
+      if (this.closed)
+        throw new Error(`Circuit is closed`)
 
-    const relayid_rsa = Bytes.fromHex(fallback.id)
+      const signal2 = AbortSignals.timeout(5_000, signal)
 
-    const relayid_ed = fallback.eid
-      ? Bytes.fromBase64(fallback.eid)
-      : undefined
+      const relayid_rsa = Bytes.tryCast(Bytes.fromHex(fallback.id), HASH_LEN).throw(t)
+      const relayid_ed = Option.from(fallback.eid).mapSync(Bytes.fromBase64).inner
 
-    const links: RelayExtend2Link[] = fallback.hosts.map(RelayExtend2Link.fromAddressString)
-    links.push(new RelayExtend2LinkLegacyID(relayid_rsa))
-    if (relayid_ed) links.push(new RelayExtend2LinkModernID(relayid_ed))
+      const links: RelayExtend2Link[] = fallback.hosts.map(RelayExtend2Link.fromAddressString)
 
-    const wasm_secret_x = new StaticSecret()
+      links.push(new RelayExtend2LinkLegacyID(relayid_rsa))
 
-    const public_x = wasm_secret_x.to_public().to_bytes()
-    const public_b = new Uint8Array(fallback.onion)
+      if (relayid_ed)
+        links.push(new RelayExtend2LinkModernID(relayid_ed))
 
-    const ntor_request = new Ntor.NtorRequest(public_x, relayid_rsa, public_b)
-    const relay_extend2 = new RelayExtend2Cell(this, undefined, RelayExtend2Cell.types.NTOR, links, ntor_request)
-    this.tor.writer.enqueue(RelayEarlyCell.from(relay_extend2).cell())
+      const wasm_secret_x = new StaticSecret()
 
-    const msg_extended2 = await Plume.waitCloseOrError(this.events, "RELAY_EXTENDED2", signal)
-    const response = msg_extended2.data.data.into(Ntor.NtorResponse)
-    const { public_y } = response
+      const public_x = Bytes.tryCast(wasm_secret_x.to_public().to_bytes(), 32).throw(t)
+      const public_b = Bytes.tryCastFrom(fallback.onion, 32).throw(t)
 
-    const wasm_public_y = new PublicKey(public_y)
-    const wasm_public_b = new PublicKey(public_b)
+      const ntor_request = new Ntor.NtorRequest(public_x, relayid_rsa, public_b)
+      const relay_extend2 = new RelayExtend2Cell(RelayExtend2Cell.types.NTOR, links, ntor_request)
+      this.tor.writer.enqueue(RelayEarlyCell.Streamless.from(this, undefined, relay_extend2).tryCell().throw(t))
 
-    const shared_xy = wasm_secret_x.diffie_hellman(wasm_public_y).to_bytes()
-    const shared_xb = wasm_secret_x.diffie_hellman(wasm_public_b).to_bytes()
+      const msg_extended2 = await Plume.tryWaitStream(this.events, "RELAY_EXTENDED2", e => {
+        return new Ok(new Some(new Ok(e)))
+      }, signal2).then(r => r.throw(t))
 
-    const result = await Ntor.finalize(shared_xy, shared_xb, relayid_rsa, public_b, public_x, public_y)
+      const response = msg_extended2.fragment.fragment.tryInto(Ntor.NtorResponse).throw(t)
 
-    if (!Bytes.equals(response.auth, result.auth))
-      throw new Error(`Invalid Ntor auth`)
+      const { public_y } = response
 
-    const forward_digest = new this.tor.params.sha1.Hasher()
-    const backward_digest = new this.tor.params.sha1.Hasher()
+      const wasm_public_y = new PublicKey(public_y)
+      const wasm_public_b = new PublicKey(public_b)
 
-    forward_digest.update(result.forwardDigest)
-    backward_digest.update(result.backwardDigest)
+      const shared_xy = Bytes.tryCast(wasm_secret_x.diffie_hellman(wasm_public_y).to_bytes(), 32).throw(t)
+      const shared_xb = Bytes.tryCast(wasm_secret_x.diffie_hellman(wasm_public_b).to_bytes(), 32).throw(t)
 
-    const forward_key = new Aes128Ctr128BEKey(result.forwardKey, Bytes.alloc(16))
-    const backward_key = new Aes128Ctr128BEKey(result.backwardKey, Bytes.alloc(16))
+      const result = await NtorResult.tryFinalize(shared_xy, shared_xb, relayid_rsa, public_b, public_x, public_y).then(r => r.throw(t))
 
-    const target = new Target(relayid_rsa, this, forward_digest, backward_digest, forward_key, backward_key)
+      if (!Bytes.equals2(response.auth, result.auth))
+        throw new Error(`Invalid Ntor auth`)
 
-    this.targets.push(target)
+      const forward_digest = new this.tor.params.sha1.Hasher()
+      const backward_digest = new this.tor.params.sha1.Hasher()
+
+      forward_digest.update(result.forwardDigest)
+      backward_digest.update(result.backwardDigest)
+
+      const forward_key = new Aes128Ctr128BEKey(result.forwardKey, Bytes.alloc(16))
+      const backward_key = new Aes128Ctr128BEKey(result.backwardKey, Bytes.alloc(16))
+
+      const target = new Target(relayid_rsa, this, forward_digest, backward_digest, forward_key, backward_key)
+
+      this.targets.push(target)
+
+      return Ok.void()
+    })
   }
 
-  async destroy() {
-    this.#closed = {}
+  async tryDestroy(reason?: unknown): Promise<Result<void, EventError>> {
+    this.#closed = { reason }
 
-    const error = new Error(`Destroyed`)
-    const errorEvent = new ErrorEvent("error", { error })
-    await this.events.dispatchEvent(errorEvent, "error")
+    return await this.events.tryEmit("error", reason).then(r => r.clear())
   }
 
-  async truncate(reason = RelayTruncateCell.reasons.NONE) {
-    const ptruncated = Plume.waitCloseOrError(this.events, "RELAY_TRUNCATED")
-    const relay_truncate = new RelayTruncateCell(this, undefined, reason)
-    this.tor.writer.enqueue(RelayCell.from(relay_truncate).cell())
-    await ptruncated
+  async tryTruncate(reason = RelayTruncateCell.reasons.NONE, signal: AbortSignal) {
+    return await Result.unthrow(async t => {
+      const relay_truncate = new RelayTruncateCell(reason)
+      const relay_truncate_cell = RelayCell.Streamless.from(this, undefined, relay_truncate)
+      this.tor.writer.enqueue(relay_truncate_cell.tryCell().throw(t))
+
+      return await Plume.tryWaitStream(this.events, "RELAY_TRUNCATED", e => {
+        return new Ok(new Some(Ok.void()))
+      }, signal)
+    })
   }
 
-  async open(hostname: string, port: number, params: CircuitOpenParams = {}) {
-    const { signal, ipv6 = "preferred" } = params
+  async tryOpen(hostname: string, port: number, params: CircuitOpenParams = {}): Promise<Result<TorStreamDuplex, BinaryWriteError>> {
+    return await Result.unthrow(async t => {
+      const { signal, ipv6 = "preferred" } = params
 
-    if (this.closed)
-      throw new Error(`Circuit is closed`)
+      if (this.closed)
+        throw new Error(`Circuit is closed`)
 
-    const streamId = this.#streamId++
+      const stream = new SecretTorStreamDuplex(this.#streamId++, this, signal)
 
-    const stream = new SecretTorStreamDuplex(streamId, this, signal)
-    this.streams.set(streamId, stream)
+      this.streams.set(stream.id, stream)
 
-    const flags = new Bitset(0, 32)
-      .setLE(RelayBeginCell.flags.IPV6_OK, IPv6[ipv6] !== IPv6.never)
-      .setLE(RelayBeginCell.flags.IPV4_NOT_OK, IPv6[ipv6] === IPv6.always)
-      .setLE(RelayBeginCell.flags.IPV6_PREFER, IPv6[ipv6] > IPv6.avoided)
-      .unsign()
-      .value
-    const begin = new RelayBeginCell(this, stream, `${hostname}:${port}`, flags)
-    this.tor.writer.enqueue(RelayCell.from(begin).cell())
+      const flags = new Bitset(0, 32)
+        .setLE(RelayBeginCell.flags.IPV6_OK, IPv6[ipv6] !== IPv6.never)
+        .setLE(RelayBeginCell.flags.IPV4_NOT_OK, IPv6[ipv6] === IPv6.always)
+        .setLE(RelayBeginCell.flags.IPV6_PREFER, IPv6[ipv6] > IPv6.avoided)
+        .unsign()
+        .value
 
-    return new TorStreamDuplex(stream)
+      const begin = new RelayBeginCell(`${hostname}:${port}`, flags)
+      const begin_cell = RelayCell.Streamful.from(this, stream, begin)
+      this.tor.writer.enqueue(begin_cell.tryCell().throw(t))
+
+      return new Ok(new TorStreamDuplex(stream))
+    })
   }
 
   /**
@@ -359,31 +406,36 @@ export class SecretCircuit {
    * @param init Fetch init
    * @returns Response promise
    */
-  async fetch(input: RequestInfo | URL, init: RequestInit & CircuitOpenParams = {}) {
-    if (this.closed)
-      throw new Error(`Circuit is closed`)
+  async tryFetch(input: RequestInfo | URL, init: RequestInit & CircuitOpenParams): Promise<Result<Response, BinaryWriteError | AbortError | ErrorError | CloseError | PipeError>> {
+    return await Result.unthrow(async t => {
+      if (this.closed)
+        throw new Error(`Circuit is closed`)
 
-    const req = new Request(input, init)
+      const req = new Request(input, init)
 
-    const url = new URL(req.url)
+      const url = new URL(req.url)
 
-    if (url.protocol === "http:") {
-      const port = Number(url.port) || 80
-      const tcp = await this.open(url.hostname, port, init)
+      if (url.protocol === "http:") {
+        const port = Number(url.port) || 80
 
-      return fetch(input, { ...init, stream: tcp })
-    }
+        const tcp = await this.tryOpen(url.hostname, port, init).then(r => r.throw(t))
 
-    if (url.protocol === "https:") {
-      const port = Number(url.port) || 443
-      const tcp = await this.open(url.hostname, port, init)
+        return tryFetch(input, { ...init, stream: tcp })
+      }
 
-      const ciphers = [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
-      const tls = new TlsClientDuplex(tcp, { ciphers })
+      if (url.protocol === "https:") {
+        const port = Number(url.port) || 443
 
-      return fetch(input, { ...init, stream: tls })
-    }
+        const tcp = await this.tryOpen(url.hostname, port, init).then(r => r.throw(t))
 
-    throw new Error(`Unknown protocol ${url.protocol}`)
+        const ciphers = [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
+        const tls = new TlsClientDuplex(tcp, { ciphers })
+
+        return tryFetch(input, { ...init, stream: tls })
+      }
+
+      throw new Error(`Unknown protocol ${url.protocol}`)
+    })
   }
+
 }

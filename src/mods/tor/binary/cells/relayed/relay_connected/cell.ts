@@ -7,6 +7,7 @@ import { Address4, Address6 } from "mods/tor/binary/address.js"
 export class RelayConnectedCell {
   readonly #class = RelayConnectedCell
 
+  static readonly early = false
   static readonly stream = true
   static readonly rcommand = 4
 
@@ -15,7 +16,15 @@ export class RelayConnectedCell {
     readonly ttl: Date
   ) { }
 
-  get rcommand() {
+  get early(): false {
+    return this.#class.early
+  }
+
+  get stream(): true {
+    return this.#class.stream
+  }
+
+  get rcommand(): 4 {
     return this.#class.rcommand
   }
 

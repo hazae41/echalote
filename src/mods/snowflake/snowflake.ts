@@ -13,7 +13,7 @@ export async function createWebSocketSnowflakeStream(url: string) {
     websocket.addEventListener("error", err)
   })
 
-  const stream = new WebSocketStream(websocket, {
+  const stream = WebSocketStream.tryNew(websocket, {
     shouldCloseOnAbort: false,
     shouldCloseOnCancel: false,
     shouldCloseOnClose: false
