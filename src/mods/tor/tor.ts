@@ -102,6 +102,12 @@ export class TorClientDuplex {
     this.#secret = new SecretTorClientDuplex(tcp, params)
   }
 
+  async tryWait(signal: AbortSignal) {
+    return await Plume.tryWaitStream(this.#secret.events, "handshaked", (e) => {
+      return new Ok(new Some(Ok.void()))
+    }, signal)
+  }
+
   async tryCreateAndExtendLoop(signal?: AbortSignal) {
     return await this.#secret.tryCreateAndExtendLoop(signal)
   }
