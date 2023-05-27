@@ -10,7 +10,7 @@ import { Mutex } from "@hazae41/mutex";
 import { None, Some } from "@hazae41/option";
 import { Paimon } from "@hazae41/paimon";
 import { AbortError, CloseError, ErrorError, EventError, Plume, StreamEvents, SuperEventTarget } from "@hazae41/plume";
-import { Err, Ok, Panic, Result } from "@hazae41/result";
+import { Debug, Err, Ok, Panic, Result } from "@hazae41/result";
 import type { Sha1 } from "@hazae41/sha1";
 import type { X25519 } from "@hazae41/x25519";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
@@ -153,6 +153,8 @@ export class SecretTorClientDuplex {
     readonly params: TorClientParams
   ) {
     const { signal } = params
+
+    Debug.debug = true
 
     this.authorities = parseAuthorities()
 
