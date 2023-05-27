@@ -577,7 +577,7 @@ export class SecretTorClientDuplex {
     }, signal)
   }
 
-  async tryCreateAndExtendLoop(params: LoopParams = {}) {
+  async tryCreateAndExtendLoop(params: LoopParams) {
     const { signal, delay = 1000 } = params
     // TODO
     while (!this.closed) {
@@ -614,7 +614,7 @@ export class SecretTorClientDuplex {
         return result
 
       if (result.inner.name === AbortError.name) {
-        console.warn("Create failed", result.get())
+        console.warn("Create aborted", result.get())
         await new Promise(ok => setTimeout(ok, delay))
         continue
       }
