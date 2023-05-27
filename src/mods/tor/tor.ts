@@ -585,16 +585,16 @@ export class SecretTorClientDuplex {
       while (!this.closed && !signal?.aborted) {
         const circuit = await this.tryCreateLoop(signal).then(r => r.throw(t))
 
-        const extend1 = await circuit.tryExtendLoop(false, signal)
+        const extend1 = await circuit.tryExtendLoop(false, signal).then(r => r.ignore())
 
         if (extend1.isOk()) {
-          const extend2 = await circuit.tryExtendLoop(true, signal)
+          const extend2 = await circuit.tryExtendLoop(true, signal).then(r => r.ignore())
 
           if (extend2.isOk())
             return new Ok(circuit)
 
           if (circuit.closed && !this.closed && !signal?.aborted) {
-            console.warn("Create and extend failed")
+            console.warn("Create and extend failed", extend2.get())
             continue
           }
 
@@ -602,7 +602,7 @@ export class SecretTorClientDuplex {
         }
 
         if (circuit.closed && !this.closed && !signal?.aborted) {
-          console.warn("Create and extend failed")
+          console.warn("Create and extend failed", extend1.get())
           continue
         }
 

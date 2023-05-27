@@ -67,27 +67,27 @@ export default function Page() {
 
   const mutex = useRef(new Mutex(undefined))
 
-  // const onClick = useCallback(async () => {
-  //   if (!tor) return
-
-  //   const circuit = await tor.tryCreateAndExtendLoop().then(r => r.unwrap())
-
-  //   superfetch(circuit)
-  // }, [tor])
-
   const onClick = useCallback(async () => {
-    if (!circuits) return
+    if (!tor) return
 
-    if (mutex.current.locked) return
-
-    const circuit = await mutex.current.lock(async () => {
-      const circuit = await circuits.cryptoRandom()
-      circuits.delete(circuit)
-      return circuit
-    })
+    const circuit = await tor.tryCreateAndExtendLoop().then(r => r.unwrap())
 
     superfetch(circuit)
-  }, [circuits])
+  }, [tor])
+
+  // const onClick = useCallback(async () => {
+  //   if (!circuits) return
+
+  //   if (mutex.current.locked) return
+
+  //   const circuit = await mutex.current.lock(async () => {
+  //     const circuit = await circuits.cryptoRandom()
+  //     circuits.delete(circuit)
+  //     return circuit
+  //   })
+
+  //   superfetch(circuit)
+  // }, [circuits])
 
   const [_, setCounter] = useState(0)
 

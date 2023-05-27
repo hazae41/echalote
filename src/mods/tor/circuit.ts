@@ -302,7 +302,7 @@ export class SecretCircuit {
       const signal2 = AbortSignals.timeout(5_000, signal)
 
       const relayid_rsa = Bytes.tryCast(Bytes.fromHex(fallback.id), HASH_LEN).throw(t)
-      const relayid_ed = Option.from(fallback.eid).mapSync(Bytes.fromBase64).inner
+      const relayid_ed = Option.from(fallback.eid).mapSync(Bytes.fromBase64).get()
 
       const links: RelayExtend2Link[] = fallback.hosts.map(RelayExtend2Link.fromAddressString)
 

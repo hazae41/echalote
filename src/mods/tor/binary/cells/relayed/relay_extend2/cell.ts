@@ -61,7 +61,7 @@ export class RelayExtend2Cell<T extends Writable.Infer<T>> {
       const size = this.data.trySize().throw(t)
       cursor.tryWriteUint16(size).throw(t)
 
-      this.data.tryWrite(cursor)
+      this.data.tryWrite(cursor).throw(t)
 
       return Ok.void()
     })

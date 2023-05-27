@@ -68,7 +68,7 @@ export namespace RelayEarlyCell {
 
         cursor.tryWriteUint8(this.rcommand).throw(t)
         cursor.tryWriteUint16(0).throw(t)
-        cursor.tryWriteUint16(this.stream)
+        cursor.tryWriteUint16(this.stream).throw(t)
 
         const digestOffset = cursor.offset
 
