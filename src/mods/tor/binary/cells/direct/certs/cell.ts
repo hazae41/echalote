@@ -52,7 +52,7 @@ export class CertsCell {
         }
 
         if (type === RsaCert.types.RSA_TO_AUTH) {
-          if (certs.rsa_self)
+          if (certs.rsa_to_auth)
             return new Err(new DuplicatedCertError())
 
           certs.rsa_to_auth = RsaCert.tryRead(cursor, type, length).throw(t)
@@ -60,7 +60,7 @@ export class CertsCell {
         }
 
         if (type === RsaCert.types.RSA_TO_TLS) {
-          if (certs.rsa_self)
+          if (certs.rsa_to_tls)
             return new Err(new DuplicatedCertError())
 
           certs.rsa_to_tls = RsaCert.tryRead(cursor, type, length).throw(t)
@@ -68,7 +68,7 @@ export class CertsCell {
         }
 
         if (type === CrossCert.types.RSA_TO_ED) {
-          if (certs.rsa_self)
+          if (certs.rsa_to_ed)
             return new Err(new DuplicatedCertError())
 
           certs.rsa_to_ed = CrossCert.tryRead(cursor, type, length).throw(t)
@@ -76,7 +76,7 @@ export class CertsCell {
         }
 
         if (type === Ed25519Cert.types.ED_TO_SIGN) {
-          if (certs.rsa_self)
+          if (certs.ed_to_sign)
             return new Err(new DuplicatedCertError())
 
           certs.ed_to_sign = Ed25519Cert.tryRead(cursor, type, length).throw(t)
@@ -84,7 +84,7 @@ export class CertsCell {
         }
 
         if (type === Ed25519Cert.types.SIGN_TO_TLS) {
-          if (certs.rsa_self)
+          if (certs.sign_to_tls)
             return new Err(new DuplicatedCertError())
 
           certs.sign_to_tls = Ed25519Cert.tryRead(cursor, type, length).throw(t)
@@ -92,7 +92,7 @@ export class CertsCell {
         }
 
         if (type === Ed25519Cert.types.SIGN_TO_AUTH) {
-          if (certs.rsa_self)
+          if (certs.sign_to_auth)
             return new Err(new DuplicatedCertError())
 
           certs.sign_to_auth = Ed25519Cert.tryRead(cursor, type, length).throw(t)

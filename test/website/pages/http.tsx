@@ -1,5 +1,5 @@
 import { Berith } from "@hazae41/berith";
-import { Circuit, createCircuitPool, createMeekStream, TorClientDuplex } from "@hazae41/echalote";
+import { Circuit, TorClientDuplex, createCircuitPool, createWebSocketSnowflakeStream } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
 import { Morax } from "@hazae41/morax";
 import { Mutex } from "@hazae41/mutex";
@@ -53,8 +53,8 @@ export default function Page() {
 
     const fallbacks = await fallbacksRes.json()
 
-    // const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
-    const tcp = await createMeekStream("https://meek.bamsoftware.com/")
+    const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
+    // const tcp = await tryCreateWebSocketStream("ws://localhost:8080")
 
     return new TorClientDuplex(tcp, { fallbacks, ed25519, x25519, sha1 })
   }, [])
@@ -68,18 +68,26 @@ export default function Page() {
   const mutex = useRef(new Mutex(undefined))
 
   const onClick = useCallback(async () => {
-    if (!circuits) return
+    if (!tor) return
 
-    if (mutex.current.locked) return
-
-    const circuit = await mutex.current.lock(async () => {
-      const circuit = await circuits.cryptoRandom()
-      circuits.delete(circuit)
-      return circuit
-    })
+    const circuit = await tor.tryCreateAndExtendLoop().then(r => r.unwrap())
 
     superfetch(circuit)
-  }, [circuits])
+  }, [tor])
+
+  // const onClick = useCallback(async () => {
+  //   if (!circuits) return
+
+  //   if (mutex.current.locked) return
+
+  //   const circuit = await mutex.current.lock(async () => {
+  //     const circuit = await circuits.cryptoRandom()
+  //     circuits.delete(circuit)
+  //     return circuit
+  //   })
+
+  //   superfetch(circuit)
+  // }, [circuits])
 
   const [_, setCounter] = useState(0)
 

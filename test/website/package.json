@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@hazae41/berith": "^1.1.40",
-    "@hazae41/cadenas": "^0.2.20",
+    "@hazae41/cadenas": "^0.2.21",
     "@hazae41/ed25519": "^1.0.0",
     "@hazae41/fleche": "^1.1.26",
     "@hazae41/morax": "^1.0.20",

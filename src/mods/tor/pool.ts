@@ -5,7 +5,7 @@ import { TorClientDuplex } from "mods/tor/tor.js";
 
 export function createCircuitPool(tor: TorClientDuplex, params: PoolParams = {}) {
   return new Pool<Circuit>(async ({ pool, signal }) => {
-    const circuit = await tor.tryCreateAndExtendLoop(signal).then(r => r.unwrap())
+    const circuit = await tor.tryCreateAndExtendLoop(signal).then(r => r.mapErrSync(console.warn).unwrap())
 
     const onCircuitCloseOrError = () => {
       circuit.events.off("close", onCircuitCloseOrError)
