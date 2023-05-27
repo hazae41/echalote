@@ -12,7 +12,7 @@ async function superfetch(circuit: Circuit) {
 
   const body = JSON.stringify({ "jsonrpc": "2.0", "method": "web3_clientVersion", "params": [], "id": 67 })
   const headers = { "content-type": "application/json" }
-  const res = await circuit.fetch("https://virginia.rpc.blxrbdn.com", { method: "POST", headers, body })
+  const res = await circuit.tryFetch("https://virginia.rpc.blxrbdn.com", { method: "POST", headers, body }).then(r => r.unwrap())
 
   // const res = await circuit.fetch("https://twitter.com", {})
 
@@ -64,12 +64,12 @@ export default function Page() {
     return createCircuitPool(tor, { capacity: 10 })
   }, [tor])
 
-  const mutex = useRef(new Mutex())
+  const mutex = useRef(new Mutex(undefined))
 
   const onClick = useCallback(async () => {
     if (!circuits) return
 
-    if (mutex.current.promise) return
+    if (mutex.current.locked) return
 
     const circuit = await mutex.current.lock(async () => {
       const circuit = await circuits.cryptoRandom()

@@ -1,3 +1,4 @@
+import { Opaque, Writable } from "@hazae41/binary"
 import { Bytes } from "@hazae41/bytes"
 
 export interface BatchedFetchStreamParams {
@@ -17,8 +18,8 @@ export interface BatchedFetchStreamParams {
 }
 
 export class BatchedFetchStream {
-  readonly readable: ReadableStream<Uint8Array>
-  readonly writable: WritableStream<Uint8Array>
+  readonly readable: ReadableStream<Opaque>
+  readonly writable: WritableStream<Writable>
 
   constructor(
     readonly request: RequestInfo,
@@ -26,7 +27,7 @@ export class BatchedFetchStream {
   ) {
     const { lowDelay = 100, highDelay = 1000 } = params
 
-    let rcontroller: ReadableStreamController<Uint8Array>
+    let rcontroller: ReadableStreamDefaultController<Opaque>
     let wcontroller: WritableStreamDefaultController
 
     let batch = new Array<Uint8Array>()
@@ -34,7 +35,7 @@ export class BatchedFetchStream {
     let timeout: NodeJS.Timeout
     let interval: NodeJS.Timer
 
-    this.readable = new ReadableStream<Uint8Array>({
+    this.readable = new ReadableStream<Opaque>({
       async start(controller) {
         rcontroller = controller
       },
@@ -43,7 +44,7 @@ export class BatchedFetchStream {
       }
     })
 
-    this.writable = new WritableStream<Uint8Array>({
+    this.writable = new WritableStream<Writable>({
       async start(controller) {
         wcontroller = controller
       },
@@ -51,14 +52,14 @@ export class BatchedFetchStream {
         clearTimeout(timeout)
         clearInterval(interval)
 
-        batch.push(chunk)
+        batch.push(Writable.tryWriteToBytes(chunk).unwrap())
 
         timeout = setTimeout(async () => {
 
           interval = setInterval(async () => {
             const res = await fetch(request, { method: "POST" })
             const data = new Uint8Array(await res.arrayBuffer())
-            rcontroller.enqueue(data)
+            rcontroller.enqueue(new Opaque(data))
           }, highDelay)
 
           const body = Bytes.concat(batch)
@@ -67,7 +68,7 @@ export class BatchedFetchStream {
 
           const res = await fetch(request, { method: "POST", body })
           const data = new Uint8Array(await res.arrayBuffer())
-          rcontroller.enqueue(data)
+          rcontroller.enqueue(new Opaque(data))
         }, lowDelay)
       },
       async abort(e) {

@@ -245,7 +245,7 @@ export class SecretTorClientDuplex {
 
     return await Plume.tryWaitStream(this.events, "handshaked", () => {
       return new Ok(new Some(Ok.void()))
-    }, AbortSignal.timeout(1000))
+    }, AbortSignal.timeout(5_000))
   }
 
   async #onRead(chunk: Opaque): Promise<Result<void, Panic | BinaryError | InvalidCommandError | InvalidCircuitError | InvalidStreamError | DERReadError | ASN1Error | CertError | EventError>> {
