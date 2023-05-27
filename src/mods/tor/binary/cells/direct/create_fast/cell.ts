@@ -10,6 +10,7 @@ export interface CreateFastCellInit {
 export class CreateFastCell {
   readonly #class = CreateFastCell
 
+  static readonly old = false
   static readonly circuit = true
   static readonly command = 5
 
@@ -21,7 +22,15 @@ export class CreateFastCell {
     readonly material: Bytes<20>
   ) { }
 
-  get command() {
+  get old(): false {
+    return this.#class.old
+  }
+
+  get circuit(): true {
+    return this.#class.circuit
+  }
+
+  get command(): 5 {
     return this.#class.command
   }
 

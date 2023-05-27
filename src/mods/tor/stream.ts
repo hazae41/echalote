@@ -88,7 +88,7 @@ export class SecretTorStreamDuplex {
     console.debug(`${this.#class.name}.onRelayDataCell`, event)
 
     try {
-      this.#reader.enqueue(event.data.data)
+      this.#reader.enqueue(event.data.fragment)
     } catch (e: unknown) { }
   }
 

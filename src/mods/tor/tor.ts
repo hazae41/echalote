@@ -6,15 +6,15 @@ import { TlsClientDuplex } from "@hazae41/cadenas";
 import { Cascade, SuperTransformStream } from "@hazae41/cascade";
 import { Cursor } from "@hazae41/cursor";
 import type { Ed25519 } from "@hazae41/ed25519";
-import { Future } from "@hazae41/future";
 import { Mutex } from "@hazae41/mutex";
-import { Some } from "@hazae41/option";
+import { None, Some } from "@hazae41/option";
 import { Paimon } from "@hazae41/paimon";
 import { AbortError, CloseError, ErrorError, EventError, Plume, StreamEvents, SuperEventTarget } from "@hazae41/plume";
 import { Err, Ok, Panic, Result } from "@hazae41/result";
 import type { Sha1 } from "@hazae41/sha1";
 import type { X25519 } from "@hazae41/x25519";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
+import { AbortSignals } from "libs/signals/signals.js";
 import { TypedAddress } from "mods/tor/binary/address.js";
 import { Cell, InvalidCircuitError, InvalidCommandError } from "mods/tor/binary/cells/cell.js";
 import { AuthChallengeCell } from "mods/tor/binary/cells/direct/auth_challenge/cell.js";
@@ -41,6 +41,7 @@ import { Target } from "mods/tor/target.js";
 import { LoopParams } from "mods/tor/types/loop.js";
 import { OldCell } from "./binary/cells/old.js";
 import { CertError, Certs } from "./certs/certs.js";
+import { KDFTorResult } from "./index.js";
 
 export type TorState =
   | TorNoneState
@@ -102,15 +103,15 @@ export class TorClientDuplex {
   }
 
   async tryCreateAndExtend(params: LoopParams = {}) {
-    return await this.#secret.tryCreateAndExtend(params)
+    return await this.#secret.tryCreateAndExtendLoop(params)
   }
 
   async tryCreate(params: LoopParams = {}) {
-    return await this.#secret.tryCreate(params)
+    return await this.#secret.tryCreateLoop(params)
   }
 
   async create(signal?: AbortSignal) {
-    return await this.#secret.create(signal)
+    return await this.#secret.tryCreate(signal)
   }
 
 }
@@ -514,77 +515,74 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async #onRelayEndCell(cell: RelayCell<Opaque>): Promise<Result<void, Panic>> {
+  async #onRelayEndCell(cell: RelayCell<Opaque>): Promise<Result<void, Panic | BinaryError | InvalidCommandError | InvalidStreamError | EventError>> {
     return await Result.unthrow(async t => {
-      const data = RelayEndCell.uncell(cell)
+      const cell2 = RelayCell.Streamful.tryInto(cell, RelayEndCell).inspectSync(console.debug).throw(t)
 
-      console.debug(`RELAY_END`, data)
+      await this.events.tryEmit("RELAY_END", cell2).then(r => r.throw(t))
 
-      const cellEvent = new MessageEvent("RELAY_END", { data })
-      await this.events.dispatchEvent(cellEvent, "RELAY_END")
+      return Ok.void()
     })
   }
 
-  async #onRelayDropCell(cell: RelayCell<Opaque>): Promise<Result<void, Panic>> {
-    const data = RelayDropCell.uncell(cell)
-
-    console.debug(`RELAY_DROP`, data)
-
-    return Ok.void()
+  async #onRelayDropCell(cell: RelayCell<Opaque>): Promise<Result<void, Panic | BinaryError | InvalidCommandError | InvalidStreamError>> {
+    return RelayCell.Streamful.tryInto(cell, RelayDropCell).inspectSync(console.debug).clear()
   }
 
-  async #onRelayTruncatedCell(cell: RelayCell<Opaque>): Promise<Result<void, Panic>> {
-    const data = RelayTruncatedCell.uncell(cell)
+  async #onRelayTruncatedCell(cell: RelayCell<Opaque>): Promise<Result<void, Panic | BinaryError | InvalidCommandError | InvalidStreamError | EventError>> {
+    return await Result.unthrow(async t => {
+      const cell2 = RelayCell.Streamless.tryInto(cell, RelayTruncatedCell).inspectSync(console.debug).throw(t)
 
-    console.debug(`RELAY_TRUNCATED`, data)
+      cell2.circuit.targets.pop()
 
-    const cellEvent = new MessageEvent("RELAY_TRUNCATED", { data })
-    await this.events.dispatchEvent(cellEvent, "RELAY_TRUNCATED")
+      await this.events.tryEmit("RELAY_TRUNCATED", cell2).then(r => r.throw(t))
 
-    data.circuit.targets.pop()
+      return Ok.void()
+    })
   }
 
-  async #createCircuit() {
-    return await this.circuits.lock(this.#createCircuitLocked.bind(this))
+  async #tryCreateCircuit(): Promise<Result<SecretCircuit, BinaryReadError>> {
+    return await this.circuits.lock(this.#tryCreateCircuitLocked.bind(this))
   }
 
-  async #createCircuitLocked(circuits: Map<number, SecretCircuit>) {
-    while (true) {
-      const rawCircuitId = new Cursor(Bytes.random(4)).getUint32()
+  async #tryCreateCircuitLocked(circuits: Map<number, SecretCircuit>): Promise<Result<SecretCircuit, BinaryReadError>> {
+    return Result.unthrowSync(t => {
+      while (true) {
+        const rawCircuitId = new Cursor(Bytes.random(4)).tryGetUint32().throw(t)
 
-      if (rawCircuitId === 0) continue
+        if (rawCircuitId === 0)
+          continue
 
-      const circuitId = new Bitset(rawCircuitId, 32)
-        .enableBE(0)
-        .unsign()
-        .value
+        const circuitId = new Bitset(rawCircuitId, 32)
+          .enableBE(0)
+          .unsign()
+          .value
 
-      if (circuits.has(circuitId)) continue
+        if (circuits.has(circuitId))
+          continue
 
-      const circuit = new SecretCircuit(circuitId, this)
-      circuits.set(circuitId, circuit)
+        const circuit = new SecretCircuit(circuitId, this)
+        circuits.set(circuitId, circuit)
 
-      return circuit
-    }
+        return new Ok(circuit)
+      }
+    })
   }
 
-  async #waitCreatedFast(circuit: SecretCircuit, signal?: AbortSignal) {
-    const future = new Future<CreatedFastCell>()
-
-    const onEvent = (event: MessageEvent<CreatedFastCell>) => {
-      if (event.data.circuit !== circuit) return
-      future.resolve(event.data)
-    }
-
-    return await Plume.waitMapCloseOrError(this.events, "CREATED_FAST", { future, onEvent, signal })
+  async #tryWaitCreatedFast(circuit: SecretCircuit, signal: AbortSignal): Promise<Result<Cell.Circuitful<CreatedFastCell>, AbortError | ErrorError | CloseError>> {
+    return await Plume.tryWaitStream(this.events, "CREATED_FAST", e => {
+      if (e.circuit !== circuit)
+        return new Ok(new None())
+      return new Ok(new Some(new Ok(e)))
+    }, signal)
   }
 
-  async tryCreateAndExtend(params: LoopParams = {}) {
+  async tryCreateAndExtendLoop(params: LoopParams = {}) {
     const { signal, delay = 1000 } = params
-
+    // TODO
     while (!this.closed) {
       try {
-        const circuit = await this.tryCreate(params)
+        const circuit = await this.tryCreateLoop(params)
         await circuit.tryExtend(false, params)
         await circuit.tryExtend(true, params)
         return circuit
@@ -599,55 +597,79 @@ export class SecretTorClientDuplex {
     throw new Error(`Closed`, { cause: this.closed.reason })
   }
 
-  async tryCreate(params: LoopParams = {}) {
-    const { signal, timeout = 5000, delay = 1000 } = params
+  async tryCreateLoop(params: LoopParams): Promise<Result<Circuit, BinaryError | AbortError | ErrorError | CloseError>> {
+    const { timeout = 5000, delay = 1000 } = params
 
-    while (!this.closed) {
-      try {
-        const signal = AbortSignal.timeout(timeout)
-        return await this.create(signal)
-      } catch (e: unknown) {
-        if (signal?.aborted) throw e
+    while (!this.reader.closed && !params.signal.aborted) {
+      const signal = AbortSignals.merge(params.signal, AbortSignal.timeout(timeout))
 
-        console.warn("Create failed", e)
+      const result = await this.tryCreate(signal)
+
+      if (result.isOk())
+        return result
+
+      if (this.reader.closed)
+        return result
+      if (params.signal.aborted)
+        return result
+
+      if (result.inner.name === AbortError.name) {
+        console.warn("Create failed", result.get())
         await new Promise(ok => setTimeout(ok, delay))
+        continue
       }
+
+      if (result.inner.name === "TODO") {
+        console.warn("Create failed", result.get())
+        await new Promise(ok => setTimeout(ok, delay))
+        continue
+      }
+
+      return result
     }
 
-    throw new Error(`Closed`, { cause: this.closed.reason })
+    if (this.reader.closed?.reason)
+      return new Err(ErrorError.from(this.reader.closed.reason))
+    if (this.reader.closed)
+      return new Err(CloseError.from(this.reader.closed.reason))
+    if (params.signal.aborted)
+      return new Err(AbortError.from(params.signal.reason))
+    throw new Panic()
   }
 
-  async create(signal?: AbortSignal) {
-    if (this.#state.type !== "handshaked")
-      throw new Error(`Can't create a circuit yet`)
+  async tryCreate(signal: AbortSignal): Promise<Result<Circuit, BinaryError | AbortError | ErrorError | CloseError>> {
+    return await Result.unthrow(async t => {
+      if (this.#state.type !== "handshaked")
+        throw new Error(`Can't create a circuit yet`)
 
-    const circuit = await this.#createCircuit()
-    const material = Bytes.random(20)
+      const circuit = await this.#tryCreateCircuit().then(r => r.throw(t))
+      const material = Bytes.random(20)
 
-    const create_fast = new CreateFastCell(circuit, material)
-    this.writer.enqueue(Cell.from(create_fast))
+      const create_fast = new CreateFastCell(material)
+      this.writer.enqueue(Cell.Circuitful.from(circuit, create_fast))
 
-    const created_fast = await this.#waitCreatedFast(circuit, signal)
+      const created_fast = await this.#tryWaitCreatedFast(circuit, signal).then(r => r.throw(t))
 
-    const k0 = Bytes.concat([material, created_fast.material])
-    const result = await kdftor(k0)
+      const k0 = Bytes.concat([material, created_fast.fragment.material])
+      const result = await KDFTorResult.tryCompute(k0).then(r => r.throw(t))
 
-    if (!Bytes.equals(result.keyHash, created_fast.derivative))
-      throw new Error(`Invalid KDF-TOR key hash`)
+      if (!Bytes.equals(result.keyHash, created_fast.fragment.derivative))
+        throw new Error(`Invalid KDF-TOR key hash`)
 
-    const forwardDigest = new this.params.sha1.Hasher()
-    const backwardDigest = new this.params.sha1.Hasher()
+      const forwardDigest = new this.params.sha1.Hasher()
+      const backwardDigest = new this.params.sha1.Hasher()
 
-    forwardDigest.update(result.forwardDigest)
-    backwardDigest.update(result.backwardDigest)
+      forwardDigest.update(result.forwardDigest)
+      backwardDigest.update(result.backwardDigest)
 
-    const forwardKey = new Aes128Ctr128BEKey(result.forwardKey, Bytes.alloc(16))
-    const backwardKey = new Aes128Ctr128BEKey(result.backwardKey, Bytes.alloc(16))
+      const forwardKey = new Aes128Ctr128BEKey(result.forwardKey, Bytes.alloc(16))
+      const backwardKey = new Aes128Ctr128BEKey(result.backwardKey, Bytes.alloc(16))
 
-    const target = new Target(this.#state.guard.idh, circuit, forwardDigest, backwardDigest, forwardKey, backwardKey)
+      const target = new Target(this.#state.guard.idh, circuit, forwardDigest, backwardDigest, forwardKey, backwardKey)
 
-    circuit.targets.push(target)
+      circuit.targets.push(target)
 
-    return new Circuit(circuit)
+      return new Ok(new Circuit(circuit))
+    })
   }
 }
