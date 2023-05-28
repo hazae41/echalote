@@ -6,7 +6,7 @@ import { Err, Ok, Result } from "@hazae41/result";
 import { Cell, } from "mods/tor/binary/cells/cell.js";
 import { SecretCircuit } from "mods/tor/circuit.js";
 import { SecretTorStreamDuplex } from "mods/tor/stream.js";
-import { ExpectedCircuitError, InvalidCommandError, InvalidStreamError } from "../../errors.js";
+import { ExpectedCircuitError, ExpectedStreamError, InvalidRelayCommandError, UnexpectedStreamError, UnknownStreamError } from "../../errors.js";
 
 export interface RelayCellable {
   rcommand: number,
@@ -50,14 +50,14 @@ export namespace RelayCell {
       readonly fragment: Fragment
     ) { }
 
-    tryUnpack(): Result<RelayCell<Fragment>, InvalidStreamError> {
+    tryUnpack(): Result<RelayCell<Fragment>, UnknownStreamError> {
       if (this.stream === 0)
         return new Ok(new Streamless(this.circuit, undefined, this.rcommand, this.fragment))
 
       const stream = this.circuit.streams.get(this.stream)
 
       if (stream === undefined)
-        return new Err(new InvalidStreamError())
+        return new Err(new UnknownStreamError())
 
       return new Ok(new Streamful(this.circuit, stream, this.rcommand, this.fragment))
     }
@@ -158,11 +158,11 @@ export namespace RelayCell {
       return this.#raw.tryCell()
     }
 
-    static tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: RelayCell<Opaque>, readable: RelayCellable.Streamful & Readable<ReadOutput, ReadError>): Result<Streamful<ReadOutput>, ReadError | BinaryReadError | InvalidCommandError | InvalidStreamError> {
+    static tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: RelayCell<Opaque>, readable: RelayCellable.Streamful & Readable<ReadOutput, ReadError>): Result<Streamful<ReadOutput>, ReadError | BinaryReadError | InvalidRelayCommandError | ExpectedStreamError> {
       if (cell.rcommand !== readable.rcommand)
-        return new Err(new InvalidCommandError())
+        return new Err(new InvalidRelayCommandError())
       if (cell.stream === undefined)
-        return new Err(new InvalidStreamError())
+        return new Err(new ExpectedStreamError())
 
       return cell.fragment.tryInto(readable).mapSync(fragment => new Streamful(cell.circuit, cell.stream, readable.rcommand, fragment))
     }
@@ -189,11 +189,11 @@ export namespace RelayCell {
       return this.#raw.tryCell()
     }
 
-    static tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: RelayCell<Opaque>, readable: RelayCellable.Streamless & Readable<ReadOutput, ReadError>): Result<Streamless<ReadOutput>, ReadError | BinaryReadError | InvalidCommandError | InvalidStreamError> {
+    static tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: RelayCell<Opaque>, readable: RelayCellable.Streamless & Readable<ReadOutput, ReadError>): Result<Streamless<ReadOutput>, ReadError | BinaryReadError | InvalidRelayCommandError | UnexpectedStreamError> {
       if (cell.rcommand !== readable.rcommand)
-        return new Err(new InvalidCommandError())
+        return new Err(new InvalidRelayCommandError())
       if (cell.stream !== undefined)
-        return new Err(new InvalidStreamError())
+        return new Err(new UnexpectedStreamError())
 
       return cell.fragment.tryInto(readable).mapSync(fragment => new Streamless(cell.circuit, cell.stream, readable.rcommand, fragment))
     }

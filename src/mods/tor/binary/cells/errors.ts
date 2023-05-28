@@ -1,3 +1,16 @@
+export type CellError =
+  | InvalidCellError
+  | InvalidCommandError
+  | UnknownCircuitError
+  | ExpectedCircuitError
+  | UnexpectedCircuitError
+
+export type RelayCellError =
+  | InvalidRelayCommandError
+  | UnknownStreamError
+  | ExpectedStreamError
+  | UnexpectedStreamError
+
 export class InvalidCellError extends Error {
   readonly #class = InvalidCellError
   readonly name = this.#class.name
@@ -14,6 +27,27 @@ export class InvalidCommandError extends Error {
 
   constructor() {
     super(`Invalid command`)
+  }
+
+}
+
+export class InvalidRelayCommandError extends Error {
+  readonly #class = InvalidRelayCommandError
+  readonly name = this.#class.name
+
+  constructor() {
+    super(`Invalid relay command`)
+  }
+
+}
+
+
+export class UnknownCircuitError extends Error {
+  readonly #class = UnknownCircuitError
+  readonly name = this.#class.name
+
+  constructor() {
+    super(`Unknown circuit`)
   }
 
 }
@@ -38,12 +72,32 @@ export class UnexpectedCircuitError extends Error {
 
 }
 
-export class InvalidStreamError extends Error {
-  readonly #class = InvalidStreamError
+export class UnknownStreamError extends Error {
+  readonly #class = UnknownStreamError
   readonly name = this.#class.name
 
   constructor() {
-    super(`Invalid stream`)
+    super(`Unknown stream`)
+  }
+
+}
+
+export class ExpectedStreamError extends Error {
+  readonly #class = ExpectedStreamError
+  readonly name = this.#class.name
+
+  constructor() {
+    super(`Expected a stream`)
+  }
+
+}
+
+export class UnexpectedStreamError extends Error {
+  readonly #class = UnexpectedStreamError
+  readonly name = this.#class.name
+
+  constructor() {
+    super(`Unexpected a stream`)
   }
 
 }
