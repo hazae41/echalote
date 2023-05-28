@@ -4,6 +4,16 @@ import { Cursor } from "@hazae41/cursor"
 import { Ok, Result } from "@hazae41/result"
 import { HASH_LEN, KEY_LEN } from "mods/tor/constants.js"
 
+export class InvalidKdfKeyHashError extends Error {
+  readonly #class = InvalidKdfKeyHashError
+  readonly name = this.#class.name
+
+  constructor() {
+    super(`Invalid KDF key hash`)
+  }
+
+}
+
 export interface KDFTorResult {
   keyHash: Bytes<HASH_LEN>,
   forwardDigest: Bytes<HASH_LEN>,

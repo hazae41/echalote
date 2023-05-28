@@ -10,9 +10,9 @@
   },
   "dependencies": {
     "@hazae41/berith": "^1.1.40",
-    "@hazae41/cadenas": "^0.2.21",
+    "@hazae41/cadenas": "^0.2.22",
     "@hazae41/ed25519": "^1.0.0",
-    "@hazae41/fleche": "^1.1.26",
+    "@hazae41/fleche": "^1.1.27",
     "@hazae41/morax": "^1.0.20",
     "@hazae41/mutex": "^1.2.5",
     "@hazae41/piscine": "^1.0.6",
@@ -31,7 +31,7 @@
     "autoprefixer": "^10.4.14",
     "eslint": "8.41.0",
     "eslint-config-next": "13.4.4",
-    "postcss": "^8.4.23",
+    "postcss": "^8.4.24",
     "tailwindcss": "^3.3.2",
     "typescript": "5.0.4"
   }

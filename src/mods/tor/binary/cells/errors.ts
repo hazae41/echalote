@@ -1,3 +1,13 @@
+export class InvalidCellError extends Error {
+  readonly #class = InvalidCellError
+  readonly name = this.#class.name
+
+  constructor() {
+    super(`Invalid cell`)
+  }
+
+}
+
 export class InvalidCommandError extends Error {
   readonly #class = InvalidCommandError
   readonly name = this.#class.name

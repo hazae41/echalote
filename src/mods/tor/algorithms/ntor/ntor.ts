@@ -4,6 +4,16 @@ import { Cursor } from "@hazae41/cursor"
 import { Ok, Result } from "@hazae41/result"
 import { HASH_LEN, KEY_LEN } from "mods/tor/constants.js"
 
+export class InvalidNtorAuthError extends Error {
+  readonly #class = InvalidNtorAuthError
+  readonly name = this.#class.name
+
+  constructor() {
+    super(`Invalid Ntor auth`)
+  }
+
+}
+
 export class NtorResponse {
 
   constructor(

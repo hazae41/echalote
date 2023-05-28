@@ -23,7 +23,7 @@ import { RelayTruncatedCell } from "mods/tor/binary/cells/relayed/relay_truncate
 import { SecretTorStreamDuplex, TorStreamDuplex } from "mods/tor/stream.js";
 import { Target } from "mods/tor/target.js";
 import { Fallback, SecretTorClientDuplex } from "mods/tor/tor.js";
-import { NtorResult } from "./algorithms/ntor/ntor.js";
+import { InvalidNtorAuthError, NtorResult } from "./algorithms/ntor/ntor.js";
 import { Cell } from "./binary/cells/cell.js";
 import { RelayCell } from "./binary/cells/direct/relay/cell.js";
 import { RelayEarlyCell } from "./binary/cells/direct/relay_early/cell.js";
@@ -39,6 +39,28 @@ export const IPv6 = {
 export interface CircuitOpenParams {
   ipv6?: keyof typeof IPv6
   signal?: AbortSignal
+}
+
+export class EmptyFallbacksError extends Error {
+  readonly #class = EmptyFallbacksError
+  readonly name = this.#class.name
+
+  constructor() {
+    super(`Empty fallbacks`)
+  }
+
+}
+
+export class UnknownProtocolError extends Error {
+  readonly #class = UnknownProtocolError
+  readonly name = this.#class.name
+
+  constructor(
+    readonly protocol: string
+  ) {
+    super(`Unknown protocol "${protocol}"`)
+  }
+
 }
 
 export class Circuit {
@@ -232,7 +254,7 @@ export class SecretCircuit {
   //   const authority = Arrays.cryptoRandom(this.tor.authorities.filter(it => it.v3ident))
 
   //   if (!authority)
-  //     throw new Error(`Could not find authority`)
+  //     t new Error(`Could not find authority`)
 
   //   await this.#tryExtendTo({
   //     hosts: [authority.ipv4],
@@ -258,7 +280,7 @@ export class SecretCircuit {
         continue
       }
 
-      if (result.inner.name === "TODO") {
+      if (result.inner.name === InvalidNtorAuthError.name) {
         console.warn("Extend failed", result.get())
         continue
       }
@@ -275,27 +297,30 @@ export class SecretCircuit {
     throw new Panic()
   }
 
-  async tryExtend(exit: boolean, signal?: AbortSignal) {
-    if (this.closed)
-      throw new Error(`Circuit is closed`)
+  async tryExtend(exit: boolean, signal?: AbortSignal): Promise<Result<void, EmptyFallbacksError | InvalidNtorAuthError | CloseError | BytesCastError | BinaryError | AbortError | ErrorError>> {
+    if (this.closed?.reason !== undefined)
+      return new Err(ErrorError.from(this.closed.reason))
+    if (this.closed !== undefined)
+      return new Err(CloseError.from(this.closed.reason))
 
     const fallbacks = exit
       ? this.tor.params.fallbacks.filter(it => it.exit)
       : this.tor.params.fallbacks
+
+    if (!fallbacks.length)
+      return new Err(new EmptyFallbacksError())
+
     const fallback = Arrays.cryptoRandom(fallbacks)
 
-    if (!fallback)
-      throw new Error(`Could not find fallback`)
-
-    return await this.#tryExtendTo(fallback, signal)
+    return await this.tryExtendTo(fallback, signal)
   }
 
-  async #tryExtendTo(fallback: Fallback, signal?: AbortSignal): Promise<Result<void, BytesCastError | BinaryError | AbortError | ErrorError | CloseError>> {
+  async tryExtendTo(fallback: Fallback, signal?: AbortSignal): Promise<Result<void, BytesCastError | InvalidNtorAuthError | BinaryError | AbortError | ErrorError | CloseError>> {
     return await Result.unthrow(async t => {
-      const { StaticSecret, PublicKey } = this.tor.params.x25519
-
-      if (this.closed)
-        throw new Error(`Circuit is closed`)
+      if (this.closed?.reason !== undefined)
+        return new Err(ErrorError.from(this.closed.reason))
+      if (this.closed !== undefined)
+        return new Err(CloseError.from(this.closed.reason))
 
       const signal2 = AbortSignals.timeout(5_000, signal)
 
@@ -309,6 +334,8 @@ export class SecretCircuit {
       if (relayid_ed)
         links.push(new RelayExtend2LinkModernID(relayid_ed))
 
+      const { StaticSecret, PublicKey } = this.tor.params.x25519
+
       const wasm_secret_x = new StaticSecret()
 
       const public_x = Bytes.tryCast(wasm_secret_x.to_public().to_bytes(), 32).throw(t)
@@ -318,7 +345,7 @@ export class SecretCircuit {
       const relay_extend2 = new RelayExtend2Cell(RelayExtend2Cell.types.NTOR, links, ntor_request)
       this.tor.writer.enqueue(RelayEarlyCell.Streamless.from(this, undefined, relay_extend2).tryCell().throw(t))
 
-      const msg_extended2 = await Plume.tryWaitStream(this.events, "RELAY_EXTENDED2", e => {
+      const msg_extended2 = await Plume.tryWaitOrStreamOrSignal(this.events, "RELAY_EXTENDED2", e => {
         return new Ok(new Some(new Ok(e)))
       }, signal2).then(r => r.throw(t))
 
@@ -335,7 +362,7 @@ export class SecretCircuit {
       const result = await NtorResult.tryFinalize(shared_xy, shared_xb, relayid_rsa, public_b, public_x, public_y).then(r => r.throw(t))
 
       if (!Bytes.equals2(response.auth, result.auth))
-        throw new Error(`Invalid Ntor auth`)
+        return new Err(new InvalidNtorAuthError())
 
       const forward_digest = new this.tor.params.sha1.Hasher()
       const backward_digest = new this.tor.params.sha1.Hasher()
@@ -360,24 +387,28 @@ export class SecretCircuit {
     return await this.events.tryEmit("error", reason).then(r => r.clear())
   }
 
-  async tryTruncate(reason = RelayTruncateCell.reasons.NONE, signal: AbortSignal) {
+  async tryTruncate(reason = RelayTruncateCell.reasons.NONE, signal?: AbortSignal) {
     return await Result.unthrow(async t => {
+      const signal2 = AbortSignals.timeout(5_000, signal)
+
       const relay_truncate = new RelayTruncateCell(reason)
       const relay_truncate_cell = RelayCell.Streamless.from(this, undefined, relay_truncate)
       this.tor.writer.enqueue(relay_truncate_cell.tryCell().throw(t))
 
-      return await Plume.tryWaitStream(this.events, "RELAY_TRUNCATED", e => {
+      return await Plume.tryWaitOrStreamOrSignal(this.events, "RELAY_TRUNCATED", e => {
         return new Ok(new Some(Ok.void()))
-      }, signal)
+      }, signal2)
     })
   }
 
-  async tryOpen(hostname: string, port: number, params: CircuitOpenParams = {}): Promise<Result<TorStreamDuplex, BinaryWriteError>> {
+  async tryOpen(hostname: string, port: number, params: CircuitOpenParams = {}): Promise<Result<TorStreamDuplex, BinaryWriteError | ErrorError | CloseError>> {
     return await Result.unthrow(async t => {
-      const { signal, ipv6 = "preferred" } = params
+      if (this.closed?.reason !== undefined)
+        return new Err(ErrorError.from(this.closed.reason))
+      if (this.closed !== undefined)
+        return new Err(CloseError.from(this.closed.reason))
 
-      if (this.closed)
-        throw new Error(`Circuit is closed`)
+      const { signal, ipv6 = "preferred" } = params
 
       const stream = new SecretTorStreamDuplex(this.#streamId++, this, signal)
 
@@ -404,10 +435,12 @@ export class SecretCircuit {
    * @param init Fetch init
    * @returns Response promise
    */
-  async tryFetch(input: RequestInfo | URL, init: RequestInit & CircuitOpenParams): Promise<Result<Response, BinaryWriteError | AbortError | ErrorError | CloseError | PipeError>> {
+  async tryFetch(input: RequestInfo | URL, init: RequestInit & CircuitOpenParams): Promise<Result<Response, UnknownProtocolError | BinaryWriteError | AbortError | ErrorError | CloseError | PipeError>> {
     return await Result.unthrow(async t => {
-      if (this.closed)
-        throw new Error(`Circuit is closed`)
+      if (this.closed?.reason !== undefined)
+        return new Err(ErrorError.from(this.closed.reason))
+      if (this.closed !== undefined)
+        return new Err(CloseError.from(this.closed.reason))
 
       const req = new Request(input, init)
 
@@ -432,7 +465,7 @@ export class SecretCircuit {
         return tryFetch(input, { ...init, stream: tls })
       }
 
-      throw new Error(`Unknown protocol ${url.protocol}`)
+      return new Err(new UnknownProtocolError(url.protocol))
     })
   }
 
