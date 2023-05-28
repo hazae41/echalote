@@ -3,7 +3,7 @@ import { Cursor } from "@hazae41/cursor";
 import { Err, Ok, Result } from "@hazae41/result";
 import { SecretCircuit } from "mods/tor/circuit.js";
 import { SecretTorClientDuplex } from "mods/tor/tor.js";
-import { ExpectedCircuitError, InvalidCommandError, UnexpectedCircuitError } from "./errors.js";
+import { ExpectedCircuitError, InvalidCommandError, UnexpectedCircuitError, UnknownCircuitError } from "./errors.js";
 
 export interface OldCellable {
   readonly old: true
@@ -36,43 +36,43 @@ export namespace OldCell {
   export type PAYLOAD_LEN = 509
   export const PAYLOAD_LEN = 509
 
-  export class Raw<T extends Writable.Infer<T>> {
+  export class Raw<Fragment extends Writable.Infer<Fragment>> {
 
     constructor(
       readonly circuit: number,
       readonly command: number,
-      readonly payload: T
+      readonly fragment: Fragment
     ) { }
 
-    tryUnpack(tor: SecretTorClientDuplex) {
+    tryUnpack(tor: SecretTorClientDuplex): Result<OldCell<Fragment>, UnknownCircuitError> {
       if (this.circuit === 0)
-        return new Ok(new Circuitless(undefined, this.command, this.payload))
+        return new Ok(new Circuitless(undefined, this.command, this.fragment))
 
       const circuit = tor.circuits.inner.get(this.circuit)
 
       if (circuit === undefined)
-        throw new Error(`Unknown circuit id ${this.circuit}`)
+        throw new Err(new UnknownCircuitError())
 
-      return new Ok(new Circuitful(circuit, this.command, this.payload))
+      return new Ok(new Circuitful(circuit, this.command, this.fragment))
     }
 
-    trySize(): Result<number, Writable.SizeError<T>> {
+    trySize(): Result<number, Writable.SizeError<Fragment>> {
       if (this.command === 7)
-        return this.payload.trySize().mapSync(x => 2 + 1 + 2 + x)
+        return this.fragment.trySize().mapSync(x => 2 + 1 + 2 + x)
       else
         return new Ok(2 + 1 + PAYLOAD_LEN)
     }
 
-    tryWrite(cursor: Cursor): Result<void, BinaryError | Writable.SizeError<T> | Writable.WriteError<T>> {
+    tryWrite(cursor: Cursor): Result<void, BinaryError | Writable.SizeError<Fragment> | Writable.WriteError<Fragment>> {
       return Result.unthrowSync(t => {
         if (this.command === 7) {
           cursor.tryWriteUint16(this.circuit).throw(t)
           cursor.tryWriteUint8(this.command).throw(t)
 
-          const size = this.payload.trySize().throw(t)
+          const size = this.fragment.trySize().throw(t)
           cursor.tryWriteUint16(size).throw(t)
 
-          this.payload.tryWrite(cursor).throw(t)
+          this.fragment.tryWrite(cursor).throw(t)
 
           return Ok.void()
         } else {
@@ -81,7 +81,7 @@ export namespace OldCell {
 
           const payload = cursor.tryRead(PAYLOAD_LEN).throw(t)
           const subcursor = new Cursor(payload)
-          this.payload.tryWrite(subcursor).throw(t)
+          this.fragment.tryWrite(subcursor).throw(t)
           subcursor.fill(0, subcursor.remaining)
 
           return Ok.void()
