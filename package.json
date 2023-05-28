@@ -41,7 +41,7 @@
     "@hazae41/piscine": "^1.0.6",
     "@hazae41/plume": "^2.0.6",
     "@hazae41/result": "^1.0.34",
-    "@hazae41/smux": "^0.1.9",
+    "@hazae41/smux": "^0.1.10",
     "@hazae41/x509": "^1.1.5",
     "@hazae41/zepar": "^1.0.13"
   },
