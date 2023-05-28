@@ -47,7 +47,7 @@ export default function Page() {
     if (!fallbacksRes.ok) throw new Error(await fallbacksRes.text())
     const fallbacks = await fallbacksRes.json()
 
-    const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
+    const tcp = await createWebSocketSnowflakeStream("wss://snowflake.bamsoftware.com/")
     // const tcp = await createWebSocketSnowflakeStream("ws://localhost:12345/")
     // const tcp = await createMeekStream("https://meek.bamsoftware.com/")
     // const tcp = await createWebSocketStream("ws://localhost:8080")
@@ -69,12 +69,12 @@ export default function Page() {
     return createWebSocketPool(url, circuits, { capacity: 10 })
   }, [circuits])
 
-  const mutex = useRef(new Mutex())
+  const mutex = useRef(new Mutex(undefined))
 
   const onClick = useCallback(async () => {
     if (!sockets) return
 
-    if (mutex.current.promise) return
+    if (mutex.current.locked) return
 
     const socket = await mutex.current.lock(async () => {
       const socket = await sockets.cryptoRandom()

@@ -6,7 +6,7 @@ import { Mutex } from "@hazae41/mutex"
 import { Pool, PoolParams } from "@hazae41/piscine"
 
 export async function createWebSocket(url: URL, circuit: Circuit, signal?: AbortSignal) {
-  const tcp = await circuit.open(url.hostname, 443, { signal })
+  const tcp = (await circuit.tryOpen(url.hostname, 443, { signal })).unwrap()
   const tls = new TlsClientDuplex(tcp, { ciphers: [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384] })
   const socket = new Fleche.WebSocket(url, undefined, { subduplex: tls })
 
@@ -26,7 +26,7 @@ export async function createWebSocket(url: URL, circuit: Circuit, signal?: Abort
 }
 
 export function createWebSocketPool(url: URL, circuits: Pool<Circuit>, params: PoolParams = {}) {
-  const mutex = new Mutex()
+  const mutex = new Mutex(undefined)
 
   return new Pool<WebSocket>(async ({ pool }) => {
     const circuit = await mutex.lock(async () => {
