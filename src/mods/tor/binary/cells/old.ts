@@ -51,7 +51,7 @@ export namespace OldCell {
       const circuit = tor.circuits.inner.get(this.circuit)
 
       if (circuit === undefined)
-        throw new Err(new UnknownCircuitError())
+        return new Err(new UnknownCircuitError())
 
       return new Ok(new Circuitful(circuit, this.command, this.fragment))
     }

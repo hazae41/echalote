@@ -1,15 +1,11 @@
+import { UnknownAddressType } from "./relayed/relay_connected/cell.js"
+
 export type CellError =
   | InvalidCellError
   | InvalidCommandError
   | UnknownCircuitError
   | ExpectedCircuitError
   | UnexpectedCircuitError
-
-export type RelayCellError =
-  | InvalidRelayCommandError
-  | UnknownStreamError
-  | ExpectedStreamError
-  | UnexpectedStreamError
 
 export class InvalidCellError extends Error {
   readonly #class = InvalidCellError
@@ -30,17 +26,6 @@ export class InvalidCommandError extends Error {
   }
 
 }
-
-export class InvalidRelayCommandError extends Error {
-  readonly #class = InvalidRelayCommandError
-  readonly name = this.#class.name
-
-  constructor() {
-    super(`Invalid relay command`)
-  }
-
-}
-
 
 export class UnknownCircuitError extends Error {
   readonly #class = UnknownCircuitError
@@ -72,6 +57,25 @@ export class UnexpectedCircuitError extends Error {
 
 }
 
+export type RelayCellError =
+  | InvalidRelayCommandError
+  | UnknownStreamError
+  | ExpectedStreamError
+  | UnexpectedStreamError
+  | InvalidRelayCellDigestError
+  | UnrecognisedRelayCellError
+  | UnknownAddressType
+
+export class InvalidRelayCommandError extends Error {
+  readonly #class = InvalidRelayCommandError
+  readonly name = this.#class.name
+
+  constructor() {
+    super(`Invalid relay command`)
+  }
+
+}
+
 export class UnknownStreamError extends Error {
   readonly #class = UnknownStreamError
   readonly name = this.#class.name
@@ -98,6 +102,26 @@ export class UnexpectedStreamError extends Error {
 
   constructor() {
     super(`Unexpected a stream`)
+  }
+
+}
+
+export class InvalidRelayCellDigestError extends Error {
+  readonly #class = InvalidRelayCellDigestError
+  readonly name = this.#class.name
+
+  constructor() {
+    super(`Invalid relay cell digest`)
+  }
+
+}
+
+export class UnrecognisedRelayCellError extends Error {
+  readonly #class = UnrecognisedRelayCellError
+  readonly name = this.#class.name
+
+  constructor() {
+    super(`Unrecognised relay cell`)
   }
 
 }

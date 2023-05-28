@@ -1,8 +1,20 @@
 import { BinaryReadError } from "@hazae41/binary"
 import { Cursor } from "@hazae41/cursor"
-import { Ok, Panic, Result, Unimplemented } from "@hazae41/result"
+import { Err, Ok, Panic, Result, Unimplemented } from "@hazae41/result"
 import { Dates } from "libs/dates/dates.js"
 import { Address4, Address6 } from "mods/tor/binary/address.js"
+
+export class UnknownAddressType extends Error {
+  readonly #class = UnknownAddressType
+  readonly name = this.#class.name
+
+  constructor(
+    readonly type: number
+  ) {
+    super(`Unknown address type ${type}`)
+  }
+
+}
 
 export class RelayConnectedCell {
   readonly #class = RelayConnectedCell
@@ -36,7 +48,7 @@ export class RelayConnectedCell {
     throw Panic.from(new Unimplemented())
   }
 
-  static tryRead(cursor: Cursor): Result<RelayConnectedCell, BinaryReadError> {
+  static tryRead(cursor: Cursor): Result<RelayConnectedCell, BinaryReadError | UnknownAddressType> {
     return Result.unthrowSync(t => {
       const ipv4 = Address4.tryRead(cursor).throw(t)
 
@@ -49,7 +61,7 @@ export class RelayConnectedCell {
         const type = cursor.tryReadUint8().throw(t)
 
         if (type !== 6)
-          throw new Error(`Unknown address type ${type}`)
+          return new Err(new UnknownAddressType(type))
 
         const ipv6 = Address6.tryRead(cursor).throw(t)
 

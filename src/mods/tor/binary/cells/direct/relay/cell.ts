@@ -6,7 +6,7 @@ import { Err, Ok, Result } from "@hazae41/result";
 import { Cell, } from "mods/tor/binary/cells/cell.js";
 import { SecretCircuit } from "mods/tor/circuit.js";
 import { SecretTorStreamDuplex } from "mods/tor/stream.js";
-import { ExpectedCircuitError, ExpectedStreamError, InvalidRelayCommandError, UnexpectedStreamError, UnknownStreamError } from "../../errors.js";
+import { ExpectedCircuitError, ExpectedStreamError, InvalidRelayCellDigestError, InvalidRelayCommandError, UnexpectedStreamError, UnknownStreamError, UnrecognisedRelayCellError } from "../../errors.js";
 
 export interface RelayCellable {
   rcommand: number,
@@ -97,7 +97,7 @@ export namespace RelayCell {
       })
     }
 
-    static tryUncell(cell: Cell<Opaque>): Result<Raw<Opaque>, BinaryError | ExpectedCircuitError> {
+    static tryUncell(cell: Cell<Opaque>): Result<Raw<Opaque>, BinaryError | ExpectedCircuitError | InvalidRelayCellDigestError | UnrecognisedRelayCellError> {
       return Result.unthrowSync(t => {
         if (cell instanceof Cell.Circuitless)
           return new Err(new ExpectedCircuitError())
@@ -123,7 +123,7 @@ export namespace RelayCell {
           const digest2 = target.backward_digest.finalize().subarray(0, 4)
 
           if (!Bytes.equals2(digest, digest2))
-            throw new Error(`Invalid digest`)
+            return new Err(new InvalidRelayCellDigestError())
 
           const length = cursor.tryReadUint16().throw(t)
           const bytes = cursor.tryRead(length).throw(t)
@@ -132,7 +132,7 @@ export namespace RelayCell {
           return new Ok(new Raw<Opaque>(cell.circuit, stream, rcommand, data))
         }
 
-        throw new Error(`Unrecognised relay cell`)
+        return new Err(new UnrecognisedRelayCellError())
       })
     }
 
