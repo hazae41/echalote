@@ -36,7 +36,7 @@ import { RelayExtended2Cell } from "mods/tor/binary/cells/relayed/relay_extended
 import { RelayTruncatedCell } from "mods/tor/binary/cells/relayed/relay_truncated/cell.js";
 import { TorCiphers } from "mods/tor/ciphers.js";
 import { Circuit, SecretCircuit } from "mods/tor/circuit.js";
-import { Authority, parseAuthorities } from "mods/tor/consensus/authorities.js";
+import { Authority } from "mods/tor/consensus/authorities.js";
 import { Target } from "mods/tor/target.js";
 import { InvalidKdfKeyHashError, KDFTorResult } from "./algorithms/kdftor.js";
 import { CellError, ExpectedCircuitError, InvalidCellError, RelayCellError } from "./binary/cells/errors.js";
@@ -185,7 +185,7 @@ export class SecretTorClientDuplex {
 
     Debug.debug = true
 
-    this.authorities = parseAuthorities()
+    // this.authorities = parseAuthorities()
 
     const ciphers = Object.values(TorCiphers)
     const tls = new TlsClientDuplex(tcp, { signal, ciphers })
