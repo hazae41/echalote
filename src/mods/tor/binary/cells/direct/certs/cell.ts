@@ -3,7 +3,7 @@ import { Readable } from "@hazae41/binary"
 import { Cursor } from "@hazae41/cursor"
 import { Err, Ok, Panic, Result, Unimplemented } from "@hazae41/result"
 import { CrossCert } from "mods/tor/binary/certs/cross/cert.js"
-import { Ed25519Cert } from "mods/tor/binary/certs/ed25519/cert.js"
+import { Ed25519Cert, UnknownCertExtensionError } from "mods/tor/binary/certs/ed25519/cert.js"
 import { RsaCert } from "mods/tor/binary/certs/rsa/cert.js"
 import { Certs, DuplicatedCertError, UnknownCertError } from "mods/tor/certs/certs.js"
 
@@ -34,7 +34,7 @@ export class CertsCell {
     throw Panic.from(new Unimplemented())
   }
 
-  static tryRead(cursor: Cursor): Result<CertsCell, DERReadError | ASN1Error | DuplicatedCertError | UnknownCertError> {
+  static tryRead(cursor: Cursor): Result<CertsCell, DERReadError | ASN1Error | DuplicatedCertError | UnknownCertError | UnknownCertExtensionError> {
     return Result.unthrowSync(t => {
       const ncerts = cursor.tryReadUint8().throw(t)
 

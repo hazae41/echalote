@@ -10,18 +10,30 @@ export interface Extensions {
   signer?: SignedWithEd25519Key
 }
 
+export class UnknownCertExtensionError extends Error {
+  readonly #class = UnknownCertExtensionError
+  readonly name = this.#class.name
+
+  constructor(
+    readonly type: number
+  ) {
+    super(`Unknown certificate extension ${type}`)
+  }
+
+}
+
 export class Ed25519Cert {
   readonly #class = Ed25519Cert
 
-  static types = {
+  static readonly types = {
     ED_TO_SIGN: 4,
     SIGN_TO_TLS: 5,
     SIGN_TO_AUTH: 6,
-  }
+  } as const
 
-  static flags = {
+  static readonly flags = {
     AFFECTS_VALIDATION: 1
-  }
+  } as const
 
   constructor(
     readonly type: number,
@@ -56,7 +68,7 @@ export class Ed25519Cert {
     return Ok.void()
   }
 
-  static tryRead(cursor: Cursor): Result<Ed25519Cert, BinaryReadError> {
+  static tryRead(cursor: Cursor): Result<Ed25519Cert, BinaryReadError | UnknownCertExtensionError> {
     return Result.unthrowSync(t => {
       const type = cursor.tryReadUint8().throw(t)
       const length = cursor.tryReadUint16().throw(t)
@@ -81,12 +93,12 @@ export class Ed25519Cert {
         const flags = cursor.tryReadUint8().throw(t)
 
         if (type === SignedWithEd25519Key.type) {
-          extensions.signer = SignedWithEd25519Key.tryRead(cursor, length, flags).throw(t)
+          extensions.signer = SignedWithEd25519Key.tryRead(cursor).throw(t)
           continue
         }
 
         if (flags === this.flags.AFFECTS_VALIDATION)
-          throw new Error(`Unknown Ed25519 cert extension type ${type}`)
+          return new Err(new UnknownCertExtensionError(type))
         else
           cursor.tryRead(length).throw(t)
       }
