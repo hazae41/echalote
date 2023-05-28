@@ -1,4 +1,5 @@
 import { ASN1Error, DERReadError } from "@hazae41/asn1"
+import { Readable } from "@hazae41/binary"
 import { Cursor } from "@hazae41/cursor"
 import { Err, Ok, Panic, Result, Unimplemented } from "@hazae41/result"
 import { CrossCert } from "mods/tor/binary/certs/cross/cert.js"
@@ -40,14 +41,20 @@ export class CertsCell {
       const certs: Partial<Certs> = {}
 
       for (let i = 0; i < ncerts; i++) {
+        const offset = cursor.offset
+
         const type = cursor.tryReadUint8().throw(t)
         const length = cursor.tryReadUint16().throw(t)
+
+        cursor.offset = offset
+
+        const bytes = cursor.tryRead(1 + 2 + length).throw(t)
 
         if (type === RsaCert.types.RSA_SELF) {
           if (certs.rsa_self)
             return new Err(new DuplicatedCertError())
 
-          certs.rsa_self = RsaCert.tryRead(cursor, type, length).throw(t)
+          certs.rsa_self = Readable.tryReadFromBytes(RsaCert, bytes).throw(t)
           continue
         }
 
@@ -55,7 +62,7 @@ export class CertsCell {
           if (certs.rsa_to_auth)
             return new Err(new DuplicatedCertError())
 
-          certs.rsa_to_auth = RsaCert.tryRead(cursor, type, length).throw(t)
+          certs.rsa_to_auth = Readable.tryReadFromBytes(RsaCert, bytes).throw(t)
           continue
         }
 
@@ -63,7 +70,7 @@ export class CertsCell {
           if (certs.rsa_to_tls)
             return new Err(new DuplicatedCertError())
 
-          certs.rsa_to_tls = RsaCert.tryRead(cursor, type, length).throw(t)
+          certs.rsa_to_tls = Readable.tryReadFromBytes(RsaCert, bytes).throw(t)
           continue
         }
 
@@ -71,7 +78,7 @@ export class CertsCell {
           if (certs.rsa_to_ed)
             return new Err(new DuplicatedCertError())
 
-          certs.rsa_to_ed = CrossCert.tryRead(cursor, type, length).throw(t)
+          certs.rsa_to_ed = Readable.tryReadFromBytes(CrossCert, bytes).throw(t)
           continue
         }
 
@@ -79,7 +86,7 @@ export class CertsCell {
           if (certs.ed_to_sign)
             return new Err(new DuplicatedCertError())
 
-          certs.ed_to_sign = Ed25519Cert.tryRead(cursor, type, length).throw(t)
+          certs.ed_to_sign = Readable.tryReadFromBytes(Ed25519Cert, bytes).throw(t)
           continue
         }
 
@@ -87,7 +94,7 @@ export class CertsCell {
           if (certs.sign_to_tls)
             return new Err(new DuplicatedCertError())
 
-          certs.sign_to_tls = Ed25519Cert.tryRead(cursor, type, length).throw(t)
+          certs.sign_to_tls = Readable.tryReadFromBytes(Ed25519Cert, bytes).throw(t)
           continue
         }
 
@@ -95,7 +102,7 @@ export class CertsCell {
           if (certs.sign_to_auth)
             return new Err(new DuplicatedCertError())
 
-          certs.sign_to_auth = Ed25519Cert.tryRead(cursor, type, length).throw(t)
+          certs.sign_to_auth = Readable.tryReadFromBytes(Ed25519Cert, bytes).throw(t)
           continue
         }
 

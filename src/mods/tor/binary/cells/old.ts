@@ -80,6 +80,7 @@ export namespace OldCell {
           cursor.tryWriteUint8(this.command).throw(t)
 
           const payload = cursor.tryRead(PAYLOAD_LEN).throw(t)
+
           const subcursor = new Cursor(payload)
           this.fragment.tryWrite(subcursor).throw(t)
           subcursor.fill(0, subcursor.remaining)

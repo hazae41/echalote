@@ -56,8 +56,11 @@ export class Ed25519Cert {
     return Ok.void()
   }
 
-  static tryRead(cursor: Cursor, type: number, length: number): Result<Ed25519Cert, BinaryReadError> {
+  static tryRead(cursor: Cursor): Result<Ed25519Cert, BinaryReadError> {
     return Result.unthrowSync(t => {
+      const type = cursor.tryReadUint8().throw(t)
+      const length = cursor.tryReadUint16().throw(t)
+
       const start = cursor.offset
 
       const version = cursor.tryReadUint8().throw(t)
@@ -89,13 +92,12 @@ export class Ed25519Cert {
       }
 
       const content = cursor.offset - start
+
       cursor.offset = start
+
       const payload = cursor.tryRead(content).throw(t)
 
       const signature = cursor.tryRead(64).throw(t)
-
-      if (cursor.offset - start !== length)
-        throw new Error(`Invalid Ed25519 cert length ${length}`)
 
       return new Ok(new Ed25519Cert(type, version, certType, expiration, certKeyType, certKey, extensions, payload, signature))
     })

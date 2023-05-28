@@ -1,7 +1,7 @@
 import { BinaryReadError } from "@hazae41/binary"
 import { Bytes } from "@hazae41/bytes"
 import { Cursor } from "@hazae41/cursor"
-import { Err, Ok, Result } from "@hazae41/result"
+import { Err, Ok, Panic, Result, Unimplemented } from "@hazae41/result"
 import { ExpiredCertError } from "mods/tor/certs/certs.js"
 
 export class CrossCert {
@@ -28,8 +28,19 @@ export class CrossCert {
     return Ok.void()
   }
 
-  static tryRead(cursor: Cursor, type: number, length: number): Result<CrossCert, BinaryReadError> {
+  trySize(): Result<never, never> {
+    throw Panic.from(new Unimplemented())
+  }
+
+  tryWrite(cursor: Cursor): Result<never, never> {
+    throw Panic.from(new Unimplemented())
+  }
+
+  static tryRead(cursor: Cursor): Result<CrossCert, BinaryReadError> {
     return Result.unthrowSync(t => {
+      const type = cursor.tryReadUint8().throw(t)
+      const length = cursor.tryReadUint16().throw(t)
+
       const start = cursor.offset
 
       const key = cursor.tryRead(32).throw(t)
@@ -38,14 +49,13 @@ export class CrossCert {
       const expiration = new Date(expDateHours * 60 * 60 * 1000)
 
       const content = cursor.offset - start
+
       cursor.offset = start
+
       const payload = cursor.tryRead(content).throw(t)
 
       const sigLength = cursor.tryReadUint8().throw(t)
       const signature = cursor.tryRead(sigLength).throw(t)
-
-      if (cursor.offset - start !== length)
-        throw new Error(`Invalid Cross cert length ${length}`)
 
       return new Ok(new CrossCert(type, key, expiration, payload, signature))
     })

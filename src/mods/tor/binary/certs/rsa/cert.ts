@@ -55,15 +55,14 @@ export class RsaCert {
     })
   }
 
-  static tryRead(cursor: Cursor, type: number, length: number): Result<RsaCert, DERReadError | ASN1Error> {
+  static tryRead(cursor: Cursor): Result<RsaCert, DERReadError | ASN1Error> {
     return Result.unthrowSync(t => {
-      const start = cursor.offset
+      const type = cursor.tryReadUint8().throw(t)
+      const length = cursor.tryReadUint16().throw(t)
 
       const data = cursor.tryRead(length).throw(t)
       const x509 = X509.tryReadFromBytes(X509.Certificate, data).throw(t)
 
-      if (cursor.offset - start !== length)
-        throw new Error(`Invalid RSA cert length ${length}`)
       return new Ok(new this(type, data, x509))
     })
   }
