@@ -276,12 +276,12 @@ export class SecretCircuit {
         return result
 
       if (result.inner.name === AbortError.name) {
-        console.warn("Extend aborted", result.get())
+        console.debug("Extend aborted", result.get())
         continue
       }
 
       if (result.inner.name === InvalidNtorAuthError.name) {
-        console.warn("Extend failed", result.get())
+        console.debug("Extend failed", result.get())
         continue
       }
 

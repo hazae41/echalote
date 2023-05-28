@@ -80,7 +80,7 @@ export default function Page() {
     try {
       await superfetch(circuit)
     } catch (e: unknown) {
-      console.error({ e })
+      console.error("onClick", { e })
     }
   }, [circuits])
 

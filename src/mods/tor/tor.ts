@@ -609,7 +609,7 @@ export class SecretTorClientDuplex {
             return new Ok(circuit)
 
           if (circuit.closed && !this.closed && !signal?.aborted) {
-            console.error("Create and extend failed", extend2.get())
+            console.debug("Create and extend failed", extend2.get())
             await new Promise(ok => setTimeout(ok, 1000))
             continue
           }
@@ -618,7 +618,7 @@ export class SecretTorClientDuplex {
         }
 
         if (circuit.closed && !this.closed && !signal?.aborted) {
-          console.error("Create and extend failed", extend1.get())
+          console.debug("Create and extend failed", extend1.get())
           await new Promise(ok => setTimeout(ok, 1000))
           continue
         }
@@ -649,18 +649,18 @@ export class SecretTorClientDuplex {
         return result
 
       if (result.inner.name === InvalidStateError.name) {
-        console.warn("Create postponed", result.get())
+        console.debug("Create postponed", result.get())
         await new Promise(ok => setTimeout(ok, 1_000))
         continue
       }
 
       if (result.inner.name === AbortError.name) {
-        console.warn("Create aborted", result.get())
+        console.debug("Create aborted", result.get())
         continue
       }
 
       if (result.inner.name === InvalidKdfKeyHashError.name) {
-        console.warn("Create failed", result.get())
+        console.debug("Create failed", result.get())
         continue
       }
 
