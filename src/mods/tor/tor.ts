@@ -637,43 +637,39 @@ export class SecretTorClientDuplex {
   }
 
   async tryCreateLoop(signal?: AbortSignal): Promise<Result<Circuit, InvalidKdfKeyHashError | InvalidStateError | BinaryError | AbortError | ErrorError | CloseError>> {
-    while (!this.closed && !signal?.aborted) {
-      const result = await this.tryCreate(signal)
+    return await Result.unthrow(async t => {
+      while (!this.closed && !signal?.aborted) {
+        const result = await this.tryCreate(signal)
 
-      if (result.isOk())
-        return result
+        if (result.isOk())
+          return result
 
-      if (this.closed)
+        if (this.closed)
+          return result
+        if (signal?.aborted)
+          return result
+
+        if (result.inner.name === AbortError.name) {
+          console.debug("Create aborted", result.get())
+          continue
+        }
+
+        if (result.inner.name === InvalidKdfKeyHashError.name) {
+          console.debug("Create failed", result.get())
+          continue
+        }
+
         return result
+      }
+
+      if (this.closed?.reason !== undefined)
+        return new Err(ErrorError.from(this.closed.reason))
+      if (this.closed !== undefined)
+        return new Err(CloseError.from(this.closed.reason))
       if (signal?.aborted)
-        return result
-
-      if (result.inner.name === InvalidStateError.name) {
-        console.debug("Create postponed", result.get())
-        await new Promise(ok => setTimeout(ok, 1_000))
-        continue
-      }
-
-      if (result.inner.name === AbortError.name) {
-        console.debug("Create aborted", result.get())
-        continue
-      }
-
-      if (result.inner.name === InvalidKdfKeyHashError.name) {
-        console.debug("Create failed", result.get())
-        continue
-      }
-
-      return result
-    }
-
-    if (this.closed?.reason !== undefined)
-      return new Err(ErrorError.from(this.closed.reason))
-    if (this.closed !== undefined)
-      return new Err(CloseError.from(this.closed.reason))
-    if (signal?.aborted)
-      return new Err(AbortError.from(signal.reason))
-    throw new Panic()
+        return new Err(AbortError.from(signal.reason))
+      throw new Panic()
+    })
   }
 
   async tryCreate(signal?: AbortSignal): Promise<Result<Circuit, InvalidKdfKeyHashError | InvalidStateError | BinaryError | AbortError | ErrorError | CloseError>> {
