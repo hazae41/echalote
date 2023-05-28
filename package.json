@@ -34,7 +34,7 @@
     "@hazae41/cursor": "^1.1.14",
     "@hazae41/fleche": "^1.1.28",
     "@hazae41/future": "^1.0.3",
-    "@hazae41/kcp": "^0.2.11",
+    "@hazae41/kcp": "^0.2.15",
     "@hazae41/mutex": "^1.2.5",
     "@hazae41/option": "^1.0.9",
     "@hazae41/paimon": "^1.0.15",

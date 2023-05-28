@@ -336,9 +336,9 @@ export class SecretTorClientDuplex {
 
   async #onCell(cell: Cell<Opaque> | OldCell<Opaque>, state: TorState): Promise<Result<void, InvalidVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError>> {
     if (cell.command === PaddingCell.command)
-      return new Ok(console.debug(`PADDING`, cell))
+      return new Ok(console.debug(cell))
     if (cell.command === VariablePaddingCell.command)
-      return new Ok(console.debug(`VPADDING`, cell))
+      return new Ok(console.debug(cell))
 
     if (state.type === "none")
       return await this.#onNoneStateCell(cell, state)
@@ -367,7 +367,7 @@ export class SecretTorClientDuplex {
     if (cell.command === VersionsCell.command)
       return await this.#onVersionsCell(cell, state)
 
-    console.debug(`Unknown pre-version cell ${cell.command}`)
+    console.warn(`Unknown pre-version cell ${cell.command}`)
     return Ok.void()
   }
 
@@ -375,7 +375,7 @@ export class SecretTorClientDuplex {
     if (cell.command === CertsCell.command)
       return await this.#onCertsCell(cell, state)
 
-    console.debug(`Unknown versioned-state cell ${cell.command}`)
+    console.warn(`Unknown versioned-state cell ${cell.command}`)
     return Ok.void()
   }
 
@@ -385,7 +385,7 @@ export class SecretTorClientDuplex {
     if (cell.command === NetinfoCell.command)
       return await this.#onNetinfoCell(cell, state)
 
-    console.debug(`Unknown handshaking-state cell ${cell.command}`)
+    console.warn(`Unknown handshaking-state cell ${cell.command}`)
     return Ok.void()
   }
 
@@ -397,7 +397,7 @@ export class SecretTorClientDuplex {
     if (cell.command === RelayCell.command)
       return await this.#onRelayCell(cell)
 
-    console.debug(`Unknown handshaked-state cell ${cell.command}`)
+    console.warn(`Unknown handshaked-state cell ${cell.command}`)
     return Ok.void()
   }
 
@@ -494,7 +494,7 @@ export class SecretTorClientDuplex {
       if (cell.rcommand === RelayTruncatedCell.rcommand)
         return await this.#onRelayTruncatedCell(cell)
 
-      console.debug(`Unknown relay cell ${cell.rcommand}`)
+      console.warn(`Unknown relay cell ${cell.rcommand}`)
       return Ok.void()
     })
   }
@@ -609,8 +609,7 @@ export class SecretTorClientDuplex {
             return new Ok(circuit)
 
           if (circuit.closed && !this.closed && !signal?.aborted) {
-            console.debug("Create and extend failed", extend2.get())
-            await new Promise(ok => setTimeout(ok, 1000))
+            console.debug("Create and extend failed", { error: extend2.get() })
             continue
           }
 
@@ -618,8 +617,7 @@ export class SecretTorClientDuplex {
         }
 
         if (circuit.closed && !this.closed && !signal?.aborted) {
-          console.debug("Create and extend failed", extend1.get())
-          await new Promise(ok => setTimeout(ok, 1000))
+          console.debug("Create and extend failed", { error: extend1.get() })
           continue
         }
 
@@ -650,12 +648,12 @@ export class SecretTorClientDuplex {
           return result
 
         if (result.inner.name === AbortError.name) {
-          console.debug("Create aborted", result.get())
+          console.debug("Create aborted", { error: result.get() })
           continue
         }
 
         if (result.inner.name === InvalidKdfKeyHashError.name) {
-          console.debug("Create failed", result.get())
+          console.debug("Create failed", { error: result.get() })
           continue
         }
 

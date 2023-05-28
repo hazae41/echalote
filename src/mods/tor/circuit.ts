@@ -178,7 +178,7 @@ export class SecretCircuit {
   }
 
   async #onTorError(reason?: unknown) {
-    console.debug(`${this.#class.name}.onReadError`, reason)
+    console.debug(`${this.#class.name}.onReadError`, { reason })
 
     this.#closed = { reason }
 
@@ -276,12 +276,12 @@ export class SecretCircuit {
         return result
 
       if (result.inner.name === AbortError.name) {
-        console.debug("Extend aborted", result.get())
+        console.debug("Extend aborted", { error: result.get() })
         continue
       }
 
       if (result.inner.name === InvalidNtorAuthError.name) {
-        console.debug("Extend failed", result.get())
+        console.debug("Extend failed", { error: result.get() })
         continue
       }
 

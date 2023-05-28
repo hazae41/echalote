@@ -82,7 +82,7 @@ export class SecretTorStreamDuplex {
   }
 
   async #onCircuitError(reason?: unknown) {
-    console.debug(`${this.#class.name}.onCircuitError`, reason)
+    console.debug(`${this.#class.name}.onCircuitError`, { reason })
 
     this.#tryClose(reason).inspectErrSync(console.debug).ignore()
 
