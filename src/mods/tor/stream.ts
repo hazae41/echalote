@@ -76,7 +76,7 @@ export class SecretTorStreamDuplex {
   async #onCircuitClose() {
     console.debug(`${this.#class.name}.onCircuitClose`)
 
-    this.#tryClose().inspectErrSync(console.debug).ignore()
+    this.#tryClose().inspectErrSync(e => console.debug({ e })).ignore()
 
     return Ok.void()
   }
@@ -84,7 +84,7 @@ export class SecretTorStreamDuplex {
   async #onCircuitError(reason?: unknown) {
     console.debug(`${this.#class.name}.onCircuitError`, { reason })
 
-    this.#tryClose(reason).inspectErrSync(console.debug).ignore()
+    this.#tryClose(reason).inspectErrSync(e => console.debug({ e })).ignore()
 
     return Ok.void()
   }
@@ -95,7 +95,7 @@ export class SecretTorStreamDuplex {
 
     console.debug(`${this.#class.name}.onRelayDataCell`, cell)
 
-    this.#reader.tryEnqueue(cell.fragment.fragment).inspectErrSync(console.debug).ignore()
+    this.#reader.tryEnqueue(cell.fragment.fragment).inspectErrSync(e => console.debug({ e })).ignore()
 
     return Ok.void()
   }
@@ -106,7 +106,7 @@ export class SecretTorStreamDuplex {
 
     console.debug(`${this.#class.name}.onRelayEndCell`, cell)
 
-    this.#tryClose(cell.fragment.reason).inspectErrSync(console.debug).ignore()
+    this.#tryClose(cell.fragment.reason).inspectErrSync(e => console.debug({ e })).ignore()
 
     return Ok.void()
   }

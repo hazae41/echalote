@@ -122,6 +122,10 @@ export class TorClientDuplex {
     this.#secret = new SecretTorClientDuplex(tcp, params)
   }
 
+  get events() {
+    return this.#secret.events
+  }
+
   async tryWait() {
     if (this.#secret.state.type === "handshaked")
       return Ok.void()

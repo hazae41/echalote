@@ -9,11 +9,11 @@ export function createCircuitPool(tor: TorClientDuplex, params: PoolParams = {})
 
     const circuit = await tor.tryCreateAndExtendLoop(signal).then(r => r.mapErrSync(console.error).unwrap())
 
-    const onCircuitCloseOrError = () => {
+    const onCircuitCloseOrError = async () => {
       circuit.events.off("close", onCircuitCloseOrError)
       circuit.events.off("error", onCircuitCloseOrError)
 
-      pool.delete(circuit)
+      await pool.delete(circuit)
 
       return Ok.void()
     }
