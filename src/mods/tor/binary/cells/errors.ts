@@ -18,12 +18,22 @@ export class InvalidCommandError extends Error {
 
 }
 
-export class InvalidCircuitError extends Error {
-  readonly #class = InvalidCircuitError
+export class ExpectedCircuitError extends Error {
+  readonly #class = ExpectedCircuitError
   readonly name = this.#class.name
 
   constructor() {
-    super(`Invalid circuit`)
+    super(`Expected a circuit`)
+  }
+
+}
+
+export class UnexpectedCircuitError extends Error {
+  readonly #class = UnexpectedCircuitError
+  readonly name = this.#class.name
+
+  constructor() {
+    super(`Unexpected a circuit`)
   }
 
 }

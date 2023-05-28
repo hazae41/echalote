@@ -3,7 +3,7 @@ import { Cursor } from "@hazae41/cursor";
 import { Err, Ok, Result } from "@hazae41/result";
 import { SecretCircuit } from "mods/tor/circuit.js";
 import { SecretTorClientDuplex } from "mods/tor/tor.js";
-import { InvalidCircuitError, InvalidCommandError } from "./errors.js";
+import { ExpectedCircuitError, InvalidCommandError, UnexpectedCircuitError } from "./errors.js";
 
 export interface Cellable {
   readonly old: false
@@ -134,11 +134,11 @@ export namespace Cell {
       return this.#raw.tryWrite(cursor)
     }
 
-    static tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: Cell<Opaque>, readable: Cellable.Circuitful & Readable<ReadOutput, ReadError>): Result<Circuitful<ReadOutput>, ReadError | BinaryReadError | InvalidCommandError | InvalidCircuitError> {
+    static tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: Cell<Opaque>, readable: Cellable.Circuitful & Readable<ReadOutput, ReadError>): Result<Circuitful<ReadOutput>, ReadError | BinaryReadError | InvalidCommandError | ExpectedCircuitError> {
       if (cell.command !== readable.command)
         return new Err(new InvalidCommandError())
       if (cell.circuit === undefined)
-        return new Err(new InvalidCircuitError())
+        return new Err(new ExpectedCircuitError())
 
       return cell.fragment.tryInto(readable).mapSync(fragment => new Circuitful(cell.circuit, readable.command, fragment))
     }
@@ -168,11 +168,11 @@ export namespace Cell {
       return this.#raw.tryWrite(cursor)
     }
 
-    static tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: Cell<Opaque>, readable: Cellable.Circuitless & Readable<ReadOutput, ReadError>): Result<Circuitless<ReadOutput>, ReadError | BinaryReadError | InvalidCommandError | InvalidCircuitError> {
+    static tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: Cell<Opaque>, readable: Cellable.Circuitless & Readable<ReadOutput, ReadError>): Result<Circuitless<ReadOutput>, ReadError | BinaryReadError | InvalidCommandError | UnexpectedCircuitError> {
       if (cell.command !== readable.command)
         return new Err(new InvalidCommandError())
       if (cell.circuit !== undefined)
-        return new Err(new InvalidCircuitError())
+        return new Err(new UnexpectedCircuitError())
 
       return cell.fragment.tryInto(readable).mapSync(fragment => new Circuitless(cell.circuit, readable.command, fragment))
     }

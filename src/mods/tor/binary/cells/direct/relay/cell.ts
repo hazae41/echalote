@@ -6,7 +6,7 @@ import { Err, Ok, Result } from "@hazae41/result";
 import { Cell, } from "mods/tor/binary/cells/cell.js";
 import { SecretCircuit } from "mods/tor/circuit.js";
 import { SecretTorStreamDuplex } from "mods/tor/stream.js";
-import { InvalidCircuitError, InvalidCommandError, InvalidStreamError } from "../../errors.js";
+import { ExpectedCircuitError, InvalidCommandError, InvalidStreamError } from "../../errors.js";
 
 export interface RelayCellable {
   rcommand: number,
@@ -97,10 +97,10 @@ export namespace RelayCell {
       })
     }
 
-    static tryUncell(cell: Cell<Opaque>): Result<Raw<Opaque>, BinaryError | InvalidCircuitError> {
+    static tryUncell(cell: Cell<Opaque>): Result<Raw<Opaque>, BinaryError | ExpectedCircuitError> {
       return Result.unthrowSync(t => {
         if (cell instanceof Cell.Circuitless)
-          return new Err(new InvalidCircuitError())
+          return new Err(new ExpectedCircuitError())
 
         for (const target of cell.circuit.targets) {
           target.backward_key.apply_keystream(cell.fragment.bytes)

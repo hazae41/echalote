@@ -39,7 +39,7 @@ import { Circuit, SecretCircuit } from "mods/tor/circuit.js";
 import { Authority, parseAuthorities } from "mods/tor/consensus/authorities.js";
 import { Target } from "mods/tor/target.js";
 import { InvalidKdfKeyHashError, KDFTorResult } from "./algorithms/kdftor.js";
-import { InvalidCellError, InvalidCircuitError, InvalidCommandError, InvalidStreamError } from "./binary/cells/errors.js";
+import { ExpectedCircuitError, InvalidCellError, InvalidCommandError, InvalidStreamError, UnexpectedCircuitError } from "./binary/cells/errors.js";
 import { OldCell } from "./binary/cells/old.js";
 import { CertError, Certs } from "./certs/certs.js";
 
@@ -283,7 +283,7 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async #onRead(chunk: Opaque): Promise<Result<void, InvalidVersionError | InvalidCellError | BinaryError | InvalidCommandError | InvalidCircuitError | InvalidStreamError | DERReadError | ASN1Error | CertError | EventError>> {
+  async #onRead(chunk: Opaque): Promise<Result<void, InvalidVersionError | InvalidCellError | BinaryError | InvalidCommandError | UnexpectedCircuitError | ExpectedCircuitError | InvalidStreamError | DERReadError | ASN1Error | CertError | EventError>> {
     // console.debug(this.#class.name, "<-", chunk)
 
     if (this.#buffer.offset)
@@ -297,7 +297,7 @@ export class SecretTorClientDuplex {
    * @param chunk 
    * @returns 
    */
-  async #onReadBuffered(chunk: Uint8Array): Promise<Result<void, InvalidVersionError | InvalidCellError | BinaryError | InvalidCommandError | InvalidCircuitError | InvalidStreamError | DERReadError | ASN1Error | CertError | EventError>> {
+  async #onReadBuffered(chunk: Uint8Array): Promise<Result<void, InvalidVersionError | InvalidCellError | BinaryError | InvalidCommandError | UnexpectedCircuitError | ExpectedCircuitError | InvalidStreamError | DERReadError | ASN1Error | CertError | EventError>> {
     return await Result.unthrow(async t => {
       this.#buffer.tryWrite(chunk).throw(t)
       const full = this.#buffer.before
@@ -312,7 +312,7 @@ export class SecretTorClientDuplex {
    * @param chunk 
    * @returns 
    */
-  async #onReadDirect(chunk: Uint8Array): Promise<Result<void, InvalidVersionError | InvalidCellError | BinaryError | InvalidCommandError | InvalidCircuitError | InvalidStreamError | DERReadError | ASN1Error | CertError | EventError>> {
+  async #onReadDirect(chunk: Uint8Array): Promise<Result<void, InvalidVersionError | InvalidCellError | BinaryError | InvalidCommandError | UnexpectedCircuitError | ExpectedCircuitError | InvalidStreamError | DERReadError | ASN1Error | CertError | EventError>> {
     return await Result.unthrow(async t => {
       const cursor = new Cursor(chunk)
 
@@ -334,7 +334,7 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async #onCell(cell: Cell<Opaque> | OldCell<Opaque>, state: TorState): Promise<Result<void, InvalidVersionError | InvalidCellError | BinaryError | InvalidCommandError | InvalidCircuitError | InvalidStreamError | DERReadError | ASN1Error | CertError | EventError>> {
+  async #onCell(cell: Cell<Opaque> | OldCell<Opaque>, state: TorState): Promise<Result<void, InvalidVersionError | InvalidCellError | BinaryError | InvalidCommandError | UnexpectedCircuitError | ExpectedCircuitError | InvalidStreamError | DERReadError | ASN1Error | CertError | EventError>> {
     if (cell.command === PaddingCell.command)
       return new Ok(console.debug(`PADDING`, cell))
     if (cell.command === VariablePaddingCell.command)
@@ -358,7 +358,7 @@ export class SecretTorClientDuplex {
     throw new Panic()
   }
 
-  async #onNoneStateCell(cell: Cell<Opaque> | OldCell<Opaque>, state: TorNoneState): Promise<Result<void, InvalidVersionError | InvalidCellError | BinaryReadError | InvalidCommandError | InvalidCircuitError>> {
+  async #onNoneStateCell(cell: Cell<Opaque> | OldCell<Opaque>, state: TorNoneState): Promise<Result<void, InvalidVersionError | InvalidCellError | BinaryReadError | InvalidCommandError | UnexpectedCircuitError | ExpectedCircuitError>> {
     if (cell instanceof Cell.Circuitful)
       return new Err(new InvalidCellError())
     if (cell instanceof Cell.Circuitless)
@@ -371,7 +371,7 @@ export class SecretTorClientDuplex {
     return Ok.void()
   }
 
-  async #onVersionedStateCell(cell: Cell<Opaque>, state: TorVersionedState): Promise<Result<void, BinaryError | InvalidCommandError | InvalidCircuitError | DERReadError | ASN1Error | CertError>> {
+  async #onVersionedStateCell(cell: Cell<Opaque>, state: TorVersionedState): Promise<Result<void, BinaryError | InvalidCommandError | UnexpectedCircuitError | ExpectedCircuitError | DERReadError | ASN1Error | CertError>> {
     if (cell.command === CertsCell.command)
       return await this.#onCertsCell(cell, state)
 
@@ -379,7 +379,7 @@ export class SecretTorClientDuplex {
     return Ok.void()
   }
 
-  async #onHandshakingStateCell(cell: Cell<Opaque>, state: TorHandshakingState): Promise<Result<void, BinaryReadError | InvalidCommandError | InvalidCircuitError | EventError>> {
+  async #onHandshakingStateCell(cell: Cell<Opaque>, state: TorHandshakingState): Promise<Result<void, BinaryReadError | InvalidCommandError | UnexpectedCircuitError | ExpectedCircuitError | EventError>> {
     if (cell.command === AuthChallengeCell.command)
       return await this.#onAuthChallengeCell(cell, state)
     if (cell.command === NetinfoCell.command)
@@ -389,7 +389,7 @@ export class SecretTorClientDuplex {
     return Ok.void()
   }
 
-  async #onHandshakedStateCell(cell: Cell<Opaque>): Promise<Result<void, BinaryError | InvalidCommandError | InvalidCircuitError | InvalidStreamError | EventError>> {
+  async #onHandshakedStateCell(cell: Cell<Opaque>): Promise<Result<void, BinaryError | InvalidCommandError | UnexpectedCircuitError | ExpectedCircuitError | InvalidStreamError | EventError>> {
     if (cell.command === CreatedFastCell.command)
       return await this.#onCreatedFastCell(cell)
     if (cell.command === DestroyCell.command)
@@ -401,7 +401,7 @@ export class SecretTorClientDuplex {
     return Ok.void()
   }
 
-  async #onVersionsCell(cell: OldCell<Opaque>, state: TorNoneState): Promise<Result<void, InvalidVersionError | BinaryReadError | InvalidCommandError | InvalidCircuitError>> {
+  async #onVersionsCell(cell: OldCell<Opaque>, state: TorNoneState): Promise<Result<void, InvalidVersionError | BinaryReadError | InvalidCommandError | UnexpectedCircuitError | ExpectedCircuitError>> {
     return await Result.unthrow(async t => {
       const cell2 = OldCell.Circuitless.tryInto(cell, VersionsCell).inspectSync(console.debug).throw(t)
 
@@ -414,7 +414,7 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async #onCertsCell(cell: Cell<Opaque>, state: TorVersionedState): Promise<Result<void, BinaryError | InvalidCommandError | InvalidCircuitError | DERReadError | ASN1Error | CertError>> {
+  async #onCertsCell(cell: Cell<Opaque>, state: TorVersionedState): Promise<Result<void, BinaryError | InvalidCommandError | UnexpectedCircuitError | ExpectedCircuitError | DERReadError | ASN1Error | CertError>> {
     return await Result.unthrow(async t => {
       const cell2 = Cell.Circuitless.tryInto(cell, CertsCell).inspectSync(console.debug).throw(t)
 
@@ -429,11 +429,11 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async #onAuthChallengeCell(cell: Cell<Opaque>, state: TorHandshakingState): Promise<Result<void, BinaryReadError | InvalidCommandError | InvalidCircuitError>> {
+  async #onAuthChallengeCell(cell: Cell<Opaque>, state: TorHandshakingState): Promise<Result<void, BinaryReadError | InvalidCommandError | UnexpectedCircuitError | ExpectedCircuitError>> {
     return Cell.Circuitless.tryInto(cell, AuthChallengeCell).inspectSync(console.debug).clear()
   }
 
-  async #onNetinfoCell(cell: Cell<Opaque>, state: TorHandshakingState): Promise<Result<void, BinaryReadError | InvalidCommandError | InvalidCircuitError | EventError>> {
+  async #onNetinfoCell(cell: Cell<Opaque>, state: TorHandshakingState): Promise<Result<void, BinaryReadError | InvalidCommandError | UnexpectedCircuitError | ExpectedCircuitError | EventError>> {
     return await Result.unthrow(async t => {
       Cell.Circuitless.tryInto(cell, NetinfoCell).inspectSync(console.debug).throw(t)
 
@@ -454,7 +454,7 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async #onCreatedFastCell(cell: Cell<Opaque>): Promise<Result<void, BinaryReadError | InvalidCommandError | InvalidCircuitError | EventError>> {
+  async #onCreatedFastCell(cell: Cell<Opaque>): Promise<Result<void, BinaryReadError | InvalidCommandError | UnexpectedCircuitError | ExpectedCircuitError | EventError>> {
     return await Result.unthrow(async t => {
       const cell2 = Cell.Circuitful.tryInto(cell, CreatedFastCell).inspectSync(console.debug).throw(t)
 
@@ -464,7 +464,7 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async #onDestroyCell(cell: Cell<Opaque>): Promise<Result<void, BinaryReadError | InvalidCommandError | InvalidCircuitError | EventError>> {
+  async #onDestroyCell(cell: Cell<Opaque>): Promise<Result<void, BinaryReadError | InvalidCommandError | UnexpectedCircuitError | ExpectedCircuitError | EventError>> {
     return await Result.unthrow(async t => {
       const cell2 = Cell.Circuitful.tryInto(cell, DestroyCell).inspectSync(console.debug).throw(t)
 
@@ -476,7 +476,7 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async #onRelayCell(parent: Cell<Opaque>): Promise<Result<void, BinaryError | InvalidCommandError | InvalidCircuitError | InvalidStreamError | EventError>> {
+  async #onRelayCell(parent: Cell<Opaque>): Promise<Result<void, BinaryError | InvalidCommandError | UnexpectedCircuitError | ExpectedCircuitError | InvalidStreamError | EventError>> {
     return await Result.unthrow(async t => {
       const raw = RelayCell.Raw.tryUncell(parent).throw(t)
       const cell = raw.tryUnpack().throw(t)
