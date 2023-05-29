@@ -7,11 +7,11 @@ import { Pool } from "@hazae41/piscine";
 import { Ok, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
-import { createWebSocketPool } from "libs/sockets/pool";
+import { WebSocketAndCircuit, createWebSocketPool } from "libs/sockets/pool";
 import { tryCreateTorLoop } from "mods/tor";
 import { DependencyList, useCallback, useEffect, useState } from "react";
 
-async function superfetch(socket: WebSocket) {
+async function superfetch({ socket, circuit }: WebSocketAndCircuit) {
   const start = Date.now()
 
   socket.send(JSON.stringify({ "jsonrpc": "2.0", "method": "web3_clientVersion", "params": [], "id": 67 }))
@@ -22,6 +22,10 @@ async function superfetch(socket: WebSocket) {
   })
 
   console.log(event.data, Date.now() - start)
+
+  socket.close()
+
+  circuit.tryDestroy().then(r => r.unwrap())
 }
 
 function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
@@ -38,7 +42,7 @@ function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
 export interface TorAndCircuitsAndSockets {
   tor: TorClientDuplex
   circuits: Mutex<Pool<Circuit>>
-  sockets: Mutex<Pool<WebSocket>>
+  sockets: Mutex<Pool<WebSocketAndCircuit>>
 }
 
 export default function Page() {

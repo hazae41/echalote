@@ -39,7 +39,9 @@ export async function createWebSocketLoop(url: URL, circuits: Mutex<Pool<Circuit
         return circuit
       }).then(r => r.unwrap())
 
-      return await createWebSocket(url, circuit, signal)
+      const socket = await createWebSocket(url, circuit, signal)
+
+      return { socket, circuit }
     } catch (e: unknown) {
       console.warn(`WebSocket creation failed`, { e })
       continue
@@ -49,22 +51,27 @@ export async function createWebSocketLoop(url: URL, circuits: Mutex<Pool<Circuit
   throw AbortError.from(signal.reason)
 }
 
+export interface WebSocketAndCircuit {
+  socket: WebSocket,
+  circuit: Circuit
+}
+
 export function createWebSocketPool(url: URL, circuits: Mutex<Pool<Circuit>>) {
   const { capacity, signal } = circuits.inner.params
 
-  return new Pool<WebSocket>(async ({ pool, signal }) => {
-    const socket = await createWebSocketLoop(url, circuits, signal)
+  return new Pool<WebSocketAndCircuit>(async ({ pool, signal }) => {
+    const element = await createWebSocketLoop(url, circuits, signal)
 
     const onCloseOrError = async () => {
-      socket.removeEventListener("close", onCloseOrError)
-      socket.removeEventListener("error", onCloseOrError)
+      element.socket.removeEventListener("close", onCloseOrError)
+      element.socket.removeEventListener("error", onCloseOrError)
 
-      await pool.delete(socket)
+      await pool.delete(element)
     }
 
-    socket.addEventListener("close", onCloseOrError)
-    socket.addEventListener("error", onCloseOrError)
+    element.socket.addEventListener("close", onCloseOrError)
+    element.socket.addEventListener("error", onCloseOrError)
 
-    return new Ok(socket)
+    return new Ok(element)
   }, { capacity, signal })
 }

@@ -21,6 +21,8 @@ async function superfetch(circuit: Circuit) {
 
   console.log(res, Date.now() - start)
   console.log(await res.text(), Date.now() - start)
+
+  circuit.tryDestroy().then(r => r.unwrap())
 }
 
 function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
