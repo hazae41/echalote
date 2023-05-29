@@ -57,7 +57,7 @@ export interface WebSocketAndCircuit {
 }
 
 export function createWebSocketPool(url: URL, circuits: Mutex<Pool<Circuit>>) {
-  const { capacity, signal } = circuits.inner.params
+  const { capacity, signal } = circuits.inner
 
   return new Pool<WebSocketAndCircuit>(async ({ pool, signal }) => {
     const element = await createWebSocketLoop(url, circuits, signal)
