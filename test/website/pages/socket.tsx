@@ -189,12 +189,12 @@ function TorDisplay(props: { key: number, tor?: TorAndCircuitsAndSockets }) {
   if (!tor)
     return <div>Loading...</div>
 
-  return <>
+  return <div className="py-1">
     <div>
       Circuit pool size: {tor.circuits.inner.size} / {tor.circuits.inner.capacity}
     </div>
     <div>
       Socket pool size: {tor.sockets.inner.size} / {tor.sockets.inner.capacity}
     </div>
-  </>
+  </div>
 }
