@@ -3,11 +3,12 @@ import { Circuit } from "@hazae41/echalote"
 import { Fleche } from "@hazae41/fleche"
 import { Future } from "@hazae41/future"
 import { Mutex } from "@hazae41/mutex"
-import { Pool, PoolParams } from "@hazae41/piscine"
+import { Pool } from "@hazae41/piscine"
 import { Ok } from "@hazae41/result"
+import { AbortSignals } from "libs/signals/signals"
 
 export async function createWebSocket(url: URL, circuit: Circuit, signal?: AbortSignal) {
-  const tcp = (await circuit.tryOpen(url.hostname, 443, { signal })).unwrap()
+  const tcp = await circuit.tryOpen(url.hostname, 443, { signal }).then(r => r.unwrap())
   const tls = new TlsClientDuplex(tcp, { ciphers: [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384] })
   const socket = new Fleche.WebSocket(url, undefined, { subduplex: tls })
 
@@ -26,16 +27,18 @@ export async function createWebSocket(url: URL, circuit: Circuit, signal?: Abort
   return socket
 }
 
-export function createWebSocketPool(url: URL, circuits: Mutex<Pool<Circuit>>, params: PoolParams = {}) {
-  return new Pool<WebSocket>(async ({ pool }) => {
+export function createWebSocketPool(url: URL, circuits: Mutex<Pool<Circuit>>) {
+  const { capacity, signal } = circuits.inner.params
+
+  return new Pool<WebSocket>(async ({ pool, signal }) => {
     const circuit = await circuits.lock(async (circuits) => {
       const circuit = await circuits.tryGetCryptoRandom()
       circuit.inspectSync(circuit => circuits.delete(circuit))
       return circuit
     }).then(r => r.unwrap())
 
-    const signal = AbortSignal.timeout(5000)
-    const socket = await createWebSocket(url, circuit, signal)
+    const signal2 = AbortSignals.timeout(5_000, signal)
+    const socket = await createWebSocket(url, circuit, signal2)
 
     const onCloseOrError = async () => {
       socket.removeEventListener("close", onCloseOrError)
@@ -48,5 +51,5 @@ export function createWebSocketPool(url: URL, circuits: Mutex<Pool<Circuit>>, pa
     socket.addEventListener("error", onCloseOrError)
 
     return new Ok(socket)
-  }, params)
+  }, { capacity, signal })
 }

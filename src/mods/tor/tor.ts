@@ -127,6 +127,14 @@ export class TorClientDuplex {
     return this.#secret.events
   }
 
+  get closed() {
+    return Boolean(this.#secret.closed)
+  }
+
+  close(reason?: unknown) {
+    this.#secret.close(reason)
+  }
+
   async tryWait() {
     if (this.#secret.state.type === "handshaked")
       return Ok.void()
@@ -173,6 +181,8 @@ export class SecretTorClientDuplex {
   readonly authorities = new Array<Authority>()
   readonly circuits = new Mutex(new Map<number, SecretCircuit>())
 
+  readonly #controller: AbortController
+
   readonly #buffer = Cursor.allocUnsafe(65535)
 
   #state: TorState = { type: "none" }
@@ -186,7 +196,9 @@ export class SecretTorClientDuplex {
     readonly tcp: ReadableWritablePair<Opaque, Writable>,
     readonly params: TorClientParams
   ) {
-    const { signal } = params
+    this.#controller = new AbortController()
+
+    const signal = AbortSignals.merge(this.#controller.signal, params.signal)
 
     // this.authorities = parseAuthorities()
 
@@ -235,6 +247,10 @@ export class SecretTorClientDuplex {
 
   get closed() {
     return this.reader.closed
+  }
+
+  close(reason?: unknown) {
+    this.#controller.abort(reason)
   }
 
   async #onReadClose() {

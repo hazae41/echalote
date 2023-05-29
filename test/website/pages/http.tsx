@@ -1,14 +1,13 @@
 import { Berith } from "@hazae41/berith";
-import { Circuit, TorClientDuplex, TorClientParams, createCircuitPool, createWebSocketSnowflakeStream } from "@hazae41/echalote";
+import { Circuit, TorClientDuplex, createCircuitPool } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
 import { Morax } from "@hazae41/morax";
 import { Mutex } from "@hazae41/mutex";
 import { Pool } from "@hazae41/piscine";
-import { AbortError } from "@hazae41/plume";
-import { Err, Ok, Result } from "@hazae41/result";
+import { Ok, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
-import { AbortSignals } from "libs/signals/signals";
+import { tryCreateTorLoop } from "mods/tor";
 import { DependencyList, useCallback, useEffect, useState } from "react";
 
 async function superfetch(circuit: Circuit) {
@@ -40,25 +39,6 @@ export interface TorAndCircuits {
   circuits: Mutex<Pool<Circuit>>
 }
 
-async function tryCreateTorLoop(params: TorClientParams): Promise<Result<TorClientDuplex, AbortError>> {
-  const { signal, fallbacks, ed25519, x25519, sha1 } = params
-
-  while (!signal?.aborted) {
-    const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
-    const tor = new TorClientDuplex(tcp, { fallbacks, ed25519, x25519, sha1, signal })
-
-    const result = await tor.tryWait().then(r => r.ignore())
-
-    if (result.isOk())
-      return new Ok(tor)
-
-    console.warn(`Tor creation failed`, { error: result.get() })
-    continue
-  }
-
-  return new Err(AbortError.from(signal.reason))
-}
-
 export default function Page() {
 
   const tors = useAsyncMemo(async () => {
@@ -81,13 +61,10 @@ export default function Page() {
 
     const fallbacks = await fallbacksRes.json()
 
-    return new Mutex(new Pool<TorAndCircuits>(async (params) => {
+    return new Mutex(new Pool<TorAndCircuits>(async ({ pool, signal }) => {
       return await Result.unthrow(async t => {
-        const controller = new AbortController()
-
-        const signal = AbortSignals.merge(controller.signal, params.signal)
-
         const tor = await tryCreateTorLoop({ fallbacks, ed25519, x25519, sha1, signal }).then(r => r.throw(t))
+
         const circuits = new Mutex(createCircuitPool(tor, { capacity: 3, signal }))
 
         const element = { tor, circuits }
@@ -98,9 +75,7 @@ export default function Page() {
 
           circuits.inner.events.off("errored", onCircuitsError)
 
-          controller.abort(reason)
-
-          await params.pool.delete(element)
+          await pool.delete(element)
 
           return Ok.void()
         }
@@ -114,7 +89,7 @@ export default function Page() {
 
           circuits.inner.events.off("errored", onCircuitsError)
 
-          controller.abort(reason)
+          tor.close(reason)
 
           return Ok.void()
         }
