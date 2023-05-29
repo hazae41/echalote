@@ -1,7 +1,6 @@
 import { Opaque, Writable } from "@hazae41/binary"
 import { Bytes } from "@hazae41/bytes"
-import { Cascade } from "@hazae41/cascade"
-import { Ok } from "@hazae41/result"
+import { Ok, Result } from "@hazae41/result"
 import { SecretTurboReader } from "./reader.js"
 import { SecretTurboWriter } from "./writer.js"
 
@@ -108,7 +107,7 @@ export class SecretTurboDuplex {
 
     await this.reader.events.emit("error", reason)
 
-    return Cascade.rethrow(reason)
+    return Result.rethrow(reason)
   }
 
   async #onWriteError(reason?: unknown) {
@@ -119,7 +118,7 @@ export class SecretTurboDuplex {
 
     await this.writer.events.emit("error", reason)
 
-    return Cascade.rethrow(reason)
+    return Result.rethrow(reason)
   }
 
 }

@@ -1,9 +1,9 @@
 import { ASN1Error, DERReadError } from "@hazae41/asn1";
 import { BinaryError, BinaryReadError, Opaque, Readable, Writable } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
-import { Bytes } from "@hazae41/bytes";
+import { Bytes, BytesCastError } from "@hazae41/bytes";
 import { TlsClientDuplex } from "@hazae41/cadenas";
-import { Cascade, SuperTransformStream } from "@hazae41/cascade";
+import { SuperTransformStream } from "@hazae41/cascade";
 import { Cursor } from "@hazae41/cursor";
 import type { Ed25519 } from "@hazae41/ed25519";
 import { Mutex } from "@hazae41/mutex";
@@ -35,10 +35,11 @@ import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { RelayExtended2Cell } from "mods/tor/binary/cells/relayed/relay_extended2/cell.js";
 import { RelayTruncatedCell } from "mods/tor/binary/cells/relayed/relay_truncated/cell.js";
 import { TorCiphers } from "mods/tor/ciphers.js";
-import { Circuit, SecretCircuit } from "mods/tor/circuit.js";
+import { Circuit, EmptyFallbacksError, SecretCircuit } from "mods/tor/circuit.js";
 import { Authority } from "mods/tor/consensus/authorities.js";
 import { Target } from "mods/tor/target.js";
 import { InvalidKdfKeyHashError, KDFTorResult } from "./algorithms/kdftor.js";
+import { InvalidNtorAuthError } from "./algorithms/ntor/ntor.js";
 import { CellError, ExpectedCircuitError, InvalidCellError, RelayCellError } from "./binary/cells/errors.js";
 import { OldCell } from "./binary/cells/old.js";
 import { CertError, Certs } from "./certs/certs.js";
@@ -262,7 +263,7 @@ export class SecretTorClientDuplex {
 
     await this.events.emit("error", reason)
 
-    return Cascade.rethrow(reason)
+    return Result.rethrow(reason)
   }
 
   async #onWriteError(reason?: unknown) {
@@ -271,7 +272,7 @@ export class SecretTorClientDuplex {
     this.writer.closed = { reason }
     this.reader.error(reason)
 
-    return Cascade.rethrow(reason)
+    return Result.rethrow(reason)
   }
 
   async #onWriteStart(): Promise<Result<void, ErrorError | CloseError>> {
@@ -596,7 +597,7 @@ export class SecretTorClientDuplex {
     }, signal2)
   }
 
-  async tryCreateAndExtendLoop(signal?: AbortSignal) {
+  async tryCreateAndExtendLoop(signal?: AbortSignal): Promise<Result<Circuit, InvalidStateError | ErrorError | CloseError | BinaryError | AbortError | EmptyFallbacksError | InvalidNtorAuthError | InvalidKdfKeyHashError | BytesCastError>> {
     return await Result.unthrow(async t => {
 
       while (!this.closed && !signal?.aborted) {

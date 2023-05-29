@@ -72,7 +72,7 @@ export default function Page() {
       tor.events.on("close", onCloseOrError, { passive: true })
       tor.events.on("error", onCloseOrError, { passive: true })
 
-      return tor
+      return new Ok(tor)
     }, { capacity: 1 })
   }, [])
 
@@ -101,10 +101,10 @@ export default function Page() {
       if (!circuits || circuits.locked) return
 
       const circuit = await circuits.lock(async (circuits) => {
-        const circuit = await circuits.cryptoRandom()
-        circuits.delete(circuit)
+        const circuit = await circuits.tryGetCryptoRandom()
+        circuit.inspectSync(circuit => circuits.delete(circuit))
         return circuit
-      })
+      }).then(r => r.unwrap())
 
       await superfetch(circuit)
     } catch (e: unknown) {

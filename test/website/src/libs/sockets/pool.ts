@@ -4,6 +4,7 @@ import { Fleche } from "@hazae41/fleche"
 import { Future } from "@hazae41/future"
 import { Mutex } from "@hazae41/mutex"
 import { Pool, PoolParams } from "@hazae41/piscine"
+import { Ok } from "@hazae41/result"
 
 export async function createWebSocket(url: URL, circuit: Circuit, signal?: AbortSignal) {
   const tcp = (await circuit.tryOpen(url.hostname, 443, { signal })).unwrap()
@@ -25,29 +26,27 @@ export async function createWebSocket(url: URL, circuit: Circuit, signal?: Abort
   return socket
 }
 
-export function createWebSocketPool(url: URL, circuits: Pool<Circuit>, params: PoolParams = {}) {
-  const mutex = new Mutex(undefined)
-
+export function createWebSocketPool(url: URL, circuits: Mutex<Pool<Circuit>>, params: PoolParams = {}) {
   return new Pool<WebSocket>(async ({ pool }) => {
-    const circuit = await mutex.lock(async () => {
-      const circuit = await circuits.cryptoRandom()
-      circuits.delete(circuit)
+    const circuit = await circuits.lock(async (circuits) => {
+      const circuit = await circuits.tryGetCryptoRandom()
+      circuit.inspectSync(circuit => circuits.delete(circuit))
       return circuit
-    })
+    }).then(r => r.unwrap())
 
     const signal = AbortSignal.timeout(5000)
     const socket = await createWebSocket(url, circuit, signal)
 
-    const onCloseOrError = () => {
+    const onCloseOrError = async () => {
       socket.removeEventListener("close", onCloseOrError)
       socket.removeEventListener("error", onCloseOrError)
 
-      pool.delete(socket)
+      await pool.delete(socket)
     }
 
     socket.addEventListener("close", onCloseOrError)
     socket.addEventListener("error", onCloseOrError)
 
-    return socket
+    return new Ok(socket)
   }, params)
 }

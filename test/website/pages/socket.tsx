@@ -3,10 +3,11 @@ import { createCircuitPool, createWebSocketSnowflakeStream, TorClientDuplex } fr
 import { Ed25519 } from "@hazae41/ed25519";
 import { Morax } from "@hazae41/morax";
 import { Mutex } from "@hazae41/mutex";
+import { Ok } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
 import { createWebSocketPool } from "libs/sockets/pool";
-import { DependencyList, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DependencyList, useCallback, useEffect, useMemo, useState } from "react";
 
 async function superfetch(socket: WebSocket) {
   const start = Date.now()
@@ -58,7 +59,7 @@ export default function Page() {
   const circuits = useMemo(() => {
     if (!tor) return
 
-    return createCircuitPool(tor, { capacity: 10 })
+    return new Mutex(createCircuitPool(tor, { capacity: 10 }))
   }, [tor])
 
   const sockets = useMemo(() => {
@@ -66,21 +67,17 @@ export default function Page() {
 
     const url = new URL("wss://mainnet.infura.io/ws/v3/b6bf7d3508c941499b10025c0776eaf8")
 
-    return createWebSocketPool(url, circuits, { capacity: 10 })
+    return new Mutex(createWebSocketPool(url, circuits, { capacity: 10 }))
   }, [circuits])
 
-  const mutex = useRef(new Mutex(undefined))
-
   const onClick = useCallback(async () => {
-    if (!sockets) return
+    if (!sockets || sockets.locked) return
 
-    if (mutex.current.locked) return
-
-    const socket = await mutex.current.lock(async () => {
-      const socket = await sockets.cryptoRandom()
-      sockets.delete(socket)
+    const socket = await sockets.lock(async (sockets) => {
+      const socket = await sockets.tryGetCryptoRandom()
+      socket.inspectSync(socket => sockets.delete(socket))
       return socket
-    })
+    }).then(r => r.unwrap())
 
     await superfetch(socket)
   }, [sockets])
@@ -93,20 +90,21 @@ export default function Page() {
 
     const onCreatedOrDeleted = () => {
       setCounter(c => c + 1)
+      return Ok.void()
     }
 
-    circuits.events.addEventListener("created", onCreatedOrDeleted, { passive: true })
-    circuits.events.addEventListener("deleted", onCreatedOrDeleted, { passive: true })
+    circuits.inner.events.on("created", onCreatedOrDeleted, { passive: true })
+    circuits.inner.events.on("deleted", onCreatedOrDeleted, { passive: true })
 
-    sockets.events.addEventListener("created", onCreatedOrDeleted, { passive: true })
-    sockets.events.addEventListener("deleted", onCreatedOrDeleted, { passive: true })
+    sockets.inner.events.on("created", onCreatedOrDeleted, { passive: true })
+    sockets.inner.events.on("deleted", onCreatedOrDeleted, { passive: true })
 
     return () => {
-      circuits.events.removeEventListener("created", onCreatedOrDeleted)
-      circuits.events.removeEventListener("deleted", onCreatedOrDeleted)
+      circuits.inner.events.off("created", onCreatedOrDeleted)
+      circuits.inner.events.off("deleted", onCreatedOrDeleted)
 
-      sockets.events.removeEventListener("created", onCreatedOrDeleted)
-      sockets.events.removeEventListener("deleted", onCreatedOrDeleted)
+      sockets.inner.events.off("created", onCreatedOrDeleted)
+      sockets.inner.events.off("deleted", onCreatedOrDeleted)
     }
   }, [circuits, sockets])
 
@@ -116,11 +114,11 @@ export default function Page() {
     </button>
     {circuits &&
       <div>
-        Circuit pool size: {circuits.size} / {circuits.capacity}
+        Circuit pool size: {circuits.inner.size} / {circuits.inner.capacity}
       </div>}
     {sockets &&
       <div>
-        Socket pool size: {sockets.size} / {sockets.capacity}
+        Socket pool size: {sockets.inner.size} / {sockets.inner.capacity}
       </div>}
   </>
 }
