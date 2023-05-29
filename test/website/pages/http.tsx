@@ -1,13 +1,15 @@
 import { Berith } from "@hazae41/berith";
-import { Circuit, TorClientDuplex, createCircuitPool, createWebSocketSnowflakeStream } from "@hazae41/echalote";
+import { Circuit, TorClientDuplex, TorClientParams, createCircuitPool, createWebSocketSnowflakeStream } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
 import { Morax } from "@hazae41/morax";
 import { Mutex } from "@hazae41/mutex";
 import { Pool } from "@hazae41/piscine";
-import { Ok } from "@hazae41/result";
+import { AbortError } from "@hazae41/plume";
+import { Err, Ok, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
-import { DependencyList, useCallback, useEffect, useMemo, useState } from "react";
+import { AbortSignals } from "libs/signals/signals";
+import { DependencyList, useCallback, useEffect, useState } from "react";
 
 async function superfetch(circuit: Circuit) {
   const start = Date.now()
@@ -33,6 +35,30 @@ function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
   return state
 }
 
+export interface TorAndCircuits {
+  tor: TorClientDuplex
+  circuits: Mutex<Pool<Circuit>>
+}
+
+async function tryCreateTorLoop(params: TorClientParams): Promise<Result<TorClientDuplex, AbortError>> {
+  const { signal, fallbacks, ed25519, x25519, sha1 } = params
+
+  while (!signal?.aborted) {
+    const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
+    const tor = new TorClientDuplex(tcp, { fallbacks, ed25519, x25519, sha1, signal })
+
+    const result = await tor.tryWait().then(r => r.ignore())
+
+    if (result.isOk())
+      return new Ok(tor)
+
+    console.warn(`Tor creation failed`, { error: result.get() })
+    continue
+  }
+
+  return new Err(AbortError.from(signal.reason))
+}
+
 export default function Page() {
 
   const tors = useAsyncMemo(async () => {
@@ -55,52 +81,60 @@ export default function Page() {
 
     const fallbacks = await fallbacksRes.json()
 
-    return new Pool<TorClientDuplex>(async ({ pool }) => {
-      const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
+    return new Mutex(new Pool<TorAndCircuits>(async (params) => {
+      return await Result.unthrow(async t => {
+        const controller = new AbortController()
 
-      const tor = new TorClientDuplex(tcp, { fallbacks, ed25519, x25519, sha1 })
+        const signal = AbortSignals.merge(controller.signal, params.signal)
 
-      const onCloseOrError = async (reason?: unknown) => {
-        tor.events.off("close", onCloseOrError)
-        tor.events.off("error", onCloseOrError)
+        const tor = await tryCreateTorLoop({ fallbacks, ed25519, x25519, sha1, signal }).then(r => r.throw(t))
+        const circuits = new Mutex(createCircuitPool(tor, { capacity: 3, signal }))
 
-        await pool.delete(tor)
+        const element = { tor, circuits }
 
-        return Ok.void()
-      }
+        const onTorCloseOrError = async (reason?: unknown) => {
+          tor.events.off("close", onTorCloseOrError)
+          tor.events.off("error", onTorCloseOrError)
 
-      tor.events.on("close", onCloseOrError, { passive: true })
-      tor.events.on("error", onCloseOrError, { passive: true })
+          circuits.inner.events.off("errored", onCircuitsError)
 
-      return new Ok(tor)
-    }, { capacity: 1 })
+          controller.abort(reason)
+
+          await params.pool.delete(element)
+
+          return Ok.void()
+        }
+
+        tor.events.on("close", onTorCloseOrError, { passive: true })
+        tor.events.on("error", onTorCloseOrError, { passive: true })
+
+        const onCircuitsError = async (reason?: unknown) => {
+          tor.events.off("close", onTorCloseOrError)
+          tor.events.off("error", onTorCloseOrError)
+
+          circuits.inner.events.off("errored", onCircuitsError)
+
+          controller.abort(reason)
+
+          return Ok.void()
+        }
+
+        circuits.inner.events.on("errored", onCircuitsError, { passive: true })
+
+        return new Ok(element)
+      })
+    }, { capacity: 3 }))
   }, [])
-
-  const [tor, setTor] = useState<TorClientDuplex>()
-
-  useEffect(() => {
-    return tors?.events.on("created", tor => {
-      return new Ok(setTor(tor.element))
-    }, { passive: true })
-  }, [tors])
-
-  useEffect(() => {
-    return tors?.events.on("deleted", () => {
-      return new Ok(setTor(undefined))
-    }, { passive: true })
-  }, [tors])
-
-  const circuits = useMemo(() => {
-    if (!tor) return
-
-    return new Mutex(createCircuitPool(tor, { capacity: 10 }))
-  }, [tor])
 
   const onClick = useCallback(async () => {
     try {
-      if (!circuits || circuits.locked) return
+      if (!tors || tors.locked) return
 
-      const circuit = await circuits.lock(async (circuits) => {
+      const tor = await tors.lock(async (tors) => {
+        return await tors.tryGetCryptoRandom()
+      }).then(r => r.unwrap())
+
+      const circuit = await tor.circuits.lock(async (circuits) => {
         const circuit = await circuits.tryGetCryptoRandom()
         circuit.inspectSync(circuit => circuits.delete(circuit))
         return circuit
@@ -110,34 +144,63 @@ export default function Page() {
     } catch (e: unknown) {
       console.error("onClick", { e })
     }
-  }, [circuits])
+  }, [tors])
 
   const [_, setCounter] = useState(0)
 
   useEffect(() => {
-    if (!circuits) return
+    if (!tors) return
 
     const onCreatedOrDeleted = () => {
       setCounter(c => c + 1)
       return Ok.void()
     }
 
-    circuits.inner.events.on("created", onCreatedOrDeleted, { passive: true })
-    circuits.inner.events.on("deleted", onCreatedOrDeleted, { passive: true })
+    tors.inner.events.on("created", onCreatedOrDeleted, { passive: true })
+    tors.inner.events.on("deleted", onCreatedOrDeleted, { passive: true })
 
     return () => {
-      circuits.inner.events.off("created", onCreatedOrDeleted)
-      circuits.inner.events.off("deleted", onCreatedOrDeleted)
+      tors.inner.events.off("created", onCreatedOrDeleted)
+      tors.inner.events.off("deleted", onCreatedOrDeleted)
     }
-  }, [circuits])
+  }, [tors])
 
   return <>
     <button onClick={onClick}>
       Click me
     </button>
-    {circuits &&
-      <div>
-        Circuit pool size: {circuits.inner.size} / {circuits.inner.capacity}
-      </div>}
+    {tors && [...Array(tors.inner.capacity)].map((_, i) =>
+      <TorDisplay key={i} tor={tors?.inner.getSync(i)} />)}
   </>
+}
+
+function TorDisplay(props: { tor?: TorAndCircuits }) {
+  const { tor } = props
+
+  const [_, setCounter] = useState(0)
+
+  useEffect(() => {
+    if (!tor) return
+
+    const onCreatedOrDeleted = () => {
+      setCounter(c => c + 1)
+      return Ok.void()
+    }
+
+    tor.circuits.inner.events.on("created", onCreatedOrDeleted, { passive: true })
+    tor.circuits.inner.events.on("deleted", onCreatedOrDeleted, { passive: true })
+
+    return () => {
+      tor.circuits.inner.events.off("created", onCreatedOrDeleted)
+      tor.circuits.inner.events.off("deleted", onCreatedOrDeleted)
+    }
+  }, [tor])
+
+
+  if (!tor)
+    return <div>Loading...</div>
+
+  return <div>
+    Circuit pool size: {tor.circuits.inner.size} / {tor.circuits.inner.capacity}
+  </div>
 }
