@@ -1,17 +1,18 @@
+import { Mutex } from "@hazae41/mutex";
 import { Pool, PoolParams } from "@hazae41/piscine";
 import { Ok } from "@hazae41/result";
 import { Circuit } from "mods/tor/circuit.js";
 import { TorClientDuplex } from "mods/tor/tor.js";
 
 export function createCircuitPool(tor: TorClientDuplex, params: PoolParams = {}) {
-  return new Pool<Circuit>(async ({ pool, signal }) => {
+  const pool = new Pool<Circuit>(async ({ pool, signal }) => {
     const circuit = await tor.tryCreateAndExtendLoop(signal).then(r => r.unwrap())
 
     const onCircuitCloseOrError = async () => {
       circuit.events.off("close", onCircuitCloseOrError)
       circuit.events.off("error", onCircuitCloseOrError)
 
-      await pool.delete(circuit)
+      pool.delete(circuit)
 
       return Ok.void()
     }
@@ -21,4 +22,6 @@ export function createCircuitPool(tor: TorClientDuplex, params: PoolParams = {})
 
     return new Ok(circuit)
   }, params)
+
+  return new Mutex(pool)
 }

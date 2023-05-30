@@ -1,13 +1,13 @@
 import { Berith } from "@hazae41/berith";
-import { Circuit, TorClientDuplex, createCircuitPool } from "@hazae41/echalote";
+import { Circuit, TorClientDuplex } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
 import { Morax } from "@hazae41/morax";
 import { Mutex } from "@hazae41/mutex";
 import { Pool } from "@hazae41/piscine";
-import { Ok, Result } from "@hazae41/result";
+import { Ok } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
-import { tryCreateTorLoop } from "mods/tor";
+import { createTorAndCircuitsPool, createTorPool } from "mods/tor";
 import { DependencyList, useCallback, useEffect, useState } from "react";
 
 async function superfetch(circuit: Circuit) {
@@ -63,44 +63,9 @@ export default function Page() {
 
     const fallbacks = await fallbacksRes.json()
 
-    return new Mutex(new Pool<TorAndCircuits>(async ({ pool, signal }) => {
-      return await Result.unthrow(async t => {
-        const tor = await tryCreateTorLoop({ fallbacks, ed25519, x25519, sha1, signal }).then(r => r.throw(t))
+    const tors = createTorPool({ fallbacks, ed25519, sha1, x25519, capacity: 3 })
 
-        const circuits = new Mutex(createCircuitPool(tor, { capacity: 3, signal }))
-
-        const element = { tor, circuits }
-
-        const onTorCloseOrError = async (reason?: unknown) => {
-          tor.events.off("close", onTorCloseOrError)
-          tor.events.off("error", onTorCloseOrError)
-
-          circuits.inner.events.off("errored", onCircuitsError)
-
-          await pool.delete(element)
-
-          return Ok.void()
-        }
-
-        tor.events.on("close", onTorCloseOrError, { passive: true })
-        tor.events.on("error", onTorCloseOrError, { passive: true })
-
-        const onCircuitsError = async (reason?: unknown) => {
-          tor.events.off("close", onTorCloseOrError)
-          tor.events.off("error", onTorCloseOrError)
-
-          circuits.inner.events.off("errored", onCircuitsError)
-
-          tor.close(reason)
-
-          return Ok.void()
-        }
-
-        circuits.inner.events.on("errored", onCircuitsError, { passive: true })
-
-        return new Ok(element)
-      })
-    }, { capacity: 3 }))
+    return createTorAndCircuitsPool(tors, { capacity: 3 })
   }, [])
 
   const onClick = useCallback(async () => {
@@ -172,7 +137,6 @@ function TorDisplay(props: { tor?: TorAndCircuits }) {
       tor.circuits.inner.events.off("deleted", onCreatedOrDeleted)
     }
   }, [tor])
-
 
   if (!tor)
     return <div>Loading...</div>
