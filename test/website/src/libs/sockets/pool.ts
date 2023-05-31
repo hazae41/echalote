@@ -1,55 +1,102 @@
+import { BinaryWriteError } from "@hazae41/binary"
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas"
+import { ControllerError } from "@hazae41/cascade"
 import { Circuit, TorClientDuplex } from "@hazae41/echalote"
 import { Fleche } from "@hazae41/fleche"
 import { Future } from "@hazae41/future"
 import { Mutex } from "@hazae41/mutex"
 import { Pool } from "@hazae41/piscine"
-import { AbortError } from "@hazae41/plume"
-import { Ok } from "@hazae41/result"
+import { AbortError, CloseError, ErrorError } from "@hazae41/plume"
+import { Err, Ok, Result } from "@hazae41/result"
 import { AbortSignals } from "libs/signals/signals"
 import { TorAndCircuits } from "mods/tor"
 
-export async function createWebSocket(circuit: Circuit, params: { url: URL, signal?: AbortSignal }) {
-  const signal = AbortSignals.timeout(5_000, params.signal)
+export async function tryCreateWebSocket(circuit: Circuit, url: URL, signal?: AbortSignal): Promise<Result<WebSocket, BinaryWriteError | CloseError | ErrorError | AbortError | ControllerError>> {
+  return await Result.unthrow(async t => {
+    const signal2 = AbortSignals.timeout(5_000, signal)
 
-  const tcp = await circuit.tryOpen(params.url.hostname, 443, { signal }).then(r => r.unwrap())
-  const tls = new TlsClientDuplex(tcp, { ciphers: [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384] })
-  const socket = new Fleche.WebSocket(params.url, undefined, { subduplex: tls })
+    const tcp = await circuit.tryOpen(url.hostname, 443).then(r => r.throw(t))
+    const tls = new TlsClientDuplex(tcp, { ciphers: [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384] })
+    const socket = new Fleche.WebSocket(url, undefined, { subduplex: tls })
 
-  const future = new Future()
+    const future = new Future<Result<WebSocket, ErrorError | AbortError>>()
 
-  try {
-    socket.addEventListener("open", future.resolve, { passive: true })
-    socket.addEventListener("error", future.reject, { passive: true })
+    const onOpen = () => {
+      future.resolve(new Ok(socket))
+    }
 
-    await future.promise
-  } finally {
-    socket.removeEventListener("open", future.resolve)
-    socket.removeEventListener("error", future.reject)
-  }
+    const onError = (e: unknown) => {
+      future.resolve(new Err(ErrorError.from(e)))
+    }
 
-  return socket
+    const onAbort = (e: unknown) => {
+      socket.close()
+      future.resolve(new Err(AbortError.from(e)))
+    }
+
+    try {
+      socket.addEventListener("open", onOpen, { passive: true })
+      socket.addEventListener("error", onError, { passive: true })
+      signal2.addEventListener("abort", onAbort, { passive: true })
+
+      return await future.promise
+    } finally {
+      socket.removeEventListener("open", onOpen)
+      socket.removeEventListener("error", onError)
+      signal2.removeEventListener("abort", onAbort)
+    }
+  })
 }
 
-export async function createWebSocketLoopOrThrow(circuits: Mutex<Pool<Circuit>>, params: { url: URL, signal?: AbortSignal }) {
-  while (!params.signal?.aborted) {
-    try {
+export async function tryCreateSocketLoop(circuit: Circuit, url: URL, signal?: AbortSignal) {
+  return await Result.unthrow(async t => {
+    while (!signal?.aborted) {
+      const result = await tryCreateWebSocket(circuit, url, signal)
+
+      if (result.isOk())
+        return new Ok(result.get())
+
+      if (!circuit.destroyed) {
+        console.warn(`WebSocket creation failed`, { e: result.get() })
+        await circuit.tryDestroy().then(r => r.throw(t))
+        continue
+      }
+
+      return result
+    }
+
+    return new Err(AbortError.from(signal.reason))
+  })
+}
+
+export async function tryGetCircuitAndCreateSocketLoop(circuits: Mutex<Pool<Circuit>>, url: URL, signal?: AbortSignal) {
+  return await Result.unthrow(async t => {
+    while (!signal?.aborted) {
+
       const circuit = await circuits.lock(async (circuits) => {
         const circuit = await circuits.tryGetCryptoRandom()
         circuit.inspectSync(circuit => circuits.delete(circuit))
         return circuit
-      }).then(r => r.unwrap())
+      }).then(r => r.throw(t))
 
-      const socket = await createWebSocket(circuit, params)
+      const socketRes = await tryCreateSocketLoop(circuit, url, signal)
 
-      return { socket, circuit }
-    } catch (e: unknown) {
-      console.warn(`WebSocket creation failed`, { e })
-      continue
+      if (socketRes.isOk()) {
+        const socket = socketRes.get()
+        return new Ok({ socket, circuit })
+      }
+
+      if (socketRes.isErr()) {
+        console.warn(`WebSocket creation failed`, { e: socketRes.get() })
+        await circuit.tryDestroy().then(r => r.throw(t))
+        continue
+      }
+
+      return socketRes
     }
-  }
 
-  throw AbortError.from(params.signal.reason)
+    return new Err(AbortError.from(signal.reason))
+  })
 }
 
 export interface Socket {
@@ -61,21 +108,23 @@ export function createSocketPool(circuitPool: Mutex<Pool<Circuit>>, params: { ur
   const { capacity, signal } = circuitPool.inner
 
   const pool = new Pool<Socket>(async ({ pool, signal }) => {
-    const { url } = params
+    return await Result.unthrow(async t => {
+      const { url } = params
 
-    const element = await createWebSocketLoopOrThrow(circuitPool, { url, signal })
+      const element = await tryGetCircuitAndCreateSocketLoop(circuitPool, { url, signal }).then(r => r.throw(t))
 
-    const onCloseOrError = async () => {
-      element.socket.removeEventListener("close", onCloseOrError)
-      element.socket.removeEventListener("error", onCloseOrError)
+      const onCloseOrError = async () => {
+        element.socket.removeEventListener("close", onCloseOrError)
+        element.socket.removeEventListener("error", onCloseOrError)
 
-      pool.delete(element)
-    }
+        pool.delete(element)
+      }
 
-    element.socket.addEventListener("close", onCloseOrError)
-    element.socket.addEventListener("error", onCloseOrError)
+      element.socket.addEventListener("close", onCloseOrError)
+      element.socket.addEventListener("error", onCloseOrError)
 
-    return new Ok(element)
+      return new Ok(element)
+    })
   }, { capacity, signal })
 
   pool.events.on("errored", async (reason) => {

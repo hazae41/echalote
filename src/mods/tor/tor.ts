@@ -613,7 +613,7 @@ export class SecretTorClientDuplex {
     }, signal2)
   }
 
-  async tryCreateAndExtendLoop(signal?: AbortSignal): Promise<Result<Circuit, InvalidStateError | ErrorError | CloseError | BinaryError | AbortError | EmptyFallbacksError | InvalidNtorAuthError | InvalidKdfKeyHashError | BytesCastError>> {
+  async tryCreateAndExtendLoop(signal?: AbortSignal): Promise<Result<Circuit, InvalidStateError | ErrorError | CloseError | BinaryError | AbortError | EmptyFallbacksError | InvalidNtorAuthError | InvalidKdfKeyHashError | BytesCastError | EventError>> {
     return await Result.unthrow(async t => {
 
       while (!this.closed && !signal?.aborted) {
@@ -627,16 +627,18 @@ export class SecretTorClientDuplex {
           if (extend2.isOk())
             return new Ok(circuit)
 
-          if (circuit.closed && !this.closed && !signal?.aborted) {
+          if (circuit.destroyed && !this.closed && !signal?.aborted) {
             console.debug("Create and extend failed", { error: extend2.get() })
+            await circuit.tryDestroy().then(r => r.throw(t))
             continue
           }
 
           return extend2
         }
 
-        if (circuit.closed && !this.closed && !signal?.aborted) {
+        if (circuit.destroyed && !this.closed && !signal?.aborted) {
           console.debug("Create and extend failed", { error: extend1.get() })
+          await circuit.tryDestroy().then(r => r.throw(t))
           continue
         }
 

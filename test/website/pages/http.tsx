@@ -1,5 +1,5 @@
 import { Berith } from "@hazae41/berith";
-import { Circuit, TorClientDuplex } from "@hazae41/echalote";
+import { Circuit, TorClientDuplex, createCircuitPoolFromTorPool } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
 import { Morax } from "@hazae41/morax";
 import { Mutex } from "@hazae41/mutex";
@@ -7,7 +7,7 @@ import { Pool } from "@hazae41/piscine";
 import { Ok } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
-import { createTorAndCircuitsPool, createTorPool } from "mods/tor";
+import { createTorPool } from "mods/tor";
 import { DependencyList, useCallback, useEffect, useState } from "react";
 
 async function superfetch(circuit: Circuit) {
@@ -43,7 +43,7 @@ export interface TorAndCircuits {
 
 export default function Page() {
 
-  const tors = useAsyncMemo(async () => {
+  const circuits = useAsyncMemo(async () => {
     // const ed25519 = Ed25519.fromNoble(noble_ed25519.ed25519)
     // const x25519 = X25519.fromNoble(noble_ed25519.x25519)
     // const sha1 = Sha1.fromNoble(noble_sha1.sha1)
@@ -64,19 +64,16 @@ export default function Page() {
     const fallbacks = await fallbacksRes.json()
 
     const tors = createTorPool({ fallbacks, ed25519, sha1, x25519, capacity: 3 })
+    const circuits = createCircuitPoolFromTorPool(tors, { capacity: 9 })
 
-    return createTorAndCircuitsPool(tors, { capacity: 3 })
+    return circuits
   }, [])
 
   const onClick = useCallback(async () => {
     try {
-      if (!tors || tors.locked) return
+      if (!circuits || circuits.locked) return
 
-      const tor = await tors.lock(async (tors) => {
-        return await tors.tryGetCryptoRandom()
-      }).then(r => r.unwrap())
-
-      const circuit = await tor.circuits.lock(async (circuits) => {
+      const circuit = await circuits.lock(async (circuits) => {
         const circuit = await circuits.tryGetCryptoRandom()
         circuit.inspectSync(circuit => circuits.delete(circuit))
         return circuit
@@ -86,62 +83,37 @@ export default function Page() {
     } catch (e: unknown) {
       console.error("onClick", { e })
     }
-  }, [tors])
+  }, [circuits])
 
   const [_, setCounter] = useState(0)
 
   useEffect(() => {
-    if (!tors) return
+    if (!circuits) return
 
     const onCreatedOrDeleted = () => {
       setCounter(c => c + 1)
       return Ok.void()
     }
 
-    tors.inner.events.on("created", onCreatedOrDeleted, { passive: true })
-    tors.inner.events.on("deleted", onCreatedOrDeleted, { passive: true })
+    circuits.inner.events.on("created", onCreatedOrDeleted, { passive: true })
+    circuits.inner.events.on("deleted", onCreatedOrDeleted, { passive: true })
 
     return () => {
-      tors.inner.events.off("created", onCreatedOrDeleted)
-      tors.inner.events.off("deleted", onCreatedOrDeleted)
+      circuits.inner.events.off("created", onCreatedOrDeleted)
+      circuits.inner.events.off("deleted", onCreatedOrDeleted)
     }
-  }, [tors])
+  }, [circuits])
 
   return <>
     <button onClick={onClick}>
       Click me
     </button>
-    {tors && [...Array(tors.inner.capacity)].map((_, i) =>
-      <TorDisplay key={i} tor={tors?.inner.getSync(i)} />)}
+    {circuits
+      ? <div>
+        Circuit pool size: {circuits.inner.size} / {circuits.inner.capacity}
+      </div>
+      : <div>
+        Loading...
+      </div>}
   </>
-}
-
-function TorDisplay(props: { tor?: TorAndCircuits }) {
-  const { tor } = props
-
-  const [_, setCounter] = useState(0)
-
-  useEffect(() => {
-    if (!tor) return
-
-    const onCreatedOrDeleted = () => {
-      setCounter(c => c + 1)
-      return Ok.void()
-    }
-
-    tor.circuits.inner.events.on("created", onCreatedOrDeleted, { passive: true })
-    tor.circuits.inner.events.on("deleted", onCreatedOrDeleted, { passive: true })
-
-    return () => {
-      tor.circuits.inner.events.off("created", onCreatedOrDeleted)
-      tor.circuits.inner.events.off("deleted", onCreatedOrDeleted)
-    }
-  }, [tor])
-
-  if (!tor)
-    return <div>Loading...</div>
-
-  return <div>
-    Circuit pool size: {tor.circuits.inner.size} / {tor.circuits.inner.capacity}
-  </div>
 }

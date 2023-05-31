@@ -3,6 +3,7 @@ import { BinaryError, BinaryWriteError, Opaque } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Bytes, BytesCastError } from "@hazae41/bytes";
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
+import { ControllerError } from "@hazae41/cascade";
 import { PipeError, tryFetch } from "@hazae41/fleche";
 import { Option, Some } from "@hazae41/option";
 import { AbortError, CloseError, ErrorError, EventError, Plume, StreamEvents, SuperEventTarget } from "@hazae41/plume";
@@ -38,7 +39,6 @@ export const IPv6 = {
 
 export interface CircuitOpenParams {
   ipv6?: keyof typeof IPv6
-  signal?: AbortSignal
 }
 
 export class EmptyFallbacksError extends Error {
@@ -83,8 +83,8 @@ export class Circuit {
     return this.#secret.id
   }
 
-  get closed() {
-    return Boolean(this.#secret.closed)
+  get destroyed() {
+    return Boolean(this.#secret.destroyed)
   }
 
   async #onClose() {
@@ -134,7 +134,7 @@ export class SecretCircuit {
 
   #streamId = 1
 
-  #closed?: { reason?: unknown }
+  #destroyed?: { reason?: unknown }
 
   constructor(
     readonly id: number,
@@ -165,14 +165,14 @@ export class SecretCircuit {
     this.tor.events.on("RELAY_END", onRelayEndCell, { passive: true })
   }
 
-  get closed() {
-    return this.#closed
+  get destroyed() {
+    return this.#destroyed
   }
 
   async #onTorClose() {
     console.debug(`${this.#class.name}.onTorClose`)
 
-    this.#closed = {}
+    this.#destroyed = {}
 
     return await this.events.tryEmit("close", undefined).then(r => r.clear())
   }
@@ -180,7 +180,7 @@ export class SecretCircuit {
   async #onTorError(reason?: unknown) {
     console.debug(`${this.#class.name}.onReadError`, { reason })
 
-    this.#closed = { reason }
+    this.#destroyed = { reason }
 
     return await this.events.tryEmit("error", reason).then(r => r.clear())
   }
@@ -191,7 +191,7 @@ export class SecretCircuit {
 
     console.debug(`${this.#class.name}.onDestroyCell`, cell)
 
-    this.#closed = { reason: cell }
+    this.#destroyed = { reason: cell }
 
     return await this.events.tryEmit("error", cell).then(r => r.clear())
   }
@@ -212,7 +212,7 @@ export class SecretCircuit {
 
       console.debug(`${this.#class.name}.onRelayTruncatedCell`, cell)
 
-      this.#closed = {}
+      this.#destroyed = {}
 
       await this.events.tryEmit("RELAY_TRUNCATED", cell).then(r => r.throw(t))
       await this.events.tryEmit("error", cell).then(r => r.throw(t))
@@ -264,13 +264,13 @@ export class SecretCircuit {
   // }
 
   async tryExtendLoop(exit: boolean, signal?: AbortSignal) {
-    while (!this.closed && !signal?.aborted) {
+    while (!this.destroyed && !signal?.aborted) {
       const result = await this.tryExtend(exit, signal)
 
       if (result.isOk())
         return result
 
-      if (this.closed)
+      if (this.destroyed)
         return result
       if (signal?.aborted)
         return result
@@ -288,20 +288,20 @@ export class SecretCircuit {
       return result
     }
 
-    if (this.closed?.reason !== undefined)
-      return new Err(ErrorError.from(this.closed.reason))
-    if (this.closed !== undefined)
-      return new Err(CloseError.from(this.closed.reason))
+    if (this.destroyed?.reason !== undefined)
+      return new Err(ErrorError.from(this.destroyed.reason))
+    if (this.destroyed !== undefined)
+      return new Err(CloseError.from(this.destroyed.reason))
     if (signal?.aborted)
       return new Err(AbortError.from(signal.reason))
     throw new Panic()
   }
 
   async tryExtend(exit: boolean, signal?: AbortSignal): Promise<Result<void, EmptyFallbacksError | InvalidNtorAuthError | CloseError | BytesCastError | BinaryError | AbortError | ErrorError>> {
-    if (this.closed?.reason !== undefined)
-      return new Err(ErrorError.from(this.closed.reason))
-    if (this.closed !== undefined)
-      return new Err(CloseError.from(this.closed.reason))
+    if (this.destroyed?.reason !== undefined)
+      return new Err(ErrorError.from(this.destroyed.reason))
+    if (this.destroyed !== undefined)
+      return new Err(CloseError.from(this.destroyed.reason))
 
     const fallbacks = exit
       ? this.tor.params.fallbacks.filter(it => it.exit)
@@ -317,10 +317,10 @@ export class SecretCircuit {
 
   async tryExtendTo(fallback: Fallback, signal?: AbortSignal): Promise<Result<void, BytesCastError | InvalidNtorAuthError | BinaryError | AbortError | ErrorError | CloseError>> {
     return await Result.unthrow(async t => {
-      if (this.closed?.reason !== undefined)
-        return new Err(ErrorError.from(this.closed.reason))
-      if (this.closed !== undefined)
-        return new Err(CloseError.from(this.closed.reason))
+      if (this.destroyed?.reason !== undefined)
+        return new Err(ErrorError.from(this.destroyed.reason))
+      if (this.destroyed !== undefined)
+        return new Err(CloseError.from(this.destroyed.reason))
 
       const signal2 = AbortSignals.timeout(5_000, signal)
 
@@ -382,7 +382,7 @@ export class SecretCircuit {
   }
 
   async tryDestroy(reason?: unknown): Promise<Result<void, EventError>> {
-    this.#closed = { reason }
+    this.#destroyed = { reason }
 
     return await this.events.tryEmit("error", reason).then(r => r.clear())
   }
@@ -401,16 +401,16 @@ export class SecretCircuit {
     })
   }
 
-  async tryOpen(hostname: string, port: number, params: CircuitOpenParams = {}): Promise<Result<TorStreamDuplex, BinaryWriteError | ErrorError | CloseError>> {
+  async tryOpen(hostname: string, port: number, params: CircuitOpenParams = {}): Promise<Result<TorStreamDuplex, BinaryWriteError | ErrorError | CloseError | ControllerError>> {
     return await Result.unthrow(async t => {
-      if (this.closed?.reason !== undefined)
-        return new Err(ErrorError.from(this.closed.reason))
-      if (this.closed !== undefined)
-        return new Err(CloseError.from(this.closed.reason))
+      if (this.destroyed?.reason !== undefined)
+        return new Err(ErrorError.from(this.destroyed.reason))
+      if (this.destroyed !== undefined)
+        return new Err(CloseError.from(this.destroyed.reason))
 
-      const { signal, ipv6 = "preferred" } = params
+      const { ipv6 = "preferred" } = params
 
-      const stream = new SecretTorStreamDuplex(this.#streamId++, this, signal)
+      const stream = new SecretTorStreamDuplex(this.#streamId++, this)
 
       this.streams.set(stream.id, stream)
 
@@ -423,7 +423,7 @@ export class SecretCircuit {
 
       const begin = new RelayBeginCell(`${hostname}:${port}`, flags)
       const begin_cell = RelayCell.Streamful.from(this, stream, begin)
-      this.tor.writer.enqueue(begin_cell.tryCell().throw(t))
+      this.tor.writer.tryEnqueue(begin_cell.tryCell().throw(t)).throw(t)
 
       return new Ok(new TorStreamDuplex(stream))
     })
@@ -435,12 +435,12 @@ export class SecretCircuit {
    * @param init Fetch init
    * @returns Response promise
    */
-  async tryFetch(input: RequestInfo | URL, init: RequestInit & CircuitOpenParams): Promise<Result<Response, UnknownProtocolError | BinaryWriteError | AbortError | ErrorError | CloseError | PipeError>> {
+  async tryFetch(input: RequestInfo | URL, init: RequestInit & CircuitOpenParams): Promise<Result<Response, UnknownProtocolError | BinaryWriteError | AbortError | ErrorError | CloseError | PipeError | ControllerError>> {
     return await Result.unthrow(async t => {
-      if (this.closed?.reason !== undefined)
-        return new Err(ErrorError.from(this.closed.reason))
-      if (this.closed !== undefined)
-        return new Err(CloseError.from(this.closed.reason))
+      if (this.destroyed?.reason !== undefined)
+        return new Err(ErrorError.from(this.destroyed.reason))
+      if (this.destroyed !== undefined)
+        return new Err(CloseError.from(this.destroyed.reason))
 
       const req = new Request(input, init)
 
