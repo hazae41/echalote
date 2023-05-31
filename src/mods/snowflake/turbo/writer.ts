@@ -33,7 +33,7 @@ export class SecretTurboWriter {
   #onWrite(fragment: Writable) {
     return TurboFrame
       .tryNew({ padding: false, fragment })
-      .mapSync(frame => this.stream.enqueue(frame))
+      .andThenSync(frame => this.stream.tryEnqueue(frame))
   }
 
 }

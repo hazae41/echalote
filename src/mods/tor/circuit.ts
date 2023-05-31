@@ -349,7 +349,7 @@ export class SecretCircuit {
         return new Ok(new Some(new Ok(e)))
       }, signal2).then(r => r.throw(t))
 
-      const response = msg_extended2.fragment.fragment.tryInto(Ntor.NtorResponse).throw(t)
+      const response = msg_extended2.fragment.fragment.tryReadInto(Ntor.NtorResponse).throw(t)
 
       const { public_y } = response
 

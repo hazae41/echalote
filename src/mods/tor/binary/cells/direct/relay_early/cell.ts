@@ -164,7 +164,7 @@ export namespace RelayEarlyCell {
       if (cell.stream === undefined)
         return new Err(new ExpectedStreamError())
 
-      return cell.fragment.tryInto(readable).mapSync(fragment => new Streamful(cell.circuit, cell.stream, readable.rcommand, fragment))
+      return cell.fragment.tryReadInto(readable).mapSync(fragment => new Streamful(cell.circuit, cell.stream, readable.rcommand, fragment))
     }
 
   }
@@ -195,7 +195,7 @@ export namespace RelayEarlyCell {
       if (cell.stream !== undefined)
         return new Err(new UnexpectedStreamError())
 
-      return cell.fragment.tryInto(readable).mapSync(fragment => new Streamless(cell.circuit, cell.stream, readable.rcommand, fragment))
+      return cell.fragment.tryReadInto(readable).mapSync(fragment => new Streamless(cell.circuit, cell.stream, readable.rcommand, fragment))
     }
 
   }

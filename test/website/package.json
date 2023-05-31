@@ -12,7 +12,7 @@
     "@hazae41/berith": "^1.1.40",
     "@hazae41/cadenas": "^0.2.23",
     "@hazae41/ed25519": "^1.0.0",
-    "@hazae41/fleche": "^1.1.31",
+    "@hazae41/fleche": "^1.1.33",
     "@hazae41/morax": "^1.0.20",
     "@hazae41/mutex": "^1.2.5",
     "@hazae41/piscine": "^1.0.15",

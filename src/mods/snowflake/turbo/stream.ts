@@ -48,7 +48,7 @@ export class SecretTurboDuplex {
   ) {
     const { clientID } = params
 
-    this.clientID = clientID ?? Bytes.random(8)
+    this.clientID = clientID ?? Bytes.tryRandom(8).unwrap()
 
     this.reader = new SecretTurboReader(this)
     this.writer = new SecretTurboWriter(this)

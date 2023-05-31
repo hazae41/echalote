@@ -3,6 +3,10 @@ import { Bitset } from "@hazae41/bitset";
 import { Cursor } from "@hazae41/cursor";
 import { Err, Ok, Panic, Result } from "@hazae41/result";
 
+export type TurboFrameError =
+  | UnexpectedContinuationError
+  | FragmentOverflowError
+
 export class FragmentOverflowError extends Error {
   readonly #class = FragmentOverflowError
   readonly name = this.#class.name
@@ -128,7 +132,7 @@ export class TurboFrame<T extends Writable.Infer<T>> {
    * Read from bytes
    * @param binary bytes
    */
-  static tryRead(cursor: Cursor): Result<TurboFrame<Opaque>, BinaryReadError | FragmentOverflowError | UnexpectedContinuationError> {
+  static tryRead(cursor: Cursor): Result<TurboFrame<Opaque>, TurboFrameError | BinaryReadError> {
     return Result.unthrowSync(t => {
       let lengthBits = ""
 

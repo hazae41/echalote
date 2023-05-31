@@ -1,8 +1,8 @@
 import { BinaryReadError, Opaque } from "@hazae41/binary"
-import { SuperTransformStream } from "@hazae41/cascade"
+import { ControllerError, SuperTransformStream } from "@hazae41/cascade"
 import { StreamEvents, SuperEventTarget } from "@hazae41/plume"
 import { Ok, Result } from "@hazae41/result"
-import { FragmentOverflowError, TurboFrame, UnexpectedContinuationError } from "./frame.js"
+import { TurboFrame, TurboFrameError } from "./frame.js"
 import { SecretTurboDuplex } from "./stream.js"
 
 export class SecretTurboReader {
@@ -19,15 +19,14 @@ export class SecretTurboReader {
     })
   }
 
-  #onRead(chunk: Opaque): Result<void, BinaryReadError | FragmentOverflowError | UnexpectedContinuationError> {
+  #onRead(chunk: Opaque): Result<void, BinaryReadError | TurboFrameError | ControllerError> {
     return Result.unthrowSync(t => {
-      const frame = chunk.tryInto(TurboFrame).throw(t)
+      const frame = chunk.tryReadInto(TurboFrame).throw(t)
 
       if (frame.padding)
         return Ok.void()
 
-      this.stream.enqueue(frame.fragment)
-      return Ok.void()
+      return this.stream.tryEnqueue(frame.fragment)
     })
   }
 }

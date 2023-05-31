@@ -141,7 +141,7 @@ export namespace OldCell {
       if (cell.circuit === undefined)
         return new Err(new ExpectedCircuitError())
 
-      return cell.fragment.tryInto(readable).mapSync(fragment => new Circuitful(cell.circuit, readable.command, fragment))
+      return cell.fragment.tryReadInto(readable).mapSync(fragment => new Circuitful(cell.circuit, readable.command, fragment))
     }
 
   }
@@ -175,7 +175,7 @@ export namespace OldCell {
       if (cell.circuit !== undefined)
         return new Err(new UnexpectedCircuitError())
 
-      return cell.fragment.tryInto(readable).mapSync(fragment => new Circuitless(cell.circuit, readable.command, fragment))
+      return cell.fragment.tryReadInto(readable).mapSync(fragment => new Circuitless(cell.circuit, readable.command, fragment))
     }
 
   }

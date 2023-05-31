@@ -143,7 +143,6 @@ function TorDisplay(props: { key: number, tor?: TorAndCircuitsAndSockets }) {
     }
   }, [tor])
 
-
   if (!tor)
     return <div>Loading...</div>
 
