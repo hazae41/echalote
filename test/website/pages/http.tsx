@@ -73,11 +73,9 @@ export default function Page() {
     try {
       if (!circuits || circuits.locked) return
 
-      const circuit = await circuits.lock(async (circuits) => {
-        const circuit = await circuits.tryGetCryptoRandom()
-        circuit.inspectSync(circuit => circuits.delete(circuit))
-        return circuit
-      }).then(r => r.unwrap())
+      const circuit = await Pool
+        .takeCryptoRandom(circuits)
+        .then(r => r.unwrap())
 
       await superfetch(circuit)
     } catch (e: unknown) {

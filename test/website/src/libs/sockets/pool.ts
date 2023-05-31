@@ -1,15 +1,14 @@
 import { BinaryWriteError } from "@hazae41/binary"
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas"
 import { ControllerError } from "@hazae41/cascade"
-import { Circuit, TorClientDuplex } from "@hazae41/echalote"
+import { Circuit } from "@hazae41/echalote"
 import { Fleche } from "@hazae41/fleche"
 import { Future } from "@hazae41/future"
 import { Mutex } from "@hazae41/mutex"
-import { Pool } from "@hazae41/piscine"
+import { Pool, PoolParams } from "@hazae41/piscine"
 import { AbortError, CloseError, ErrorError } from "@hazae41/plume"
 import { Err, Ok, Result } from "@hazae41/result"
 import { AbortSignals } from "libs/signals/signals"
-import { TorAndCircuits } from "mods/tor"
 
 export async function tryCreateWebSocket(circuit: Circuit, url: URL, signal?: AbortSignal): Promise<Result<WebSocket, BinaryWriteError | CloseError | ErrorError | AbortError | ControllerError>> {
   return await Result.unthrow(async t => {
@@ -73,100 +72,60 @@ export async function tryGetCircuitAndCreateSocketLoop(circuits: Mutex<Pool<Circ
   return await Result.unthrow(async t => {
     while (!signal?.aborted) {
 
-      const circuit = await circuits.lock(async (circuits) => {
-        const circuit = await circuits.tryGetCryptoRandom()
-        circuit.inspectSync(circuit => circuits.delete(circuit))
-        return circuit
-      }).then(r => r.throw(t))
+      const circuit = await Pool
+        .takeCryptoRandom(circuits)
+        .then(r => r.throw(t))
 
-      const socketRes = await tryCreateSocketLoop(circuit, url, signal)
+      const result = await tryCreateSocketLoop(circuit, url, signal)
 
-      if (socketRes.isOk()) {
-        const socket = socketRes.get()
-        return new Ok({ socket, circuit })
-      }
+      if (result.isOk())
+        return new Ok({ circuit, socket: result.get() })
 
-      if (socketRes.isErr()) {
-        console.warn(`WebSocket creation failed`, { e: socketRes.get() })
+      if (result.isErr()) {
+        console.warn(`WebSocket creation failed`, { e: result.get() })
         await circuit.tryDestroy().then(r => r.throw(t))
         continue
       }
 
-      return socketRes
+      return result
     }
 
     return new Err(AbortError.from(signal.reason))
   })
 }
 
-export interface Socket {
+export interface SocketAndCircuit {
   socket: WebSocket,
   circuit: Circuit
 }
 
-export function createSocketPool(circuitPool: Mutex<Pool<Circuit>>, params: { url: URL }) {
-  const { capacity, signal } = circuitPool.inner
+export function createSocketAndCircuitPool(circuits: Mutex<Pool<Circuit>>, params: PoolParams & { url: URL }) {
+  const { capacity } = params
 
-  const pool = new Pool<Socket>(async ({ pool, signal }) => {
+  const signal = AbortSignals.merge(circuits.inner.signal, params.signal)
+
+  const pool = new Pool<SocketAndCircuit>(async ({ pool, signal }) => {
     return await Result.unthrow(async t => {
       const { url } = params
 
-      const element = await tryGetCircuitAndCreateSocketLoop(circuitPool, { url, signal }).then(r => r.throw(t))
+      const socketAndCircuit = await tryGetCircuitAndCreateSocketLoop(circuits, url, signal).then(r => r.throw(t))
 
       const onCloseOrError = async () => {
-        element.socket.removeEventListener("close", onCloseOrError)
-        element.socket.removeEventListener("error", onCloseOrError)
+        socketAndCircuit.socket.removeEventListener("close", onCloseOrError)
+        socketAndCircuit.socket.removeEventListener("error", onCloseOrError)
 
-        pool.delete(element)
+        pool.delete(socketAndCircuit)
       }
 
-      element.socket.addEventListener("close", onCloseOrError)
-      element.socket.addEventListener("error", onCloseOrError)
+      socketAndCircuit.socket.addEventListener("close", onCloseOrError)
+      socketAndCircuit.socket.addEventListener("error", onCloseOrError)
 
-      return new Ok(element)
+      return new Ok(socketAndCircuit)
     })
   }, { capacity, signal })
 
   pool.events.on("errored", async (reason) => {
-    circuitPool.inner.error(reason)
-
-    return Ok.void()
-  }, { passive: true, once: true })
-
-  return new Mutex(pool)
-}
-
-export interface TorAndCircuitsAndSockets {
-  tor: TorClientDuplex
-  circuits: Mutex<Pool<Circuit>>
-  sockets: Mutex<Pool<Socket>>
-}
-
-export function createTorAndSocketsPool(torAndCircuitsPool: Mutex<Pool<TorAndCircuits>>, params: { url: URL }) {
-  const { capacity, signal } = torAndCircuitsPool.inner
-
-  const pool = new Pool<TorAndCircuitsAndSockets>(async ({ pool, index, signal }) => {
-    const { url } = params
-
-    const { tor, circuits } = await torAndCircuitsPool.inner.get(index)
-
-    const sockets = createSocketPool(circuits, { url })
-
-    const onErrored = async (reason?: unknown) => {
-      sockets.inner.events.off("errored", onErrored)
-
-      pool.error(reason)
-
-      return Ok.void()
-    }
-
-    sockets.inner.events.on("errored", onErrored, { passive: true })
-
-    return new Ok({ tor, circuits, sockets })
-  }, { capacity, signal })
-
-  pool.events.on("errored", async (reason) => {
-    torAndCircuitsPool.inner.error(reason)
+    circuits.inner.error(reason)
 
     return Ok.void()
   }, { passive: true, once: true })
