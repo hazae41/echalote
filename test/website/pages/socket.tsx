@@ -1,17 +1,19 @@
 import { Berith } from "@hazae41/berith";
+import { createCircuitPoolFromTorPool } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
 import { Morax } from "@hazae41/morax";
 import { Pool } from "@hazae41/piscine";
 import { Ok } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
-import { SocketAndCircuit, createSocketAndCircuitPool } from "libs/sockets/pool";
+import { Session, createSessionFromCircuitPool } from "libs/sockets/pool";
 import { createTorPool } from "mods/tor";
 import { DependencyList, useCallback, useEffect, useMemo, useState } from "react";
-import { createCircuitPoolFromTorPool } from "../../../dist/types";
 
-async function superfetch(socketAndCircuit: SocketAndCircuit) {
-  const { socket, circuit } = socketAndCircuit
+async function superfetch(session: Session) {
+  const { sockets, circuit } = session
+
+  const socket = await sockets.inner.tryGet(0).then(r => r.unwrap())
 
   const start = Date.now()
 
@@ -71,46 +73,44 @@ export default function Page() {
     return createCircuitPoolFromTorPool(tors, { capacity: 9 })
   }, [tors])
 
-  const sockets = useMemo(() => {
+  const sessions = useMemo(() => {
     if (!circuits) return
 
-    const url = new URL("wss://mainnet.infura.io/ws/v3/b6bf7d3508c941499b10025c0776eaf8")
-
-    return createSocketAndCircuitPool(circuits, { url, capacity: 9 })
+    return createSessionFromCircuitPool(circuits, { capacity: 9 })
   }, [circuits])
 
   const onClick = useCallback(async () => {
     try {
-      if (!sockets || sockets.locked) return
+      if (!sessions || sessions.locked) return
 
-      const socket = await Pool
-        .takeCryptoRandom(sockets)
+      const session = await Pool
+        .takeCryptoRandom(sessions)
         .then(r => r.unwrap())
 
-      await superfetch(socket)
+      await superfetch(session)
     } catch (e: unknown) {
       console.error("onClick", { e })
     }
-  }, [sockets])
+  }, [sessions])
 
   const [_, setCounter] = useState(0)
 
   useEffect(() => {
-    if (!sockets) return
+    if (!sessions) return
 
     const onCreatedOrDeleted = () => {
       setCounter(c => c + 1)
       return Ok.void()
     }
 
-    sockets.inner.events.on("created", onCreatedOrDeleted, { passive: true })
-    sockets.inner.events.on("deleted", onCreatedOrDeleted, { passive: true })
+    sessions.inner.events.on("created", onCreatedOrDeleted, { passive: true })
+    sessions.inner.events.on("deleted", onCreatedOrDeleted, { passive: true })
 
     return () => {
-      sockets.inner.events.off("created", onCreatedOrDeleted)
-      sockets.inner.events.off("deleted", onCreatedOrDeleted)
+      sessions.inner.events.off("created", onCreatedOrDeleted)
+      sessions.inner.events.off("deleted", onCreatedOrDeleted)
     }
-  }, [sockets])
+  }, [sessions])
 
   return <>
     <button onClick={onClick}>
@@ -123,9 +123,9 @@ export default function Page() {
       : <div>
         Loading...
       </div>}
-    {sockets
+    {sessions
       ? <div>
-        Socket pool size: {sockets.inner.size} / {sockets.inner.capacity}
+        Socket pool size: {sessions.inner.size} / {sessions.inner.capacity}
       </div>
       : <div>
         Loading...

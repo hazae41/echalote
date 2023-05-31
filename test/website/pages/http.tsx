@@ -8,7 +8,7 @@ import { Ok } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
 import { createTorPool } from "mods/tor";
-import { DependencyList, useCallback, useEffect, useState } from "react";
+import { DependencyList, useCallback, useEffect, useMemo, useState } from "react";
 
 async function superfetch(circuit: Circuit) {
   const start = Date.now()
@@ -43,7 +43,7 @@ export interface TorAndCircuits {
 
 export default function Page() {
 
-  const circuits = useAsyncMemo(async () => {
+  const tors = useAsyncMemo(async () => {
     // const ed25519 = Ed25519.fromNoble(noble_ed25519.ed25519)
     // const x25519 = X25519.fromNoble(noble_ed25519.x25519)
     // const sha1 = Sha1.fromNoble(noble_sha1.sha1)
@@ -63,11 +63,14 @@ export default function Page() {
 
     const fallbacks = await fallbacksRes.json()
 
-    const tors = createTorPool({ fallbacks, ed25519, sha1, x25519, capacity: 3 })
-    const circuits = createCircuitPoolFromTorPool(tors, { capacity: 9 })
-
-    return circuits
+    return createTorPool({ fallbacks, ed25519, sha1, x25519, capacity: 3 })
   }, [])
+
+  const circuits = useMemo(() => {
+    if (!tors) return
+
+    return createCircuitPoolFromTorPool(tors, { capacity: 9 })
+  }, [tors])
 
   const onClick = useCallback(async () => {
     try {

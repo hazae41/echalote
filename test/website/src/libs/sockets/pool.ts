@@ -10,6 +10,13 @@ import { AbortError, CloseError, ErrorError } from "@hazae41/plume"
 import { Err, Ok, Result } from "@hazae41/result"
 import { AbortSignals } from "libs/signals/signals"
 
+const urls = [
+  new URL("wss://mainnet.infura.io/ws/v3/b6bf7d3508c941499b10025c0776eaf8"),
+  new URL("wss://goerli.infura.io/ws/v3/b6bf7d3508c941499b10025c0776eaf8"),
+  new URL("wss://lol.infura.io/ws/v3/b6bf7d3508c941499b10025c0776eaf8")
+]
+
+
 export async function tryCreateWebSocket(circuit: Circuit, url: URL, signal?: AbortSignal): Promise<Result<WebSocket, BinaryWriteError | CloseError | ErrorError | AbortError | ControllerError>> {
   return await Result.unthrow(async t => {
     const signal2 = AbortSignals.timeout(5_000, signal)
@@ -49,7 +56,7 @@ export async function tryCreateWebSocket(circuit: Circuit, url: URL, signal?: Ab
 
 export async function tryCreateSocketLoop(circuit: Circuit, url: URL, signal?: AbortSignal) {
   return await Result.unthrow(async t => {
-    while (!signal?.aborted) {
+    for (let i = 0; !signal?.aborted && i < 3; i++) {
       const result = await tryCreateWebSocket(circuit, url, signal)
 
       if (result.isOk())
@@ -58,74 +65,76 @@ export async function tryCreateSocketLoop(circuit: Circuit, url: URL, signal?: A
       if (!circuit.destroyed) {
         console.warn(`WebSocket creation failed`, { e: result.get() })
         await circuit.tryDestroy().then(r => r.throw(t))
+        await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
         continue
       }
 
       return result
     }
 
-    return new Err(AbortError.from(signal.reason))
+    if (signal?.aborted)
+      return new Err(AbortError.from(signal.reason))
+    return new Err(new AbortError(`Took too long`))
   })
 }
 
-export async function tryGetCircuitAndCreateSocketLoop(circuits: Mutex<Pool<Circuit>>, url: URL, signal?: AbortSignal) {
-  return await Result.unthrow(async t => {
-    while (!signal?.aborted) {
+export function createSocketPool(circuit: Circuit, params: PoolParams = {}) {
+  const pool = new Pool<WebSocket>(async ({ pool, index, signal }) => {
+    return await Result.unthrow(async t => {
+      const socket = await tryCreateSocketLoop(circuit, urls[index], signal).then(r => r.throw(t))
 
-      const circuit = await Pool
-        .takeCryptoRandom(circuits)
-        .then(r => r.throw(t))
+      const onCloseOrError = () => {
+        socket.removeEventListener("close", onCloseOrError)
+        socket.removeEventListener("error", onCloseOrError)
 
-      const result = await tryCreateSocketLoop(circuit, url, signal)
-
-      if (result.isOk())
-        return new Ok({ circuit, socket: result.get() })
-
-      if (result.isErr()) {
-        console.warn(`WebSocket creation failed`, { e: result.get() })
-        await circuit.tryDestroy().then(r => r.throw(t))
-        continue
+        pool.delete(socket)
       }
 
-      return result
-    }
+      socket.addEventListener("close", onCloseOrError, { passive: true })
+      socket.addEventListener("error", onCloseOrError, { passive: true })
 
-    return new Err(AbortError.from(signal.reason))
-  })
+      return new Ok(socket)
+    })
+  }, params)
+
+  return new Mutex(pool)
 }
 
-export interface SocketAndCircuit {
-  socket: WebSocket,
-  circuit: Circuit
+export interface Session {
+  circuit: Circuit,
+  sockets: Mutex<Pool<WebSocket>>
 }
 
-export function createSocketAndCircuitPool(circuits: Mutex<Pool<Circuit>>, params: PoolParams & { url: URL }) {
+export function createSessionFromCircuitPool(circuits: Mutex<Pool<Circuit>>, params: PoolParams) {
   const { capacity } = params
 
   const signal = AbortSignals.merge(circuits.inner.signal, params.signal)
 
-  const pool = new Pool<SocketAndCircuit>(async ({ pool, signal }) => {
+  const pool = new Pool<Session>(async ({ pool, signal }) => {
     return await Result.unthrow(async t => {
-      const { url } = params
+      const circuit = await Pool.takeCryptoRandom(circuits).then(r => r.throw(t))
+      const sockets = createSocketPool(circuit, { capacity: 3, signal })
 
-      const socketAndCircuit = await tryGetCircuitAndCreateSocketLoop(circuits, url, signal).then(r => r.throw(t))
+      const session = { circuit, sockets }
 
-      const onCloseOrError = async () => {
-        socketAndCircuit.socket.removeEventListener("close", onCloseOrError)
-        socketAndCircuit.socket.removeEventListener("error", onCloseOrError)
+      const onCircuitCloseOrError = async () => {
+        circuit.events.off("close", onCircuitCloseOrError)
+        circuit.events.off("error", onCircuitCloseOrError)
 
-        pool.delete(socketAndCircuit)
+        pool.delete(session)
+
+        return Ok.void()
       }
 
-      socketAndCircuit.socket.addEventListener("close", onCloseOrError)
-      socketAndCircuit.socket.addEventListener("error", onCloseOrError)
+      circuit.events.on("close", onCircuitCloseOrError)
+      circuit.events.on("error", onCircuitCloseOrError)
 
-      return new Ok(socketAndCircuit)
+      return new Ok(session)
     })
   }, { capacity, signal })
 
-  pool.events.on("errored", async (reason) => {
-    circuits.inner.error(reason)
+  pool.signal.addEventListener("abort", async (reason) => {
+    circuits.inner.abort(reason)
 
     return Ok.void()
   }, { passive: true, once: true })
