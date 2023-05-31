@@ -7,7 +7,7 @@ import { Err, Ok, Result } from "@hazae41/result";
 export async function tryCreateTorLoop(params: TorClientParams): Promise<Result<TorClientDuplex, AbortError>> {
   const { signal, fallbacks, ed25519, x25519, sha1 } = params
 
-  while (!signal?.aborted) {
+  for (let i = 0; !signal?.aborted && i < 3; i++) {
     const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
     const tor = new TorClientDuplex(tcp, { fallbacks, ed25519, x25519, sha1, signal })
 
@@ -20,7 +20,9 @@ export async function tryCreateTorLoop(params: TorClientParams): Promise<Result<
     continue
   }
 
-  return new Err(AbortError.from(signal.reason))
+  if (signal?.aborted)
+    return new Err(AbortError.from(signal.reason))
+  return new Err(new AbortError(`Took too long`))
 }
 
 export function createTorPool(params: TorClientParams & PoolParams) {
