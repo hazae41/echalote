@@ -64,7 +64,6 @@ export async function tryCreateSocketLoop(circuit: Circuit, url: URL, signal?: A
 
       if (!circuit.destroyed) {
         console.warn(`WebSocket creation failed`, { e: result.get() })
-        await circuit.tryDestroy().then(r => r.throw(t))
         await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
         continue
       }
@@ -110,8 +109,10 @@ export function createSessionFromCircuitPool(circuits: Mutex<Pool<Circuit>>, par
 
   const signal = AbortSignals.merge(circuits.inner.signal, params.signal)
 
-  const pool = new Pool<Session>(async ({ pool, signal }) => {
+  const pool = new Pool<Session>(async ({ pool, index, signal }) => {
     return await Result.unthrow(async t => {
+      console.log(`create session ${index}`)
+
       const circuit = await Pool.takeCryptoRandom(circuits).then(r => r.throw(t))
       const sockets = createSocketPool(circuit, { capacity: 3, signal })
 

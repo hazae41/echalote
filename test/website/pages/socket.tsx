@@ -87,6 +87,8 @@ export default function Page() {
         .takeCryptoRandom(sessions)
         .then(r => r.unwrap())
 
+      console.log(sessions.inner.size)
+
       await superfetch(session)
     } catch (e: unknown) {
       console.error("onClick", { e })
@@ -96,21 +98,27 @@ export default function Page() {
   const [_, setCounter] = useState(0)
 
   useEffect(() => {
-    if (!sessions) return
+    if (!circuits || !sessions) return
 
     const onCreatedOrDeleted = () => {
       setCounter(c => c + 1)
       return Ok.void()
     }
 
+    circuits.inner.events.on("created", onCreatedOrDeleted, { passive: true })
+    circuits.inner.events.on("deleted", onCreatedOrDeleted, { passive: true })
+
     sessions.inner.events.on("created", onCreatedOrDeleted, { passive: true })
     sessions.inner.events.on("deleted", onCreatedOrDeleted, { passive: true })
 
     return () => {
+      circuits.inner.events.off("created", onCreatedOrDeleted)
+      circuits.inner.events.off("deleted", onCreatedOrDeleted)
+
       sessions.inner.events.off("created", onCreatedOrDeleted)
       sessions.inner.events.off("deleted", onCreatedOrDeleted)
     }
-  }, [sessions])
+  }, [circuits, sessions])
 
   return <>
     <button onClick={onClick}>
