@@ -6,7 +6,7 @@ import { Fleche } from "@hazae41/fleche"
 import { Future } from "@hazae41/future"
 import { Mutex } from "@hazae41/mutex"
 import { Pool, PoolParams } from "@hazae41/piscine"
-import { AbortError, CloseError, ErrorError } from "@hazae41/plume"
+import { AbortError, Cleanable, CloseError, ErrorError } from "@hazae41/plume"
 import { Err, Ok, Result } from "@hazae41/result"
 import { AbortSignals } from "libs/signals/signals"
 
@@ -83,16 +83,18 @@ export function createSocketPool(circuit: Circuit, params: PoolParams = {}) {
       const socket = await tryCreateSocketLoop(circuit, urls[index], signal).then(r => r.throw(t))
 
       const onCloseOrError = () => {
-        socket.removeEventListener("close", onCloseOrError)
-        socket.removeEventListener("error", onCloseOrError)
-
-        pool.delete(socket)
+        pool.delete(index)
       }
 
       socket.addEventListener("close", onCloseOrError, { passive: true })
       socket.addEventListener("error", onCloseOrError, { passive: true })
 
-      return new Ok(socket)
+      const onClean = () => {
+        socket.removeEventListener("close", onCloseOrError)
+        socket.removeEventListener("error", onCloseOrError)
+      }
+
+      return new Ok(new Cleanable(socket, onClean))
     })
   }, params)
 
@@ -111,24 +113,25 @@ export function createSessionFromCircuitPool(circuits: Mutex<Pool<Circuit>>, par
 
   const pool = new Pool<Session>(async ({ pool, index, signal }) => {
     return await Result.unthrow(async t => {
-      const circuit = await Pool.takeCryptoRandom(circuits).then(r => r.throw(t))
+      const circuit = await Pool.takeCryptoRandom(circuits).then(r => r.throw(t).result.get())
       const sockets = createSocketPool(circuit, { capacity: 3, signal })
 
       const session = { circuit, sockets }
 
       const onCircuitCloseOrError = async () => {
-        circuit.events.off("close", onCircuitCloseOrError)
-        circuit.events.off("error", onCircuitCloseOrError)
-
-        pool.delete(session)
-
+        pool.delete(index)
         return Ok.void()
       }
 
       circuit.events.on("close", onCircuitCloseOrError)
       circuit.events.on("error", onCircuitCloseOrError)
 
-      return new Ok(session)
+      const onClean = () => {
+        circuit.events.off("close", onCircuitCloseOrError)
+        circuit.events.off("error", onCircuitCloseOrError)
+      }
+
+      return new Ok(new Cleanable(session, onClean))
     })
   }, { capacity, signal })
 

@@ -83,7 +83,7 @@ export default function Page() {
     try {
       if (!sessions || sessions.locked) return
 
-      const session = await Pool.takeCryptoRandom(sessions).then(r => r.unwrap())
+      const session = await Pool.takeCryptoRandom(sessions).then(r => r.unwrap().result.get())
 
       await superfetch(session)
     } catch (e: unknown) {

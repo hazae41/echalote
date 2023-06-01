@@ -76,9 +76,7 @@ export default function Page() {
     try {
       if (!circuits || circuits.locked) return
 
-      const circuit = await Pool
-        .takeCryptoRandom(circuits)
-        .then(r => r.unwrap())
+      const circuit = await Pool.takeCryptoRandom(circuits).then(r => r.unwrap().result.get())
 
       await superfetch(circuit)
     } catch (e: unknown) {

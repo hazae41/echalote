@@ -7,7 +7,7 @@ import { ControllerError } from "@hazae41/cascade";
 import { PipeError, tryFetch } from "@hazae41/fleche";
 import { Option, Some } from "@hazae41/option";
 import { AbortError, CloseError, ErrorError, EventError, Plume, StreamEvents, SuperEventTarget } from "@hazae41/plume";
-import { Err, Ok, Panic, Result } from "@hazae41/result";
+import { Err, Ok, Result } from "@hazae41/result";
 import { Aes128Ctr128BEKey } from "@hazae41/zepar";
 import { AbortSignals } from "libs/signals/signals.js";
 import { Ntor } from "mods/tor/algorithms/ntor/index.js";
@@ -29,6 +29,7 @@ import { Cell } from "./binary/cells/cell.js";
 import { RelayCell } from "./binary/cells/direct/relay/cell.js";
 import { RelayEarlyCell } from "./binary/cells/direct/relay_early/cell.js";
 import { HASH_LEN } from "./constants.js";
+import { TooManyRetriesError } from "./errors.js";
 
 export const IPv6 = {
   always: 3,
@@ -263,7 +264,7 @@ export class SecretCircuit {
   //   }, signal)
   // }
 
-  async tryExtendLoop(exit: boolean, signal?: AbortSignal) {
+  async tryExtendLoop(exit: boolean, signal?: AbortSignal): Promise<Result<void, TooManyRetriesError | EmptyFallbacksError | InvalidNtorAuthError | CloseError | BinaryError | AbortError | ErrorError>> {
     for (let i = 0; !this.destroyed && !signal?.aborted && i < 3; i++) {
       const result = await this.tryExtend(exit, signal)
 
@@ -296,10 +297,10 @@ export class SecretCircuit {
       return new Err(CloseError.from(this.destroyed.reason))
     if (signal?.aborted)
       return new Err(AbortError.from(signal.reason))
-    throw new Panic()
+    return new Err(new TooManyRetriesError())
   }
 
-  async tryExtend(exit: boolean, signal?: AbortSignal): Promise<Result<void, EmptyFallbacksError | InvalidNtorAuthError | CloseError | BytesCastError | BinaryError | AbortError | ErrorError>> {
+  async tryExtend(exit: boolean, signal?: AbortSignal): Promise<Result<void, EmptyFallbacksError | InvalidNtorAuthError | CloseError | BinaryError | AbortError | ErrorError>> {
     if (this.destroyed?.reason !== undefined)
       return new Err(ErrorError.from(this.destroyed.reason))
     if (this.destroyed !== undefined)

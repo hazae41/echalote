@@ -1,7 +1,7 @@
 import { TorClientDuplex, TorClientParams, createWebSocketSnowflakeStream } from "@hazae41/echalote";
 import { Mutex } from "@hazae41/mutex";
 import { Pool, PoolParams } from "@hazae41/piscine";
-import { AbortError } from "@hazae41/plume";
+import { AbortError, Cleanable } from "@hazae41/plume";
 import { Err, Ok, Result } from "@hazae41/result";
 
 export async function tryCreateTorLoop(params: TorClientParams): Promise<Result<TorClientDuplex, AbortError>> {
@@ -28,23 +28,24 @@ export async function tryCreateTorLoop(params: TorClientParams): Promise<Result<
 export function createTorPool(params: TorClientParams & PoolParams) {
   const { fallbacks, ed25519, x25519, sha1, capacity, signal } = params
 
-  const pool = new Pool<TorClientDuplex>(async ({ pool, signal }) => {
+  const pool = new Pool<TorClientDuplex>(async ({ pool, index, signal }) => {
     return await Result.unthrow(async t => {
       const tor = await tryCreateTorLoop({ fallbacks, ed25519, x25519, sha1, signal }).then(r => r.throw(t))
 
       const onTorCloseOrError = async (reason?: unknown) => {
-        tor.events.off("close", onTorCloseOrError)
-        tor.events.off("error", onTorCloseOrError)
-
-        pool.delete(tor)
-
+        pool.delete(index)
         return Ok.void()
       }
 
       tor.events.on("close", onTorCloseOrError, { passive: true })
       tor.events.on("error", onTorCloseOrError, { passive: true })
 
-      return new Ok(tor)
+      const onClean = () => {
+        tor.events.off("close", onTorCloseOrError)
+        tor.events.off("error", onTorCloseOrError)
+      }
+
+      return new Ok(new Cleanable(tor, onClean))
     })
   }, { capacity, signal })
 

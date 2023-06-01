@@ -43,7 +43,7 @@ import { InvalidNtorAuthError } from "./algorithms/ntor/ntor.js";
 import { CellError, ExpectedCircuitError, InvalidCellError, RelayCellError } from "./binary/cells/errors.js";
 import { OldCell } from "./binary/cells/old.js";
 import { CertError, Certs } from "./certs/certs.js";
-import { InvalidTorStateError, InvalidTorVersionError } from "./errors.js";
+import { InvalidTorStateError, InvalidTorVersionError, TooManyRetriesError } from "./errors.js";
 import { TorHandshakingState, TorNoneState, TorState, TorVersionedState } from "./state.js";
 
 export interface Guard {
@@ -529,14 +529,14 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async #tryCreateCircuit(): Promise<Result<SecretCircuit, BinaryReadError>> {
+  async #tryCreateCircuit(): Promise<Result<SecretCircuit, BinaryError>> {
     return await this.circuits.lock(this.#tryCreateCircuitLocked.bind(this))
   }
 
-  async #tryCreateCircuitLocked(circuits: Map<number, SecretCircuit>): Promise<Result<SecretCircuit, BinaryReadError>> {
+  async #tryCreateCircuitLocked(circuits: Map<number, SecretCircuit>): Promise<Result<SecretCircuit, BinaryError>> {
     return Result.unthrowSync(t => {
       while (true) {
-        const rawCircuitId = new Cursor(Bytes.random(4)).tryGetUint32().throw(t)
+        const rawCircuitId = new Cursor(Bytes.tryRandom(4).throw(t)).tryGetUint32().throw(t)
 
         if (rawCircuitId === 0)
           continue
@@ -568,10 +568,10 @@ export class SecretTorClientDuplex {
     }, signal2)
   }
 
-  async tryCreateAndExtendLoop(signal?: AbortSignal): Promise<Result<Circuit, InvalidTorStateError | ErrorError | CloseError | BinaryError | AbortError | EmptyFallbacksError | InvalidNtorAuthError | InvalidKdfKeyHashError | BytesCastError | EventError>> {
+  async tryCreateAndExtendLoop(signal?: AbortSignal): Promise<Result<Circuit, TooManyRetriesError | InvalidTorStateError | ErrorError | CloseError | BinaryError | AbortError | EmptyFallbacksError | InvalidNtorAuthError | InvalidKdfKeyHashError | BytesCastError | EventError>> {
     return await Result.unthrow(async t => {
 
-      while (!this.closed && !signal?.aborted) {
+      for (let i = 0; !this.closed && !signal?.aborted && i < 3; i++) {
         const circuit = await this.tryCreateLoop(signal).then(r => r.throw(t))
 
         const extend1 = await circuit.tryExtendLoop(false, signal).then(r => r.ignore())
@@ -585,6 +585,7 @@ export class SecretTorClientDuplex {
           if (circuit.destroyed && !this.closed && !signal?.aborted) {
             console.debug("Create and extend failed", { error: extend2.get() })
             await circuit.tryDestroy().then(r => r.throw(t))
+            await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
             continue
           }
 
@@ -594,6 +595,7 @@ export class SecretTorClientDuplex {
         if (circuit.destroyed && !this.closed && !signal?.aborted) {
           console.debug("Create and extend failed", { error: extend1.get() })
           await circuit.tryDestroy().then(r => r.throw(t))
+          await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
           continue
         }
 
@@ -606,13 +608,13 @@ export class SecretTorClientDuplex {
         return new Err(CloseError.from(this.closed.reason))
       if (signal?.aborted)
         return new Err(AbortError.from(signal.reason))
-      throw new Panic()
+      return new Err(new TooManyRetriesError())
     })
   }
 
-  async tryCreateLoop(signal?: AbortSignal): Promise<Result<Circuit, InvalidKdfKeyHashError | InvalidTorStateError | BinaryError | AbortError | ErrorError | CloseError>> {
+  async tryCreateLoop(signal?: AbortSignal): Promise<Result<Circuit, TooManyRetriesError | InvalidKdfKeyHashError | InvalidTorStateError | BinaryError | AbortError | ErrorError | CloseError>> {
     return await Result.unthrow(async t => {
-      while (!this.closed && !signal?.aborted) {
+      for (let i = 0; !this.closed && !signal?.aborted && i < 3; i++) {
         const result = await this.tryCreate(signal)
 
         if (result.isOk())
@@ -625,11 +627,13 @@ export class SecretTorClientDuplex {
 
         if (result.inner.name === AbortError.name) {
           console.debug("Create aborted", { error: result.get() })
+          await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
           continue
         }
 
         if (result.inner.name === InvalidKdfKeyHashError.name) {
           console.debug("Create failed", { error: result.get() })
+          await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
           continue
         }
 
@@ -642,7 +646,7 @@ export class SecretTorClientDuplex {
         return new Err(CloseError.from(this.closed.reason))
       if (signal?.aborted)
         return new Err(AbortError.from(signal.reason))
-      throw new Panic()
+      return new Err(new TooManyRetriesError())
     })
   }
 
