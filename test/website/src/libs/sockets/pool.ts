@@ -105,12 +105,12 @@ export interface Session {
   sockets: Mutex<Pool<WebSocket>>
 }
 
-export function createSessionPool(circuits: Mutex<Pool<Circuit>>, params: PoolParams) {
+export function createSessionPool(circuits: Mutex<Pool<Circuit, Error>>, params: PoolParams) {
   const { capacity } = params
 
   const signal = AbortSignals.merge(circuits.inner.signal, params.signal)
 
-  const pool = new Pool<Session>(async ({ pool, index, signal }) => {
+  const pool = new Pool<Session, Error>(async ({ pool, index, signal }) => {
     return await Result.unthrow(async t => {
       const circuit = await Pool.takeCryptoRandom(circuits).then(r => r.throw(t).result.get())
       const sockets = createSocketPool(circuit, { capacity: 3, signal })

@@ -11,7 +11,7 @@ export async function tryCreateTor(params: TorClientParams) {
 }
 
 export function createTorPool<CreateError>(tryCreate: Creator<TorClientDuplex, CreateError>, params: PoolParams = {}) {
-  return new Mutex(new Pool<TorClientDuplex>(async (params) => {
+  return new Mutex(new Pool<TorClientDuplex, Error | CreateError>(async (params) => {
     return await Result.unthrow(async t => {
       const tor = await tryCreateLoop(tryCreate, params).then(r => r.throw(t))
 
@@ -20,8 +20,8 @@ export function createTorPool<CreateError>(tryCreate: Creator<TorClientDuplex, C
   }, params))
 }
 
-export function createCircuitPool(tors: Mutex<Pool<TorClientDuplex>>, params: PoolParams = {}) {
-  const pool = new Mutex(new Pool<Circuit>(async (params) => {
+export function createCircuitPool<TorPoolError>(tors: Mutex<Pool<TorClientDuplex, TorPoolError>>, params: PoolParams = {}) {
+  const pool = new Mutex(new Pool<Circuit, Error | TorPoolError>(async (params) => {
     return await Result.unthrow(async t => {
       const { index, signal } = params
 

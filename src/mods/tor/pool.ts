@@ -7,9 +7,9 @@ import { TorClientDuplex } from "mods/tor/tor.js";
 import { TooManyRetriesError } from "./errors.js";
 
 export type Creator<CreateOutput, CreateError> =
-  (params: PoolCreatorParams<CreateOutput>) => Promise<Result<CreateOutput, CreateError>>
+  (params: PoolCreatorParams<any, any>) => Promise<Result<CreateOutput, CreateError>>
 
-export async function tryCreateLoop<CreateOutput, CreateError>(tryCreate: Creator<CreateOutput, CreateError>, params: PoolCreatorParams<CreateOutput>): Promise<Result<CreateOutput, CreateError | AbortError | TooManyRetriesError>> {
+export async function tryCreateLoop<CreateOutput, CreateError>(tryCreate: Creator<CreateOutput, CreateError>, params: PoolCreatorParams<any, any>): Promise<Result<CreateOutput, CreateError | AbortError | TooManyRetriesError>> {
   const { signal } = params
 
   for (let i = 0; !signal?.aborted && i < 3; i++) {
@@ -28,7 +28,7 @@ export async function tryCreateLoop<CreateOutput, CreateError>(tryCreate: Creato
   return new Err(new TooManyRetriesError())
 }
 
-export function createPooledCircuit(circuit: Circuit, params: PoolCreatorParams<Circuit>) {
+export function createPooledCircuit<PoolError>(circuit: Circuit, params: PoolCreatorParams<Circuit, PoolError>) {
   const { pool, index } = params
 
   const onCloseOrError = async () => {
@@ -47,7 +47,7 @@ export function createPooledCircuit(circuit: Circuit, params: PoolCreatorParams<
   return new Cleaner(circuit, onClean)
 }
 
-export function createPooledTor(tor: TorClientDuplex, params: PoolCreatorParams<TorClientDuplex>) {
+export function createPooledTor<PoolError>(tor: TorClientDuplex, params: PoolCreatorParams<TorClientDuplex, PoolError>) {
   const { pool, index } = params
 
   const onCloseOrError = async (reason?: unknown) => {

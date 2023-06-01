@@ -10,12 +10,12 @@
   },
   "dependencies": {
     "@hazae41/berith": "^1.1.40",
-    "@hazae41/cadenas": "^0.2.26",
+    "@hazae41/cadenas": "^0.2.28",
     "@hazae41/ed25519": "^1.0.0",
-    "@hazae41/fleche": "^1.1.35",
+    "@hazae41/fleche": "^1.1.37",
     "@hazae41/morax": "^1.0.20",
-    "@hazae41/mutex": "^1.2.6",
-    "@hazae41/piscine": "^1.0.25",
+    "@hazae41/mutex": "^1.2.7",
+    "@hazae41/piscine": "^1.0.28",
     "@hazae41/sha1": "^1.0.0",
     "@hazae41/x25519": "^1.0.0",
     "@noble/curves": "^1.0.0",
@@ -33,6 +33,6 @@
     "eslint-config-next": "13.4.4",
     "postcss": "^8.4.24",
     "tailwindcss": "^3.3.2",
-    "typescript": "5.0.4"
+    "typescript": "5.1.3"
   }
 }

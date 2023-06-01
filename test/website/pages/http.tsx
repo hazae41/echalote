@@ -98,7 +98,7 @@ export default function Page() {
   useEffect(() => {
     if (!circuits) return
 
-    const onCreatedOrDeleted = () => {
+    const onCreatedOrDeleted = async () => {
       setCounter(c => c + 1)
       return Ok.void()
     }

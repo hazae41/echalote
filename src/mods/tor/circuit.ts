@@ -206,7 +206,7 @@ export class SecretCircuit {
     return await this.events.tryEmit("RELAY_EXTENDED2", cell).then(r => r.clear())
   }
 
-  async #onRelayTruncatedCell(cell: RelayCell.Streamless<RelayTruncatedCell>) {
+  async #onRelayTruncatedCell(cell: RelayCell.Streamless<RelayTruncatedCell>): Promise<Result<void, EventError>> {
     return await Result.unthrow(async t => {
       if (cell.circuit !== this)
         return Ok.void()
@@ -390,7 +390,7 @@ export class SecretCircuit {
     return await this.events.tryEmit("error", reason).then(r => r.clear())
   }
 
-  async tryTruncate(reason = RelayTruncateCell.reasons.NONE, signal?: AbortSignal) {
+  async tryTruncate(reason = RelayTruncateCell.reasons.NONE, signal?: AbortSignal): Promise<Result<void, BinaryError | CloseError | AbortError | ErrorError>> {
     return await Result.unthrow(async t => {
       const signal2 = AbortSignals.timeout(5_000, signal)
 
