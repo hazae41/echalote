@@ -15,7 +15,7 @@
     "@hazae41/fleche": "^1.1.34",
     "@hazae41/morax": "^1.0.20",
     "@hazae41/mutex": "^1.2.6",
-    "@hazae41/piscine": "^1.0.24",
+    "@hazae41/piscine": "^1.0.25",
     "@hazae41/sha1": "^1.0.0",
     "@hazae41/x25519": "^1.0.0",
     "@noble/curves": "^1.0.0",

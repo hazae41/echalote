@@ -1,69 +1,67 @@
-import { Mutex } from "@hazae41/mutex";
-import { Pool, PoolParams } from "@hazae41/piscine";
-import { Cleanable } from "@hazae41/plume";
-import { Ok, Result } from "@hazae41/result";
-import { AbortSignals } from "libs/signals/signals.js";
+import { Cleaner } from "@hazae41/cleaner";
+import { PoolCreatorParams } from "@hazae41/piscine";
+import { AbortError } from "@hazae41/plume";
+import { Err, Ok, Result } from "@hazae41/result";
 import { Circuit } from "mods/tor/circuit.js";
 import { TorClientDuplex } from "mods/tor/tor.js";
+import { TooManyRetriesError } from "./errors.js";
 
-export function createCircuitPool(tor: TorClientDuplex, params: PoolParams = {}) {
-  const pool = new Pool<Circuit>(async ({ pool, index, signal }) => {
-    return await Result.unthrow(async t => {
-      const circuit = await tor.tryCreateAndExtendLoop(signal).then(r => r.throw(t))
+export type Creator<CreateOutput, CreateError> =
+  (params: PoolCreatorParams<CreateOutput>) => Promise<Result<CreateOutput, CreateError>>
 
-      const onCircuitCloseOrError = async () => {
-        pool.delete(index)
-        return Ok.void()
-      }
+export async function tryCreateLoop<CreateOutput, CreateError>(tryCreate: Creator<CreateOutput, CreateError>, params: PoolCreatorParams<CreateOutput>): Promise<Result<CreateOutput, CreateError | AbortError | TooManyRetriesError>> {
+  const { signal } = params
 
-      circuit.events.on("close", onCircuitCloseOrError, { passive: true })
-      circuit.events.on("error", onCircuitCloseOrError, { passive: true })
+  for (let i = 0; !signal?.aborted && i < 3; i++) {
+    const result = await tryCreate(params)
 
-      const onClean = () => {
-        circuit.events.off("close", onCircuitCloseOrError)
-        circuit.events.off("error", onCircuitCloseOrError)
-      }
+    if (result.isOk())
+      return result
 
-      return new Ok(new Cleanable(circuit, onClean))
-    })
-  }, params)
+    console.warn(`tryCreate failed ${i + 1} time(s)`, { error: result.get() })
+    await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
+    continue
+  }
 
-  return new Mutex(pool)
+  if (signal?.aborted)
+    return new Err(AbortError.from(signal.reason))
+  return new Err(new TooManyRetriesError())
 }
 
+export function createPooledCircuit(circuit: Circuit, params: PoolCreatorParams<Circuit>) {
+  const { pool, index } = params
 
-export function createCircuitPoolFromTorPool(tors: Mutex<Pool<TorClientDuplex>>, params: PoolParams = {}) {
-  const { capacity } = params
-
-  const signal = AbortSignals.merge(tors.inner.signal, params.signal)
-
-  const pool = new Pool<Circuit>(async ({ pool, index, signal }) => {
-    return await Result.unthrow(async t => {
-      const tor = await tors.inner.tryGet(index % tors.inner.capacity).then(r => r.throw(t))
-      const circuit = await tor.tryCreateAndExtendLoop(signal).then(r => r.throw(t))
-
-      const onCircuitCloseOrError = async () => {
-        pool.delete(index)
-        return Ok.void()
-      }
-
-      circuit.events.on("close", onCircuitCloseOrError, { passive: true })
-      circuit.events.on("error", onCircuitCloseOrError, { passive: true })
-
-      const onClean = () => {
-        circuit.events.off("close", onCircuitCloseOrError)
-        circuit.events.off("error", onCircuitCloseOrError)
-      }
-
-      return new Ok(new Cleanable(circuit, onClean))
-    })
-  }, { capacity, signal })
-
-  pool.signal.addEventListener("abort", async (reason) => {
-    tors.inner.abort(reason)
-
+  const onCloseOrError = async () => {
+    pool.delete(index)
     return Ok.void()
-  }, { passive: true, once: true })
+  }
 
-  return new Mutex(pool)
+  circuit.events.on("close", onCloseOrError, { passive: true })
+  circuit.events.on("error", onCloseOrError, { passive: true })
+
+  const onClean = () => {
+    circuit.events.off("close", onCloseOrError)
+    circuit.events.off("error", onCloseOrError)
+  }
+
+  return new Cleaner(circuit, onClean)
+}
+
+export function createPooledTor(tor: TorClientDuplex, params: PoolCreatorParams<TorClientDuplex>) {
+  const { pool, index } = params
+
+  const onCloseOrError = async (reason?: unknown) => {
+    pool.delete(index)
+    return Ok.void()
+  }
+
+  tor.events.on("close", onCloseOrError, { passive: true })
+  tor.events.on("error", onCloseOrError, { passive: true })
+
+  const onClean = () => {
+    tor.events.off("close", onCloseOrError)
+    tor.events.off("error", onCloseOrError)
+  }
+
+  return new Cleaner(tor, onClean)
 }

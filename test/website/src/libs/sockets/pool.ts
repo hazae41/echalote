@@ -106,7 +106,7 @@ export interface Session {
   sockets: Mutex<Pool<WebSocket>>
 }
 
-export function createSessionFromCircuitPool(circuits: Mutex<Pool<Circuit>>, params: PoolParams) {
+export function createSessionPool(circuits: Mutex<Pool<Circuit>>, params: PoolParams) {
   const { capacity } = params
 
   const signal = AbortSignals.merge(circuits.inner.signal, params.signal)
