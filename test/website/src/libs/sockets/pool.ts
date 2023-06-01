@@ -1,12 +1,13 @@
 import { BinaryWriteError } from "@hazae41/binary"
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas"
 import { ControllerError } from "@hazae41/cascade"
+import { Cleaner } from "@hazae41/cleaner"
 import { Circuit } from "@hazae41/echalote"
 import { Fleche } from "@hazae41/fleche"
 import { Future } from "@hazae41/future"
 import { Mutex } from "@hazae41/mutex"
 import { Pool, PoolParams } from "@hazae41/piscine"
-import { AbortError, Cleanable, CloseError, ErrorError } from "@hazae41/plume"
+import { AbortError, CloseError, ErrorError } from "@hazae41/plume"
 import { Err, Ok, Result } from "@hazae41/result"
 import { AbortSignals } from "libs/signals/signals"
 
@@ -94,7 +95,7 @@ export function createSocketPool(circuit: Circuit, params: PoolParams = {}) {
         socket.removeEventListener("error", onCloseOrError)
       }
 
-      return new Ok(new Cleanable(socket, onClean))
+      return new Ok(new Cleaner(socket, onClean))
     })
   }, params)
 
@@ -131,7 +132,7 @@ export function createSessionPool(circuits: Mutex<Pool<Circuit>>, params: PoolPa
         circuit.events.off("error", onCircuitCloseOrError)
       }
 
-      return new Ok(new Cleanable(session, onClean))
+      return new Ok(new Cleaner(session, onClean))
     })
   }, { capacity, signal })
 
