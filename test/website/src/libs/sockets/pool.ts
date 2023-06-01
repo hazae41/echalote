@@ -17,7 +17,6 @@ const urls = [
   new URL("wss://lol.infura.io/ws/v3/b6bf7d3508c941499b10025c0776eaf8")
 ]
 
-
 export async function tryCreateWebSocket(circuit: Circuit, url: URL, signal?: AbortSignal): Promise<Result<WebSocket, BinaryWriteError | CloseError | ErrorError | AbortError | ControllerError>> {
   return await Result.unthrow(async t => {
     const signal2 = AbortSignals.timeout(5_000, signal)
