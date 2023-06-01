@@ -56,26 +56,24 @@ export async function tryCreateWebSocket(circuit: Circuit, url: URL, signal?: Ab
 }
 
 export async function tryCreateSocketLoop(circuit: Circuit, url: URL, signal?: AbortSignal) {
-  return await Result.unthrow(async t => {
-    for (let i = 0; !signal?.aborted && i < 3; i++) {
-      const result = await tryCreateWebSocket(circuit, url, signal)
+  for (let i = 0; !signal?.aborted && i < 3; i++) {
+    const result = await tryCreateWebSocket(circuit, url, signal)
 
-      if (result.isOk())
-        return new Ok(result.get())
+    if (result.isOk())
+      return new Ok(result.get())
 
-      if (!circuit.destroyed) {
-        console.warn(`WebSocket creation failed`, { e: result.get() })
-        await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
-        continue
-      }
-
-      return result
+    if (!circuit.destroyed) {
+      console.warn(`WebSocket creation failed`, { e: result.get() })
+      await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
+      continue
     }
 
-    if (signal?.aborted)
-      return new Err(AbortError.from(signal.reason))
-    return new Err(new AbortError(`Took too long`))
-  })
+    return result
+  }
+
+  if (signal?.aborted)
+    return new Err(AbortError.from(signal.reason))
+  return new Err(new AbortError(`Took too long`))
 }
 
 export function createSocketPool(circuit: Circuit, params: PoolParams = {}) {
