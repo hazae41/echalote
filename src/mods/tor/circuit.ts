@@ -264,7 +264,7 @@ export class SecretCircuit {
   // }
 
   async tryExtendLoop(exit: boolean, signal?: AbortSignal) {
-    while (!this.destroyed && !signal?.aborted) {
+    for (let i = 0; !this.destroyed && !signal?.aborted && i < 3; i++) {
       const result = await this.tryExtend(exit, signal)
 
       if (result.isOk())
@@ -277,11 +277,13 @@ export class SecretCircuit {
 
       if (result.inner.name === AbortError.name) {
         console.debug("Extend aborted", { error: result.get() })
+        await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
         continue
       }
 
       if (result.inner.name === InvalidNtorAuthError.name) {
         console.debug("Extend failed", { error: result.get() })
+        await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
         continue
       }
 

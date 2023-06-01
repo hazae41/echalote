@@ -43,53 +43,8 @@ import { InvalidNtorAuthError } from "./algorithms/ntor/ntor.js";
 import { CellError, ExpectedCircuitError, InvalidCellError, RelayCellError } from "./binary/cells/errors.js";
 import { OldCell } from "./binary/cells/old.js";
 import { CertError, Certs } from "./certs/certs.js";
-
-export type TorState =
-  | TorNoneState
-  | TorVersionedState
-  | TorHandshakingState
-  | TorHandshakedState
-
-export interface TorNoneState {
-  readonly type: "none"
-}
-
-export interface TorVersionedState {
-  readonly type: "versioned",
-  readonly version: number
-}
-
-export interface TorHandshakingState {
-  readonly type: "handshaking",
-  readonly version: number
-  readonly guard: Guard
-}
-
-export interface TorHandshakedState {
-  readonly type: "handshaked",
-  readonly version: number
-  readonly guard: Guard
-}
-
-export class InvalidStateError extends Error {
-  readonly #class = InvalidStateError
-  readonly name = this.#class.name
-
-  constructor() {
-    super(`Invalid state`)
-  }
-
-}
-
-export class InvalidVersionError extends Error {
-  readonly #class = InvalidVersionError
-  readonly name = this.#class.name
-
-  constructor() {
-    super(`Invalid version`)
-  }
-
-}
+import { InvalidTorStateError, InvalidTorVersionError } from "./errors.js";
+import { TorHandshakingState, TorNoneState, TorState, TorVersionedState } from "./state.js";
 
 export interface Guard {
   readonly idh: Uint8Array
@@ -302,7 +257,7 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async #onRead(chunk: Opaque): Promise<Result<void, InvalidVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError>> {
+  async #onRead(chunk: Opaque): Promise<Result<void, InvalidTorVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError>> {
     // console.debug(this.#class.name, "<-", chunk)
 
     if (this.#buffer.offset)
@@ -316,7 +271,7 @@ export class SecretTorClientDuplex {
    * @param chunk 
    * @returns 
    */
-  async #onReadBuffered(chunk: Uint8Array): Promise<Result<void, InvalidVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError>> {
+  async #onReadBuffered(chunk: Uint8Array): Promise<Result<void, InvalidTorVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError>> {
     return await Result.unthrow(async t => {
       this.#buffer.tryWrite(chunk).throw(t)
       const full = this.#buffer.before
@@ -331,7 +286,7 @@ export class SecretTorClientDuplex {
    * @param chunk 
    * @returns 
    */
-  async #onReadDirect(chunk: Uint8Array): Promise<Result<void, InvalidVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError>> {
+  async #onReadDirect(chunk: Uint8Array): Promise<Result<void, InvalidTorVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError>> {
     return await Result.unthrow(async t => {
       const cursor = new Cursor(chunk)
 
@@ -353,7 +308,7 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async #onCell(cell: Cell<Opaque> | OldCell<Opaque>, state: TorState): Promise<Result<void, InvalidVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError>> {
+  async #onCell(cell: Cell<Opaque> | OldCell<Opaque>, state: TorState): Promise<Result<void, InvalidTorVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError>> {
     if (cell.command === PaddingCell.command)
       return new Ok(console.debug(cell))
     if (cell.command === VariablePaddingCell.command)
@@ -377,7 +332,7 @@ export class SecretTorClientDuplex {
     throw new Panic()
   }
 
-  async #onNoneStateCell(cell: Cell<Opaque> | OldCell<Opaque>, state: TorNoneState): Promise<Result<void, InvalidVersionError | BinaryReadError | CellError>> {
+  async #onNoneStateCell(cell: Cell<Opaque> | OldCell<Opaque>, state: TorNoneState): Promise<Result<void, InvalidTorVersionError | BinaryReadError | CellError>> {
     if (cell instanceof Cell.Circuitful)
       return new Err(new InvalidCellError())
     if (cell instanceof Cell.Circuitless)
@@ -420,12 +375,12 @@ export class SecretTorClientDuplex {
     return Ok.void()
   }
 
-  async #onVersionsCell(cell: OldCell<Opaque>, state: TorNoneState): Promise<Result<void, InvalidVersionError | BinaryReadError | CellError>> {
+  async #onVersionsCell(cell: OldCell<Opaque>, state: TorNoneState): Promise<Result<void, InvalidTorVersionError | BinaryReadError | CellError>> {
     return await Result.unthrow(async t => {
       const cell2 = OldCell.Circuitless.tryInto(cell, VersionsCell).inspectSync(console.debug).throw(t)
 
       if (!cell2.fragment.versions.includes(5))
-        return new Err(new InvalidVersionError())
+        return new Err(new InvalidTorVersionError())
 
       this.#state = { ...state, type: "versioned", version: 5 }
 
@@ -613,7 +568,7 @@ export class SecretTorClientDuplex {
     }, signal2)
   }
 
-  async tryCreateAndExtendLoop(signal?: AbortSignal): Promise<Result<Circuit, InvalidStateError | ErrorError | CloseError | BinaryError | AbortError | EmptyFallbacksError | InvalidNtorAuthError | InvalidKdfKeyHashError | BytesCastError | EventError>> {
+  async tryCreateAndExtendLoop(signal?: AbortSignal): Promise<Result<Circuit, InvalidTorStateError | ErrorError | CloseError | BinaryError | AbortError | EmptyFallbacksError | InvalidNtorAuthError | InvalidKdfKeyHashError | BytesCastError | EventError>> {
     return await Result.unthrow(async t => {
 
       while (!this.closed && !signal?.aborted) {
@@ -655,7 +610,7 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async tryCreateLoop(signal?: AbortSignal): Promise<Result<Circuit, InvalidKdfKeyHashError | InvalidStateError | BinaryError | AbortError | ErrorError | CloseError>> {
+  async tryCreateLoop(signal?: AbortSignal): Promise<Result<Circuit, InvalidKdfKeyHashError | InvalidTorStateError | BinaryError | AbortError | ErrorError | CloseError>> {
     return await Result.unthrow(async t => {
       while (!this.closed && !signal?.aborted) {
         const result = await this.tryCreate(signal)
@@ -691,10 +646,10 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async tryCreate(signal?: AbortSignal): Promise<Result<Circuit, InvalidKdfKeyHashError | InvalidStateError | BinaryError | AbortError | ErrorError | CloseError>> {
+  async tryCreate(signal?: AbortSignal): Promise<Result<Circuit, InvalidKdfKeyHashError | InvalidTorStateError | BinaryError | AbortError | ErrorError | CloseError>> {
     return await Result.unthrow(async t => {
       if (this.#state.type !== "handshaked")
-        return new Err(new InvalidStateError())
+        return new Err(new InvalidTorStateError())
 
       const circuit = await this.#tryCreateCircuit().then(r => r.throw(t))
       const material = Bytes.random(20)
