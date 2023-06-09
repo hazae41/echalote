@@ -9,6 +9,7 @@ import type { Ed25519 } from "@hazae41/ed25519";
 import { Mutex } from "@hazae41/mutex";
 import { None, Some } from "@hazae41/option";
 import { Paimon } from "@hazae41/paimon";
+import { TooManyRetriesError } from "@hazae41/piscine";
 import { AbortError, CloseError, ErrorError, EventError, Plume, StreamEvents, SuperEventTarget } from "@hazae41/plume";
 import { Err, Ok, Panic, Result } from "@hazae41/result";
 import type { Sha1 } from "@hazae41/sha1";
@@ -43,7 +44,7 @@ import { InvalidNtorAuthError } from "./algorithms/ntor/ntor.js";
 import { CellError, ExpectedCircuitError, InvalidCellError, RelayCellError } from "./binary/cells/errors.js";
 import { OldCell } from "./binary/cells/old.js";
 import { CertError, Certs } from "./certs/certs.js";
-import { InvalidTorStateError, InvalidTorVersionError, TooManyRetriesError } from "./errors.js";
+import { InvalidTorStateError, InvalidTorVersionError } from "./errors.js";
 import { TorHandshakingState, TorNoneState, TorState, TorVersionedState } from "./state.js";
 
 export interface Guard {

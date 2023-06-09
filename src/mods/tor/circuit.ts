@@ -6,6 +6,7 @@ import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
 import { ControllerError } from "@hazae41/cascade";
 import { PipeError, tryFetch } from "@hazae41/fleche";
 import { Option, Some } from "@hazae41/option";
+import { TooManyRetriesError } from "@hazae41/piscine";
 import { AbortError, CloseError, ErrorError, EventError, Plume, StreamEvents, SuperEventTarget } from "@hazae41/plume";
 import { Err, Ok, Result } from "@hazae41/result";
 import { Aes128Ctr128BEKey } from "@hazae41/zepar";
@@ -29,7 +30,6 @@ import { Cell } from "./binary/cells/cell.js";
 import { RelayCell } from "./binary/cells/direct/relay/cell.js";
 import { RelayEarlyCell } from "./binary/cells/direct/relay_early/cell.js";
 import { HASH_LEN } from "./constants.js";
-import { TooManyRetriesError } from "./errors.js";
 
 export const IPv6 = {
   always: 3,

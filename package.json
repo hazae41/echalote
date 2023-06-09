@@ -39,7 +39,7 @@
     "@hazae41/mutex": "^1.2.7",
     "@hazae41/option": "^1.0.12",
     "@hazae41/paimon": "^1.0.15",
-    "@hazae41/piscine": "^1.0.29",
+    "@hazae41/piscine": "^1.0.33",
     "@hazae41/plume": "^2.0.9",
     "@hazae41/result": "^1.0.45",
     "@hazae41/smux": "^0.1.16",

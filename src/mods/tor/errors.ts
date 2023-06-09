@@ -21,13 +21,3 @@ export class InvalidTorVersionError extends Error {
   }
 
 }
-
-export class TooManyRetriesError extends Error {
-  readonly #class = TooManyRetriesError
-  readonly name = this.#class.name
-
-  constructor() {
-    super(`Too many retries`)
-  }
-
-}

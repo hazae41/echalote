@@ -1,17 +1,21 @@
-import { Circuit, Creator, TorClientDuplex, TorClientParams, createPooledCircuit, createPooledTor, createWebSocketSnowflakeStream, tryCreateLoop } from "@hazae41/echalote"
+import { Circuit, TorClientDuplex, TorClientParams, createPooledCircuit, createPooledTor, createWebSocketSnowflakeStream } from "@hazae41/echalote"
 import { Mutex } from "@hazae41/mutex"
-import { Pool, PoolParams } from "@hazae41/piscine"
+import { Cancel, Creator, Pool, PoolParams, tryCreateLoop } from "@hazae41/piscine"
 import { Ok, Result } from "@hazae41/result"
 
-export async function tryCreateTor(params: TorClientParams) {
-  const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
-  const tor = new TorClientDuplex(tcp, params)
+export async function tryCreateTor(params: TorClientParams): Promise<Result<TorClientDuplex, Cancel<Error>>> {
+  return await Result.unthrow(async t => {
+    const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
+    const tor = new TorClientDuplex(tcp, params)
 
-  return tor.tryWait().then(r => r.mapSync(() => tor))
+    tor.tryWait().then(r => r.mapErrSync(Cancel.new).throw(t))
+
+    return new Ok(tor)
+  })
 }
 
-export function createTorPool<CreateError>(tryCreate: Creator<TorClientDuplex, CreateError>, params: PoolParams = {}) {
-  return new Mutex(new Pool<TorClientDuplex, Error | CreateError>(async (params) => {
+export function createTorPool<CancelError, RetryError>(tryCreate: Creator<TorClientDuplex, CancelError, RetryError>, params: PoolParams = {}) {
+  return new Mutex(new Pool<TorClientDuplex, Error | CancelError>(async (params) => {
     return await Result.unthrow(async t => {
       const tor = await tryCreateLoop(tryCreate, params).then(r => r.throw(t))
 
