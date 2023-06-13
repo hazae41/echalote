@@ -7,7 +7,7 @@ import { TorClientDuplex } from "mods/tor/tor.js";
 export function createPooledCircuit<PoolError>(circuit: Circuit, params: PoolCreatorParams<Circuit, PoolError>) {
   const { pool, index } = params
 
-  const onCloseOrError = async () => {
+  const onCloseOrError = async (reason?: unknown) => {
     pool.delete(index)
     return Ok.void()
   }
