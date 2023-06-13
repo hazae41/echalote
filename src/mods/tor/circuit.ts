@@ -7,7 +7,7 @@ import { ControllerError } from "@hazae41/cascade";
 import { PipeError, tryFetch } from "@hazae41/fleche";
 import { Option, Some } from "@hazae41/option";
 import { TooManyRetriesError } from "@hazae41/piscine";
-import { AbortError, CloseError, ErrorError, EventError, Plume, StreamEvents, SuperEventTarget } from "@hazae41/plume";
+import { AbortedError, ClosedError, ErroredError, EventError, Plume, StreamEvents, SuperEventTarget } from "@hazae41/plume";
 import { Err, Ok, Result } from "@hazae41/result";
 import { Aes128Ctr128BEKey } from "@hazae41/zepar";
 import { AbortSignals } from "libs/signals/signals.js";
@@ -264,7 +264,7 @@ export class SecretCircuit {
   //   }, signal)
   // }
 
-  async tryExtendLoop(exit: boolean, signal?: AbortSignal): Promise<Result<void, TooManyRetriesError | EmptyFallbacksError | InvalidNtorAuthError | CloseError | BinaryError | AbortError | ErrorError>> {
+  async tryExtendLoop(exit: boolean, signal?: AbortSignal): Promise<Result<void, TooManyRetriesError | EmptyFallbacksError | InvalidNtorAuthError | ClosedError | BinaryError | AbortedError | ErroredError>> {
     for (let i = 0; !this.destroyed && !signal?.aborted && i < 3; i++) {
       const result = await this.tryExtend(exit, signal)
 
@@ -276,7 +276,7 @@ export class SecretCircuit {
       if (signal?.aborted)
         return result
 
-      if (result.inner.name === AbortError.name) {
+      if (result.inner.name === AbortedError.name) {
         console.debug("Extend aborted", { error: result.get() })
         await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
         continue
@@ -292,19 +292,19 @@ export class SecretCircuit {
     }
 
     if (this.destroyed?.reason !== undefined)
-      return new Err(ErrorError.from(this.destroyed.reason))
+      return new Err(ErroredError.from(this.destroyed.reason))
     if (this.destroyed !== undefined)
-      return new Err(CloseError.from(this.destroyed.reason))
+      return new Err(ClosedError.from(this.destroyed.reason))
     if (signal?.aborted)
-      return new Err(AbortError.from(signal.reason))
+      return new Err(AbortedError.from(signal.reason))
     return new Err(new TooManyRetriesError())
   }
 
-  async tryExtend(exit: boolean, signal?: AbortSignal): Promise<Result<void, EmptyFallbacksError | InvalidNtorAuthError | CloseError | BinaryError | AbortError | ErrorError>> {
+  async tryExtend(exit: boolean, signal?: AbortSignal): Promise<Result<void, EmptyFallbacksError | InvalidNtorAuthError | ClosedError | BinaryError | AbortedError | ErroredError>> {
     if (this.destroyed?.reason !== undefined)
-      return new Err(ErrorError.from(this.destroyed.reason))
+      return new Err(ErroredError.from(this.destroyed.reason))
     if (this.destroyed !== undefined)
-      return new Err(CloseError.from(this.destroyed.reason))
+      return new Err(ClosedError.from(this.destroyed.reason))
 
     const fallbacks = exit
       ? this.tor.params.fallbacks.filter(it => it.exit)
@@ -318,17 +318,17 @@ export class SecretCircuit {
     return await this.tryExtendTo(fallback, signal)
   }
 
-  async tryExtendTo(fallback: Fallback, signal?: AbortSignal): Promise<Result<void, BytesCastError | InvalidNtorAuthError | BinaryError | AbortError | ErrorError | CloseError>> {
+  async tryExtendTo(fallback: Fallback, signal?: AbortSignal): Promise<Result<void, BytesCastError | InvalidNtorAuthError | BinaryError | AbortedError | ErroredError | ClosedError>> {
     return await Result.unthrow(async t => {
       if (this.destroyed?.reason !== undefined)
-        return new Err(ErrorError.from(this.destroyed.reason))
+        return new Err(ErroredError.from(this.destroyed.reason))
       if (this.destroyed !== undefined)
-        return new Err(CloseError.from(this.destroyed.reason))
+        return new Err(ClosedError.from(this.destroyed.reason))
 
       const signal2 = AbortSignals.timeout(5_000, signal)
 
       const relayid_rsa = Bytes.tryCast(Bytes.fromHex(fallback.id), HASH_LEN).throw(t)
-      const relayid_ed = Option.from(fallback.eid).mapSync(Bytes.fromBase64).get()
+      const relayid_ed = Option.wrap(fallback.eid).mapSync(Bytes.fromBase64).get()
 
       const links: RelayExtend2Link[] = fallback.hosts.map(RelayExtend2Link.fromAddressString)
 
@@ -390,7 +390,7 @@ export class SecretCircuit {
     return await this.events.tryEmit("error", reason).then(r => r.clear())
   }
 
-  async tryTruncate(reason = RelayTruncateCell.reasons.NONE, signal?: AbortSignal): Promise<Result<void, BinaryError | CloseError | AbortError | ErrorError>> {
+  async tryTruncate(reason = RelayTruncateCell.reasons.NONE, signal?: AbortSignal): Promise<Result<void, BinaryError | ClosedError | AbortedError | ErroredError>> {
     return await Result.unthrow(async t => {
       const signal2 = AbortSignals.timeout(5_000, signal)
 
@@ -404,12 +404,12 @@ export class SecretCircuit {
     })
   }
 
-  async tryOpen(hostname: string, port: number, params: CircuitOpenParams = {}): Promise<Result<TorStreamDuplex, BinaryWriteError | ErrorError | CloseError | ControllerError>> {
+  async tryOpen(hostname: string, port: number, params: CircuitOpenParams = {}): Promise<Result<TorStreamDuplex, BinaryWriteError | ErroredError | ClosedError | ControllerError>> {
     return await Result.unthrow(async t => {
       if (this.destroyed?.reason !== undefined)
-        return new Err(ErrorError.from(this.destroyed.reason))
+        return new Err(ErroredError.from(this.destroyed.reason))
       if (this.destroyed !== undefined)
-        return new Err(CloseError.from(this.destroyed.reason))
+        return new Err(ClosedError.from(this.destroyed.reason))
 
       const { ipv6 = "preferred" } = params
 
@@ -438,12 +438,12 @@ export class SecretCircuit {
    * @param init Fetch init
    * @returns Response promise
    */
-  async tryFetch(input: RequestInfo | URL, init: RequestInit & CircuitOpenParams): Promise<Result<Response, UnknownProtocolError | BinaryWriteError | AbortError | ErrorError | CloseError | PipeError | ControllerError>> {
+  async tryFetch(input: RequestInfo | URL, init: RequestInit & CircuitOpenParams): Promise<Result<Response, UnknownProtocolError | BinaryWriteError | AbortedError | ErroredError | ClosedError | PipeError | ControllerError>> {
     return await Result.unthrow(async t => {
       if (this.destroyed?.reason !== undefined)
-        return new Err(ErrorError.from(this.destroyed.reason))
+        return new Err(ErroredError.from(this.destroyed.reason))
       if (this.destroyed !== undefined)
-        return new Err(CloseError.from(this.destroyed.reason))
+        return new Err(ClosedError.from(this.destroyed.reason))
 
       const req = new Request(input, init)
 

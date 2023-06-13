@@ -7,7 +7,7 @@ import { Fleche } from "@hazae41/fleche"
 import { Future } from "@hazae41/future"
 import { Mutex } from "@hazae41/mutex"
 import { Pool, PoolParams } from "@hazae41/piscine"
-import { AbortError, CloseError, ErrorError } from "@hazae41/plume"
+import { AbortedError, ClosedError, ErroredError } from "@hazae41/plume"
 import { Err, Ok, Result } from "@hazae41/result"
 import { AbortSignals } from "libs/signals/signals"
 
@@ -17,7 +17,7 @@ const urls = [
   new URL("wss://lol.infura.io/ws/v3/b6bf7d3508c941499b10025c0776eaf8")
 ]
 
-export async function tryCreateWebSocket(circuit: Circuit, url: URL, signal?: AbortSignal): Promise<Result<WebSocket, BinaryWriteError | CloseError | ErrorError | AbortError | ControllerError>> {
+export async function tryCreateWebSocket(circuit: Circuit, url: URL, signal?: AbortSignal): Promise<Result<WebSocket, BinaryWriteError | ClosedError | ErroredError | AbortedError | ControllerError>> {
   return await Result.unthrow(async t => {
     const signal2 = AbortSignals.timeout(5_000, signal)
 
@@ -25,19 +25,19 @@ export async function tryCreateWebSocket(circuit: Circuit, url: URL, signal?: Ab
     const tls = new TlsClientDuplex(tcp, { ciphers: [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384] })
     const socket = new Fleche.WebSocket(url, undefined, { subduplex: tls })
 
-    const future = new Future<Result<WebSocket, ErrorError | AbortError>>()
+    const future = new Future<Result<WebSocket, ErroredError | AbortedError>>()
 
     const onOpen = () => {
       future.resolve(new Ok(socket))
     }
 
     const onError = (e: unknown) => {
-      future.resolve(new Err(ErrorError.from(e)))
+      future.resolve(new Err(ErroredError.from(e)))
     }
 
     const onAbort = (e: unknown) => {
       socket.close()
-      future.resolve(new Err(AbortError.from(e)))
+      future.resolve(new Err(AbortedError.from(e)))
     }
 
     try {
@@ -71,8 +71,8 @@ export async function tryCreateSocketLoop(circuit: Circuit, url: URL, signal?: A
   }
 
   if (signal?.aborted)
-    return new Err(AbortError.from(signal.reason))
-  return new Err(new AbortError(`Took too long`))
+    return new Err(AbortedError.from(signal.reason))
+  return new Err(new AbortedError(`Took too long`))
 }
 
 export function createSocketPool(circuit: Circuit, params: PoolParams = {}) {

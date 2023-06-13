@@ -10,7 +10,7 @@ import { Mutex } from "@hazae41/mutex";
 import { None, Some } from "@hazae41/option";
 import { Paimon } from "@hazae41/paimon";
 import { TooManyRetriesError } from "@hazae41/piscine";
-import { AbortError, CloseError, ErrorError, EventError, Plume, StreamEvents, SuperEventTarget } from "@hazae41/plume";
+import { AbortedError, ClosedError, ErroredError, EventError, Plume, StreamEvents, SuperEventTarget } from "@hazae41/plume";
 import { Err, Ok, Panic, Result } from "@hazae41/result";
 import type { Sha1 } from "@hazae41/sha1";
 import type { X25519 } from "@hazae41/x25519";
@@ -247,7 +247,7 @@ export class SecretTorClientDuplex {
     return Result.rethrow(reason)
   }
 
-  async #onWriteStart(): Promise<Result<void, ErrorError | CloseError>> {
+  async #onWriteStart(): Promise<Result<void, ErroredError | ClosedError>> {
     await this.#init()
 
     const version = new VersionsCell([5])
@@ -559,7 +559,7 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async #tryWaitCreatedFast(circuit: SecretCircuit, signal?: AbortSignal): Promise<Result<Cell.Circuitful<CreatedFastCell>, AbortError | ErrorError | CloseError>> {
+  async #tryWaitCreatedFast(circuit: SecretCircuit, signal?: AbortSignal): Promise<Result<Cell.Circuitful<CreatedFastCell>, AbortedError | ErroredError | ClosedError>> {
     const signal2 = AbortSignals.timeout(5_000, signal)
 
     return await Plume.tryWaitOrStreamOrSignal(this.events, "CREATED_FAST", async e => {
@@ -569,7 +569,7 @@ export class SecretTorClientDuplex {
     }, signal2)
   }
 
-  async tryCreateAndExtendLoop(signal?: AbortSignal): Promise<Result<Circuit, TooManyRetriesError | InvalidTorStateError | ErrorError | CloseError | BinaryError | AbortError | EmptyFallbacksError | InvalidNtorAuthError | InvalidKdfKeyHashError | BytesCastError | EventError>> {
+  async tryCreateAndExtendLoop(signal?: AbortSignal): Promise<Result<Circuit, TooManyRetriesError | InvalidTorStateError | ErroredError | ClosedError | BinaryError | AbortedError | EmptyFallbacksError | InvalidNtorAuthError | InvalidKdfKeyHashError | BytesCastError | EventError>> {
     return await Result.unthrow(async t => {
 
       for (let i = 0; !this.closed && !signal?.aborted && i < 3; i++) {
@@ -604,16 +604,16 @@ export class SecretTorClientDuplex {
       }
 
       if (this.closed?.reason !== undefined)
-        return new Err(ErrorError.from(this.closed.reason))
+        return new Err(ErroredError.from(this.closed.reason))
       if (this.closed !== undefined)
-        return new Err(CloseError.from(this.closed.reason))
+        return new Err(ClosedError.from(this.closed.reason))
       if (signal?.aborted)
-        return new Err(AbortError.from(signal.reason))
+        return new Err(AbortedError.from(signal.reason))
       return new Err(new TooManyRetriesError())
     })
   }
 
-  async tryCreateLoop(signal?: AbortSignal): Promise<Result<Circuit, TooManyRetriesError | InvalidKdfKeyHashError | InvalidTorStateError | BinaryError | AbortError | ErrorError | CloseError>> {
+  async tryCreateLoop(signal?: AbortSignal): Promise<Result<Circuit, TooManyRetriesError | InvalidKdfKeyHashError | InvalidTorStateError | BinaryError | AbortedError | ErroredError | ClosedError>> {
     return await Result.unthrow(async t => {
       for (let i = 0; !this.closed && !signal?.aborted && i < 3; i++) {
         const result = await this.tryCreate(signal)
@@ -626,7 +626,7 @@ export class SecretTorClientDuplex {
         if (signal?.aborted)
           return result
 
-        if (result.inner.name === AbortError.name) {
+        if (result.inner.name === AbortedError.name) {
           console.debug("Create aborted", { error: result.get() })
           await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
           continue
@@ -642,16 +642,16 @@ export class SecretTorClientDuplex {
       }
 
       if (this.closed?.reason !== undefined)
-        return new Err(ErrorError.from(this.closed.reason))
+        return new Err(ErroredError.from(this.closed.reason))
       if (this.closed !== undefined)
-        return new Err(CloseError.from(this.closed.reason))
+        return new Err(ClosedError.from(this.closed.reason))
       if (signal?.aborted)
-        return new Err(AbortError.from(signal.reason))
+        return new Err(AbortedError.from(signal.reason))
       return new Err(new TooManyRetriesError())
     })
   }
 
-  async tryCreate(signal?: AbortSignal): Promise<Result<Circuit, InvalidKdfKeyHashError | InvalidTorStateError | BinaryError | AbortError | ErrorError | CloseError>> {
+  async tryCreate(signal?: AbortSignal): Promise<Result<Circuit, InvalidKdfKeyHashError | InvalidTorStateError | BinaryError | AbortedError | ErroredError | ClosedError>> {
     return await Result.unthrow(async t => {
       if (this.#state.type !== "handshaked")
         return new Err(new InvalidTorStateError())
