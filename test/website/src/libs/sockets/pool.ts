@@ -1,13 +1,11 @@
-import { BinaryWriteError } from "@hazae41/binary"
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas"
-import { ControllerError } from "@hazae41/cascade"
 import { Cleaner } from "@hazae41/cleaner"
 import { Circuit } from "@hazae41/echalote"
 import { Fleche } from "@hazae41/fleche"
 import { Future } from "@hazae41/future"
 import { Mutex } from "@hazae41/mutex"
 import { Pool, PoolParams } from "@hazae41/piscine"
-import { AbortedError, ClosedError, ErroredError } from "@hazae41/plume"
+import { AbortedError, ErroredError } from "@hazae41/plume"
 import { Err, Ok, Result } from "@hazae41/result"
 import { AbortSignals } from "libs/signals/signals"
 
@@ -17,7 +15,7 @@ const urls = [
   new URL("wss://lol.infura.io/ws/v3/b6bf7d3508c941499b10025c0776eaf8")
 ]
 
-export async function tryCreateWebSocket(circuit: Circuit, url: URL, signal?: AbortSignal): Promise<Result<WebSocket, BinaryWriteError | ClosedError | ErroredError | AbortedError | ControllerError>> {
+export async function tryCreateWebSocket(circuit: Circuit, url: URL, signal?: AbortSignal): Promise<Result<WebSocket, Error>> {
   return await Result.unthrow(async t => {
     const signal2 = AbortSignals.timeout(5_000, signal)
 

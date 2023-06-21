@@ -6,6 +6,6 @@ export * from "./relay_drop/index.js";
 export * from "./relay_end/index.js";
 export * from "./relay_extend2/index.js";
 export * from "./relay_extended2/index.js";
+export * from "./relay_sendme/index.js";
 export * from "./relay_truncate/index.js";
 export * from "./relay_truncated/index.js";
-

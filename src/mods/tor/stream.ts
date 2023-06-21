@@ -1,4 +1,4 @@
-import { BinaryError, BinaryWriteError, Opaque, Writable } from "@hazae41/binary";
+import { BinaryError, Opaque, Writable } from "@hazae41/binary";
 import { ControllerError, SuperReadableStream, SuperWritableStream } from "@hazae41/cascade";
 import { Cursor } from "@hazae41/cursor";
 import { Ok, Result } from "@hazae41/result";
@@ -120,7 +120,7 @@ export class SecretTorStreamDuplex {
     })
   }
 
-  #onWriteDirect<T extends Writable.Infer<T>>(writable: T): Result<void, BinaryWriteError | Writable.SizeError<T> | Writable.WriteError<T>> {
+  #onWriteDirect<T extends Writable.Infer<T>>(writable: T): Result<void, BinaryError | Writable.SizeError<T> | Writable.WriteError<T>> {
     return Result.unthrowSync(t => {
       const relay_data_cell = new RelayDataCell(writable)
       const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_data_cell)

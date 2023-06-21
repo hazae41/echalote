@@ -15,7 +15,7 @@ async function superfetch(circuit: Circuit) {
 
   const body = JSON.stringify({ "jsonrpc": "2.0", "method": "web3_clientVersion", "params": [], "id": 67 })
   const headers = { "content-type": "application/json" }
-  const res = await circuit.tryFetch("https://virginia.rpc.blxrbdn.com", { method: "POST", headers, body }).then(r => r.unwrap())
+  const res = await circuit.tryFetch("https://eth.llamarpc.com", { method: "POST", headers, body }).then(r => r.unwrap())
 
   // const res = await circuit.fetch("https://twitter.com", {})
 

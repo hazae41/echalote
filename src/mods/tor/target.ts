@@ -1,9 +1,15 @@
+import { Bytes } from "@hazae41/bytes";
 import type { Sha1 } from "@hazae41/sha1";
 import { Aes128Ctr128BEKey } from "@hazae41/zepar";
 import { SecretCircuit } from "mods/tor/circuit.js";
 
 export class Target {
   readonly #class = Target
+
+  delivery = 1000
+  package = 1000
+
+  last_digest?: Bytes<20>
 
   constructor(
     readonly relayid_rsa: Uint8Array,

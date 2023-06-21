@@ -1,5 +1,5 @@
 import { Arrays } from "@hazae41/arrays";
-import { BinaryError, BinaryWriteError, Opaque } from "@hazae41/binary";
+import { BinaryError, Opaque } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Bytes, BytesCastError } from "@hazae41/bytes";
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
@@ -404,7 +404,7 @@ export class SecretCircuit {
     })
   }
 
-  async tryOpen(hostname: string, port: number, params: CircuitOpenParams = {}): Promise<Result<TorStreamDuplex, BinaryWriteError | ErroredError | ClosedError | ControllerError>> {
+  async tryOpen(hostname: string, port: number, params: CircuitOpenParams = {}): Promise<Result<TorStreamDuplex, BinaryError | ErroredError | ClosedError | ControllerError>> {
     return await Result.unthrow(async t => {
       if (this.destroyed?.reason !== undefined)
         return new Err(ErroredError.from(this.destroyed.reason))
@@ -438,7 +438,7 @@ export class SecretCircuit {
    * @param init Fetch init
    * @returns Response promise
    */
-  async tryFetch(input: RequestInfo | URL, init: RequestInit & CircuitOpenParams): Promise<Result<Response, UnknownProtocolError | BinaryWriteError | AbortedError | ErroredError | ClosedError | PipeError | ControllerError>> {
+  async tryFetch(input: RequestInfo | URL, init: RequestInit & CircuitOpenParams): Promise<Result<Response, UnknownProtocolError | BinaryError | AbortedError | ErroredError | ClosedError | PipeError | ControllerError>> {
     return await Result.unthrow(async t => {
       if (this.destroyed?.reason !== undefined)
         return new Err(ErroredError.from(this.destroyed.reason))

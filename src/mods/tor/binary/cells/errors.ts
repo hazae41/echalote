@@ -65,6 +65,7 @@ export type RelayCellError =
   | InvalidRelayCellDigestError
   | UnrecognisedRelayCellError
   | UnknownAddressType
+  | InvalidRelaySendmeCellDigestError
 
 export class InvalidRelayCommandError extends Error {
   readonly #class = InvalidRelayCommandError
@@ -111,7 +112,17 @@ export class InvalidRelayCellDigestError extends Error {
   readonly name = this.#class.name
 
   constructor() {
-    super(`Invalid relay cell digest`)
+    super(`Invalid RELAY cell digest`)
+  }
+
+}
+
+export class InvalidRelaySendmeCellDigestError extends Error {
+  readonly #class = InvalidRelaySendmeCellDigestError
+  readonly name = this.#class.name
+
+  constructor() {
+    super(`Invalid RELAY_SENDME cell digest`)
   }
 
 }
