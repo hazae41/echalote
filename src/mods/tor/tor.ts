@@ -509,7 +509,7 @@ export class SecretTorClientDuplex {
       exit.delivery--
 
       if (exit.delivery === 900) {
-        exit.delivery += 100
+        exit.delivery = 1000
 
         if (cell2.digest20 === undefined)
           throw Panic.from(new InvalidRelayCellDigestError())
@@ -557,6 +557,13 @@ export class SecretTorClientDuplex {
     return await Result.unthrow(async t => {
       const cell2 = RelayCell.Streamless.tryInto(cell, RelaySendmeCircuitCell).inspectSync(console.debug).throw(t)
 
+      if (cell2.fragment.version === 0) {
+        const exit = Arrays.last(cell2.circuit.targets)
+
+        exit.package += 100
+        return Ok.void()
+      }
+
       if (cell2.fragment.version === 1) {
         const digest = cell2.fragment.fragment.tryReadInto(RelaySendmeDigest).inspectSync(console.debug).throw(t)
 
@@ -571,6 +578,7 @@ export class SecretTorClientDuplex {
         return Ok.void()
       }
 
+      console.warn(`Unknown RELAY_SENDME circuit cell version ${cell2.fragment.version}`)
       return Ok.void()
     })
   }
@@ -579,6 +587,7 @@ export class SecretTorClientDuplex {
     return await Result.unthrow(async t => {
       const cell2 = RelayCell.Streamful.tryInto(cell, RelaySendmeStreamCell).inspectSync(console.debug).throw(t)
 
+      cell2.stream.package += 50
       return Ok.void()
     })
   }

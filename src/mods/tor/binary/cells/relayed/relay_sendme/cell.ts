@@ -59,7 +59,7 @@ export class RelaySendmeCircuitCell<T extends Writable.Infer<T>> {
 
 }
 
-export class RelaySendmeStreamCell<T extends Writable.Infer<T>> {
+export class RelaySendmeStreamCell {
   readonly #class = RelaySendmeStreamCell
 
   static readonly early = false
@@ -71,10 +71,7 @@ export class RelaySendmeStreamCell<T extends Writable.Infer<T>> {
     1: 1
   } as const
 
-  constructor(
-    readonly version: number,
-    readonly fragment: T
-  ) { }
+  constructor() { }
 
   get early(): false {
     return this.#class.early
@@ -88,29 +85,16 @@ export class RelaySendmeStreamCell<T extends Writable.Infer<T>> {
     return this.#class.rcommand
   }
 
-  trySize(): Result<number, Writable.SizeError<T>> {
-    return this.fragment.trySize().mapSync(x => 1 + 2 + x)
+  trySize(): Result<number, never> {
+    return new Ok(0)
   }
 
-  tryWrite(cursor: Cursor): Result<void, BinaryWriteError | Writable.SizeError<T> | Writable.WriteError<T>> {
-    return Result.unthrowSync(t => {
-      cursor.tryWriteUint8(this.version).throw(t)
-      cursor.tryWriteUint16(this.fragment.trySize().throw(t))
-      this.fragment.tryWrite(cursor).throw(t)
-
-      return Ok.void()
-    })
+  tryWrite(cursor: Cursor): Result<void, never> {
+    return Ok.void()
   }
 
-  static tryRead(cursor: Cursor): Result<RelaySendmeStreamCell<Opaque>, BinaryReadError> {
-    return Result.unthrowSync(t => {
-      const version = cursor.tryReadUint8().throw(t)
-      const length = cursor.tryReadUint16().throw(t)
-      const bytes = cursor.tryRead(length).throw(t)
-      const data = new Opaque(bytes)
-
-      return new Ok(new RelaySendmeStreamCell(version, data))
-    })
+  static tryRead(cursor: Cursor): Result<RelaySendmeStreamCell, BinaryReadError> {
+    return new Ok(new RelaySendmeStreamCell())
   }
 
 }

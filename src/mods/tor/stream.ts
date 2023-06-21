@@ -6,6 +6,7 @@ import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { SecretCircuit } from "mods/tor/circuit.js";
+import { RelaySendmeStreamCell } from "./index.js";
 
 export class TorStreamDuplex {
 
@@ -33,6 +34,9 @@ export class SecretTorStreamDuplex {
 
   readonly readable: ReadableStream<Opaque>
   readonly writable: WritableStream<Writable>
+
+  delivery = 500
+  package = 500
 
   constructor(
     readonly id: number,
@@ -89,15 +93,28 @@ export class SecretTorStreamDuplex {
     return Ok.void()
   }
 
-  async #onRelayDataCell(cell: RelayCell.Streamful<RelayDataCell<Opaque>>) {
-    if (cell.stream !== this)
+  async #onRelayDataCell(cell: RelayCell.Streamful<RelayDataCell<Opaque>>): Promise<Result<void, BinaryError | ControllerError>> {
+    return await Result.unthrow(async t => {
+      if (cell.stream !== this)
+        return Ok.void()
+
+      console.debug(`${this.#class.name}.onRelayDataCell`, cell)
+
+      this.delivery--
+
+      if (this.delivery === 450) {
+        this.delivery = 500
+
+        const sendme = new RelaySendmeStreamCell()
+
+        const sendme_cell = RelayCell.Streamful.from(this.circuit, this, sendme)
+        this.circuit.tor.writer.tryEnqueue(sendme_cell.tryCell().throw(t)).throw(t)
+      }
+
+      this.#reader.tryEnqueue(cell.fragment.fragment).inspectErrSync(e => console.debug({ e })).ignore()
+
       return Ok.void()
-
-    console.debug(`${this.#class.name}.onRelayDataCell`, cell)
-
-    this.#reader.tryEnqueue(cell.fragment.fragment).inspectErrSync(e => console.debug({ e })).ignore()
-
-    return Ok.void()
+    })
   }
 
   async #onRelayEndCell(cell: RelayCell.Streamful<RelayEndCell>) {
@@ -126,6 +143,8 @@ export class SecretTorStreamDuplex {
       const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_data_cell)
       const cell = relay_cell.tryCell().throw(t)
       this.circuit.tor.writer.enqueue(cell)
+
+      this.package--
 
       return Ok.void()
     })

@@ -131,11 +131,5 @@ export function createSessionPool(circuits: Mutex<Pool<Circuit, Error>>, params:
     })
   }, { capacity, signal })
 
-  pool.signal.addEventListener("abort", async (reason) => {
-    circuits.inner.abort(reason)
-
-    return Ok.void()
-  }, { passive: true, once: true })
-
   return new Mutex(pool)
 }
