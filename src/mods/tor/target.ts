@@ -9,7 +9,7 @@ export class Target {
   delivery = 1000
   package = 1000
 
-  last_digest?: Bytes<20>
+  digests = new Array<Bytes<20>>()
 
   constructor(
     readonly relayid_rsa: Uint8Array,

@@ -92,7 +92,7 @@ export namespace RelayCell {
 
         if (this.rcommand === RelayDataCell.rcommand) {
           if (exit.package % 100 === 1) {
-            exit.last_digest = digest20
+            exit.digests.push(digest20)
             console.error("DATA", exit.package, digest20)
           }
           exit.package--

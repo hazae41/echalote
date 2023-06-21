@@ -568,12 +568,13 @@ export class SecretTorClientDuplex {
         const digest = cell2.fragment.fragment.tryReadInto(RelaySendmeDigest).inspectSync(console.debug).throw(t)
 
         const exit = Arrays.last(cell2.circuit.targets)
+        const digest2 = exit.digests.shift()
 
-        console.error("SENDME", exit.package, exit.last_digest)
+        console.error("SENDME", exit.package, digest)
 
-        if (exit.last_digest === undefined)
+        if (digest2 === undefined)
           return new Err(new InvalidRelaySendmeCellDigestError())
-        if (!Bytes.equals(digest.digest, exit.last_digest))
+        if (!Bytes.equals(digest.digest, digest2))
           return new Err(new InvalidRelaySendmeCellDigestError())
 
         exit.package += 100
