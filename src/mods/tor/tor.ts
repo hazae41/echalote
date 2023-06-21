@@ -569,6 +569,8 @@ export class SecretTorClientDuplex {
 
         const exit = Arrays.last(cell2.circuit.targets)
 
+        console.error("SENDME", exit.package, exit.last_digest)
+
         if (exit.last_digest === undefined)
           return new Err(new InvalidRelaySendmeCellDigestError())
         if (!Bytes.equals(digest.digest, exit.last_digest))
