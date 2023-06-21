@@ -91,10 +91,8 @@ export namespace RelayCell {
         const digest4 = digest20.subarray(0, 4)
 
         if (this.rcommand === RelayDataCell.rcommand) {
-          if (exit.package % 100 === 1) {
+          if (exit.package % 100 === 1)
             exit.digests.push(digest20)
-            console.error("DATA", exit.package, digest20)
-          }
           exit.package--
         }
 
