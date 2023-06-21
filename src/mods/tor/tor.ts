@@ -275,7 +275,7 @@ export class SecretTorClientDuplex {
   async #onReadBuffered(chunk: Uint8Array): Promise<Result<void, InvalidTorVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError>> {
     return await Result.unthrow(async t => {
       this.#buffer.tryWrite(chunk).throw(t)
-      const full = this.#buffer.before
+      const full = new Uint8Array(this.#buffer.before)
 
       this.#buffer.offset = 0
       return await this.#onReadDirect(full)
