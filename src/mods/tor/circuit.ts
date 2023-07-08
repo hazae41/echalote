@@ -5,9 +5,9 @@ import { Bytes, BytesCastError } from "@hazae41/bytes";
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
 import { ControllerError } from "@hazae41/cascade";
 import { PipeError, tryFetch } from "@hazae41/fleche";
-import { Option, Some } from "@hazae41/option";
+import { None, Option, Some } from "@hazae41/option";
 import { TooManyRetriesError } from "@hazae41/piscine";
-import { AbortedError, ClosedError, ErroredError, EventError, Plume, StreamEvents, SuperEventTarget } from "@hazae41/plume";
+import { AbortedError, CloseEvents, ClosedError, ErrorEvents, ErroredError, EventError, Plume, SuperEventTarget } from "@hazae41/plume";
 import { Err, Ok, Result } from "@hazae41/result";
 import { Aes128Ctr128BEKey } from "@hazae41/zepar";
 import { AbortSignals } from "libs/signals/signals.js";
@@ -66,7 +66,7 @@ export class UnknownProtocolError extends Error {
 
 export class Circuit {
 
-  readonly events = new SuperEventTarget<StreamEvents>()
+  readonly events = new SuperEventTarget<CloseEvents & ErrorEvents>()
 
   readonly #secret: SecretCircuit
 
@@ -89,11 +89,11 @@ export class Circuit {
   }
 
   async #onClose() {
-    return this.events.tryEmit("close", undefined).then(r => r.clear())
+    return await this.events.emit("close", [undefined])
   }
 
   async #onError(reason?: unknown) {
-    return this.events.tryEmit("error", reason).then(r => r.clear())
+    return await this.events.emit("error", [reason])
   }
 
   async tryExtend(exit: boolean, signal: AbortSignal) {
@@ -112,17 +112,17 @@ export class Circuit {
     return await this.#secret.tryFetch(input, init)
   }
 
-  async tryDestroy() {
-    return await this.#secret.tryDestroy()
+  async destroy() {
+    return await this.#secret.destroy()
   }
 
 }
 
-export type SecretCircuitEvents = StreamEvents & {
-  "RELAY_EXTENDED2": RelayCell.Streamless<RelayExtended2Cell<Opaque>>,
-  "RELAY_TRUNCATED": RelayCell.Streamless<RelayTruncatedCell>
-  "RELAY_DATA": RelayCell.Streamful<RelayDataCell<Opaque>>
-  "RELAY_END": RelayCell.Streamful<RelayEndCell>,
+export type SecretCircuitEvents = CloseEvents & ErrorEvents & {
+  "RELAY_EXTENDED2": (cell: RelayCell.Streamless<RelayExtended2Cell<Opaque>>) => Result<void, Error>
+  "RELAY_TRUNCATED": (cell: RelayCell.Streamless<RelayTruncatedCell>) => Result<void, Error>
+  "RELAY_DATA": (cell: RelayCell.Streamful<RelayDataCell<Opaque>>) => Result<void, Error>
+  "RELAY_END": (cell: RelayCell.Streamful<RelayEndCell>) => Result<void, Error>
 }
 
 export class SecretCircuit {
@@ -175,7 +175,9 @@ export class SecretCircuit {
 
     this.#destroyed = {}
 
-    return await this.events.tryEmit("close", undefined).then(r => r.clear())
+    await this.events.emit("close", [undefined])
+
+    return new None()
   }
 
   async #onTorError(reason?: unknown) {
@@ -183,72 +185,93 @@ export class SecretCircuit {
 
     this.#destroyed = { reason }
 
-    return await this.events.tryEmit("error", reason).then(r => r.clear())
+    await this.events.emit("error", [reason])
+
+    return new None()
   }
 
   async #onDestroyCell(cell: Cell.Circuitful<DestroyCell>) {
     if (cell.circuit !== this)
-      return Ok.void()
+      return new None()
 
     console.debug(`${this.#class.name}.onDestroyCell`, cell)
 
     this.#destroyed = { reason: cell }
 
-    return await this.events.tryEmit("error", cell).then(r => r.clear())
+    await this.events.emit("error", [cell])
+
+    return new None()
   }
 
   async #onRelayExtended2Cell(cell: RelayCell.Streamless<RelayExtended2Cell<Opaque>>) {
     if (cell.circuit !== this)
-      return Ok.void()
+      return new None()
 
     console.debug(`${this.#class.name}.onRelayExtended2Cell`, cell)
 
-    return await this.events.tryEmit("RELAY_EXTENDED2", cell).then(r => r.clear())
+    const returned = await this.events.emit("RELAY_EXTENDED2", [cell])
+
+    if (returned.isSome() && returned.inner.isErr())
+      return new Some(returned.inner.mapErrSync(EventError.new))
+
+    return new None()
   }
 
-  async #onRelayTruncatedCell(cell: RelayCell.Streamless<RelayTruncatedCell>): Promise<Result<void, EventError>> {
-    return await Result.unthrow(async t => {
-      if (cell.circuit !== this)
-        return Ok.void()
+  async #onRelayTruncatedCell(cell: RelayCell.Streamless<RelayTruncatedCell>): Promise<Option<Result<void, Error>>> {
+    if (cell.circuit !== this)
+      return new None()
 
-      console.debug(`${this.#class.name}.onRelayTruncatedCell`, cell)
+    console.debug(`${this.#class.name}.onRelayTruncatedCell`, cell)
 
-      this.#destroyed = {}
+    this.#destroyed = {}
 
-      await this.events.tryEmit("RELAY_TRUNCATED", cell).then(r => r.throw(t))
-      await this.events.tryEmit("error", cell).then(r => r.throw(t))
+    await this.events.emit("error", [cell])
 
-      return Ok.void()
-    })
+    const returned = await this.events.emit("RELAY_TRUNCATED", [cell])
+
+    if (returned.isSome() && returned.inner.isErr())
+      return new Some(returned.inner.mapErrSync(EventError.new))
+
+    return new None()
   }
 
   async #onRelayConnectedCell(cell: RelayCell.Streamful<RelayConnectedCell>) {
     if (cell.circuit !== this)
-      return Ok.void()
+      return new None()
 
     console.debug(`${this.#class.name}.onRelayConnectedCell`, cell)
 
-    return Ok.void()
+    return new None()
   }
 
   async #onRelayDataCell(cell: RelayCell.Streamful<RelayDataCell<Opaque>>) {
     if (cell.circuit !== this)
-      return Ok.void()
+      return new None()
 
     console.debug(`${this.#class.name}.onRelayDataCell`, cell)
 
-    return await this.events.tryEmit("RELAY_DATA", cell).then(r => r.clear())
+    const returned = await this.events.emit("RELAY_DATA", [cell])
+
+    if (returned.isSome() && returned.inner.isErr())
+      return new Some(returned.inner.mapErrSync(EventError.new))
+
+    return new None()
   }
 
   async #onRelayEndCell(cell: RelayCell.Streamful<RelayEndCell>) {
     if (cell.circuit !== this)
-      return Ok.void()
+      return new None()
 
     console.debug(`${this.#class.name}.onRelayEndCell`, cell)
 
     this.streams.delete(cell.stream.id)
 
-    return await this.events.tryEmit("RELAY_END", cell).then(r => r.clear())
+    const returned = await this.events.emit("RELAY_END", [cell])
+
+    if (returned.isSome() && returned.inner.isErr())
+      return new Some(returned.inner.mapErrSync(EventError.new))
+
+    return new None()
   }
 
   // async tryExtendDir(signal: AbortSignal) {
@@ -348,8 +371,8 @@ export class SecretCircuit {
       const relay_extend2 = new RelayExtend2Cell(RelayExtend2Cell.types.NTOR, links, ntor_request)
       this.tor.writer.enqueue(RelayEarlyCell.Streamless.from(this, undefined, relay_extend2).tryCell().throw(t))
 
-      const msg_extended2 = await Plume.tryWaitOrStreamOrSignal(this.events, "RELAY_EXTENDED2", e => {
-        return new Ok(new Some(new Ok(e)))
+      const msg_extended2 = await Plume.tryWaitOrCloseOrErrorOrSignal(this.events, "RELAY_EXTENDED2", e => {
+        return new Some(new Ok(e))
       }, signal2).then(r => r.throw(t))
 
       const response = msg_extended2.fragment.fragment.tryReadInto(Ntor.NtorResponse).throw(t)
@@ -384,10 +407,9 @@ export class SecretCircuit {
     })
   }
 
-  async tryDestroy(reason?: unknown): Promise<Result<void, EventError>> {
+  async destroy(reason?: unknown) {
     this.#destroyed = { reason }
-
-    return await this.events.tryEmit("error", reason).then(r => r.clear())
+    await this.events.emit("error", [reason])
   }
 
   async tryTruncate(reason = RelayTruncateCell.reasons.NONE, signal?: AbortSignal): Promise<Result<void, BinaryError | ClosedError | AbortedError | ErroredError>> {
@@ -398,8 +420,8 @@ export class SecretCircuit {
       const relay_truncate_cell = RelayCell.Streamless.from(this, undefined, relay_truncate)
       this.tor.writer.enqueue(relay_truncate_cell.tryCell().throw(t))
 
-      return await Plume.tryWaitOrStreamOrSignal(this.events, "RELAY_TRUNCATED", e => {
-        return new Ok(new Some(Ok.void()))
+      return await Plume.tryWaitOrCloseOrErrorOrSignal(this.events, "RELAY_TRUNCATED", e => {
+        return new Some(Ok.void())
       }, signal2)
     })
   }

@@ -1,12 +1,13 @@
 import { BinaryError, Opaque, Writable } from "@hazae41/binary";
 import { ControllerError, SuperReadableStream, SuperWritableStream } from "@hazae41/cascade";
 import { Cursor } from "@hazae41/cursor";
+import { None, Some } from "@hazae41/option";
 import { Ok, Result } from "@hazae41/result";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { SecretCircuit } from "mods/tor/circuit.js";
-import { RelaySendmeStreamCell } from "./index.js";
+import { RelaySendmeStreamCell } from "./binary/cells/relayed/relay_sendme/cell.js";
 
 export class TorStreamDuplex {
 
@@ -82,7 +83,7 @@ export class SecretTorStreamDuplex {
 
     this.#tryClose().inspectErrSync(e => console.debug({ e })).ignore()
 
-    return Ok.void()
+    return new None()
   }
 
   async #onCircuitError(reason?: unknown) {
@@ -90,14 +91,14 @@ export class SecretTorStreamDuplex {
 
     this.#tryClose(reason).inspectErrSync(e => console.debug({ e })).ignore()
 
-    return Ok.void()
+    return new None()
   }
 
-  async #onRelayDataCell(cell: RelayCell.Streamful<RelayDataCell<Opaque>>): Promise<Result<void, BinaryError | ControllerError>> {
-    return await Result.unthrow(async t => {
-      if (cell.stream !== this)
-        return Ok.void()
+  async #onRelayDataCell(cell: RelayCell.Streamful<RelayDataCell<Opaque>>) {
+    if (cell.stream !== this)
+      return new None()
 
+    const result = await Result.unthrow<Result<void, Error>>(async t => {
       console.debug(`${this.#class.name}.onRelayDataCell`, cell)
 
       this.delivery--
@@ -115,17 +116,22 @@ export class SecretTorStreamDuplex {
 
       return Ok.void()
     })
+
+    if (result.isErr())
+      return new Some(result)
+
+    return new None()
   }
 
   async #onRelayEndCell(cell: RelayCell.Streamful<RelayEndCell>) {
     if (cell.stream !== this)
-      return Ok.void()
+      return new None()
 
     console.debug(`${this.#class.name}.onRelayEndCell`, cell)
 
     this.#tryClose(cell.fragment.reason).inspectErrSync(e => console.debug({ e })).ignore()
 
-    return Ok.void()
+    return new None()
   }
 
   #onWrite<T extends Writable.Infer<T>>(writable: T): Result<void, BinaryError | Writable.SizeError<T> | Writable.WriteError<T>> {

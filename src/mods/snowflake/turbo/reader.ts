@@ -1,13 +1,13 @@
 import { BinaryReadError, Opaque } from "@hazae41/binary"
 import { ControllerError, SuperTransformStream } from "@hazae41/cascade"
-import { StreamEvents, SuperEventTarget } from "@hazae41/plume"
+import { CloseEvents, ErrorEvents, SuperEventTarget } from "@hazae41/plume"
 import { Ok, Result } from "@hazae41/result"
 import { TurboFrame, TurboFrameError } from "./frame.js"
 import { SecretTurboDuplex } from "./stream.js"
 
 export class SecretTurboReader {
 
-  readonly events = new SuperEventTarget<StreamEvents>()
+  readonly events = new SuperEventTarget<CloseEvents & ErrorEvents>()
 
   readonly stream: SuperTransformStream<Opaque, Opaque>
 

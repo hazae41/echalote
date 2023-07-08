@@ -11,7 +11,7 @@ import { Mutex } from "@hazae41/mutex";
 import { None, Some } from "@hazae41/option";
 import { Paimon } from "@hazae41/paimon";
 import { TooManyRetriesError } from "@hazae41/piscine";
-import { AbortedError, ClosedError, ErroredError, EventError, Plume, StreamEvents, SuperEventTarget } from "@hazae41/plume";
+import { AbortedError, CloseEvents, ClosedError, ErrorEvents, ErroredError, EventError, Plume, SuperEventTarget } from "@hazae41/plume";
 import { Err, Ok, Panic, Result } from "@hazae41/result";
 import type { Sha1 } from "@hazae41/sha1";
 import type { X25519 } from "@hazae41/x25519";
@@ -96,10 +96,7 @@ export class TorClientDuplex {
   async tryWait() {
     if (this.#secret.state.type === "handshaked")
       return Ok.void()
-
-    return await Plume.tryWaitOrStream(this.#secret.events, "handshaked", (e) => {
-      return new Ok(new Some(Ok.void()))
-    })
+    return await Plume.tryWaitOrCloseOrError(this.#secret.events, "handshaked", () => new Some(Ok.void()))
   }
 
   async tryCreateAndExtendLoop(signal?: AbortSignal) {
@@ -116,16 +113,16 @@ export class TorClientDuplex {
 
 }
 
-export type SecretTorEvents = StreamEvents & {
-  "handshaked": undefined,
+export type SecretTorEvents = CloseEvents & ErrorEvents & {
+  "handshaked": () => void
 
-  "CREATED_FAST": Cell.Circuitful<CreatedFastCell>
-  "DESTROY": Cell.Circuitful<DestroyCell>
-  "RELAY_CONNECTED": RelayCell.Streamful<RelayConnectedCell>
-  "RELAY_DATA": RelayCell.Streamful<RelayDataCell<Opaque>>
-  "RELAY_EXTENDED2": RelayCell.Streamless<RelayExtended2Cell<Opaque>>
-  "RELAY_TRUNCATED": RelayCell.Streamless<RelayTruncatedCell>
-  "RELAY_END": RelayCell.Streamful<RelayEndCell>
+  "CREATED_FAST": (cell: Cell.Circuitful<CreatedFastCell>) => Result<void, Error>
+  "DESTROY": (cell: Cell.Circuitful<DestroyCell>) => Result<void, Error>
+  "RELAY_CONNECTED": (cell: RelayCell.Streamful<RelayConnectedCell>) => Result<void, Error>
+  "RELAY_DATA": (cell: RelayCell.Streamful<RelayDataCell<Opaque>>) => Result<void, Error>
+  "RELAY_EXTENDED2": (cell: RelayCell.Streamless<RelayExtended2Cell<Opaque>>) => Result<void, Error>
+  "RELAY_TRUNCATED": (cell: RelayCell.Streamless<RelayTruncatedCell>) => Result<void, Error>
+  "RELAY_END": (cell: RelayCell.Streamful<RelayEndCell>) => Result<void, Error>
 }
 
 export class SecretTorClientDuplex {
@@ -216,7 +213,7 @@ export class SecretTorClientDuplex {
 
     this.reader.closed = {}
 
-    await this.events.emit("close", undefined)
+    await this.events.emit("close", [undefined])
 
     return Ok.void()
   }
@@ -235,7 +232,7 @@ export class SecretTorClientDuplex {
     this.reader.closed = { reason }
     this.writer.error(reason)
 
-    await this.events.emit("error", reason)
+    await this.events.emit("error", [reason])
 
     return Result.rethrow(reason)
   }
@@ -255,9 +252,7 @@ export class SecretTorClientDuplex {
     const version = new VersionsCell([5])
     this.writer.enqueue(OldCell.Circuitless.from(undefined, version))
 
-    return await Plume.tryWaitOrStream(this.events, "handshaked", () => {
-      return new Ok(new Some(Ok.void()))
-    })
+    return await Plume.tryWaitOrCloseOrError(this.events, "handshaked", () => new Some(Ok.void()))
   }
 
   async #onRead(chunk: Opaque): Promise<Result<void, InvalidTorVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError | ControllerError>> {
@@ -425,7 +420,7 @@ export class SecretTorClientDuplex {
 
       this.#state = { ...state, type: "handshaked" }
 
-      await this.events.tryEmit("handshaked", undefined).then(r => r.throw(t))
+      await this.events.emit("handshaked", [])
 
       return Ok.void()
     })
@@ -435,7 +430,10 @@ export class SecretTorClientDuplex {
     return await Result.unthrow(async t => {
       const cell2 = Cell.Circuitful.tryInto(cell, CreatedFastCell).inspectSync(console.debug).throw(t)
 
-      await this.events.tryEmit("CREATED_FAST", cell2).then(r => r.throw(t))
+      const returned = await this.events.emit("CREATED_FAST", [cell2])
+
+      if (returned.isSome() && returned.inner.isErr())
+        return returned.inner.mapErrSync(EventError.new)
 
       return Ok.void()
     })
@@ -447,7 +445,10 @@ export class SecretTorClientDuplex {
 
       this.circuits.inner.delete(cell2.circuit.id)
 
-      await this.events.tryEmit("DESTROY", cell2).then(r => r.throw(t))
+      const returned = await this.events.emit("DESTROY", [cell2])
+
+      if (returned.isSome() && returned.inner.isErr())
+        return returned.inner.mapErrSync(EventError.new)
 
       return Ok.void()
     })
@@ -484,7 +485,10 @@ export class SecretTorClientDuplex {
     return await Result.unthrow(async t => {
       const cell2 = RelayCell.Streamless.tryInto(cell, RelayExtended2Cell).inspectSync(console.debug).throw(t)
 
-      await this.events.tryEmit("RELAY_EXTENDED2", cell2).then(r => r.throw(t))
+      const returned = await this.events.emit("RELAY_EXTENDED2", [cell2])
+
+      if (returned.isSome() && returned.inner.isErr())
+        return returned.inner.mapErrSync(EventError.new)
 
       return Ok.void()
     })
@@ -494,7 +498,10 @@ export class SecretTorClientDuplex {
     return await Result.unthrow(async t => {
       const cell2 = RelayCell.Streamful.tryInto(cell, RelayConnectedCell).inspectSync(console.debug).throw(t)
 
-      await this.events.tryEmit("RELAY_CONNECTED", cell2).then(r => r.throw(t))
+      const returned = await this.events.emit("RELAY_CONNECTED", [cell2])
+
+      if (returned.isSome() && returned.inner.isErr())
+        return returned.inner.mapErrSync(EventError.new)
 
       return Ok.void()
     })
@@ -521,7 +528,10 @@ export class SecretTorClientDuplex {
         this.writer.tryEnqueue(sendme_cell.tryCell().throw(t)).throw(t)
       }
 
-      await this.events.tryEmit("RELAY_DATA", cell2).then(r => r.throw(t))
+      const returned = await this.events.emit("RELAY_DATA", [cell2])
+
+      if (returned.isSome() && returned.inner.isErr())
+        return returned.inner.mapErrSync(EventError.new)
 
       return Ok.void()
     })
@@ -531,7 +541,10 @@ export class SecretTorClientDuplex {
     return await Result.unthrow(async t => {
       const cell2 = RelayCell.Streamful.tryInto(cell, RelayEndCell).inspectSync(console.debug).throw(t)
 
-      await this.events.tryEmit("RELAY_END", cell2).then(r => r.throw(t))
+      const returned = await this.events.emit("RELAY_END", [cell2])
+
+      if (returned.isSome() && returned.inner.isErr())
+        return returned.inner.mapErrSync(EventError.new)
 
       return Ok.void()
     })
@@ -547,7 +560,10 @@ export class SecretTorClientDuplex {
 
       cell2.circuit.targets.pop()
 
-      await this.events.tryEmit("RELAY_TRUNCATED", cell2).then(r => r.throw(t))
+      const returned = await this.events.emit("RELAY_TRUNCATED", [cell2])
+
+      if (returned.isSome() && returned.inner.isErr())
+        return returned.inner.mapErrSync(EventError.new)
 
       return Ok.void()
     })
@@ -625,10 +641,10 @@ export class SecretTorClientDuplex {
   async #tryWaitCreatedFast(circuit: SecretCircuit, signal?: AbortSignal): Promise<Result<Cell.Circuitful<CreatedFastCell>, AbortedError | ErroredError | ClosedError>> {
     const signal2 = AbortSignals.timeout(5_000, signal)
 
-    return await Plume.tryWaitOrStreamOrSignal(this.events, "CREATED_FAST", async e => {
+    return await Plume.tryWaitOrCloseOrErrorOrSignal(this.events, "CREATED_FAST", async e => {
       if (e.circuit !== circuit)
-        return new Ok(new None())
-      return new Ok(new Some(new Ok(e)))
+        return new None()
+      return new Some(new Ok(e))
     }, signal2)
   }
 
@@ -648,7 +664,7 @@ export class SecretTorClientDuplex {
 
           if (circuit.destroyed && !this.closed && !signal?.aborted) {
             console.debug("Create and extend failed", { error: extend2.get() })
-            await circuit.tryDestroy().then(r => r.throw(t))
+            await circuit.destroy()
             await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
             continue
           }
@@ -658,7 +674,7 @@ export class SecretTorClientDuplex {
 
         if (circuit.destroyed && !this.closed && !signal?.aborted) {
           console.debug("Create and extend failed", { error: extend1.get() })
-          await circuit.tryDestroy().then(r => r.throw(t))
+          await circuit.destroy()
           await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
           continue
         }

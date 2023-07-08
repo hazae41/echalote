@@ -1,6 +1,6 @@
 import { Cleaner } from "@hazae41/cleaner";
+import { None } from "@hazae41/option";
 import { PoolCreatorParams } from "@hazae41/piscine";
-import { Ok } from "@hazae41/result";
 import { Circuit } from "mods/tor/circuit.js";
 import { TorClientDuplex } from "mods/tor/tor.js";
 
@@ -9,7 +9,7 @@ export function createPooledCircuit<PoolError>(circuit: Circuit, params: PoolCre
 
   const onCloseOrError = async (reason?: unknown) => {
     pool.delete(index)
-    return Ok.void()
+    return new None()
   }
 
   circuit.events.on("close", onCloseOrError, { passive: true })
@@ -28,7 +28,7 @@ export function createPooledTor<PoolError>(tor: TorClientDuplex, params: PoolCre
 
   const onCloseOrError = async (reason?: unknown) => {
     pool.delete(index)
-    return Ok.void()
+    return new None()
   }
 
   tor.events.on("close", onCloseOrError, { passive: true })
