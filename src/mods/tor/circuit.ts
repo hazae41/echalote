@@ -5,6 +5,7 @@ import { Bytes, BytesCastError } from "@hazae41/bytes";
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
 import { ControllerError } from "@hazae41/cascade";
 import { PipeError, tryFetch } from "@hazae41/fleche";
+import { Future } from "@hazae41/future";
 import { None, Option, Some } from "@hazae41/option";
 import { TooManyRetriesError } from "@hazae41/piscine";
 import { AbortedError, CloseEvents, ClosedError, ErrorEvents, ErroredError, EventError, Plume, SuperEventTarget } from "@hazae41/plume";
@@ -371,8 +372,9 @@ export class SecretCircuit {
       const relay_extend2 = new RelayExtend2Cell(RelayExtend2Cell.types.NTOR, links, ntor_request)
       this.tor.writer.enqueue(RelayEarlyCell.Streamless.from(this, undefined, relay_extend2).tryCell().throw(t))
 
-      const msg_extended2 = await Plume.tryWaitOrCloseOrErrorOrSignal(this.events, "RELAY_EXTENDED2", e => {
-        return new Some(new Ok(e))
+      const msg_extended2 = await Plume.tryWaitOrCloseOrErrorOrSignal(this.events, "RELAY_EXTENDED2", (future: Future<Ok<RelayCell.Streamless<RelayExtended2Cell<Opaque>>>>, e) => {
+        future.resolve(new Ok(e))
+        return new None()
       }, signal2).then(r => r.throw(t))
 
       const response = msg_extended2.fragment.fragment.tryReadInto(Ntor.NtorResponse).throw(t)
@@ -420,9 +422,12 @@ export class SecretCircuit {
       const relay_truncate_cell = RelayCell.Streamless.from(this, undefined, relay_truncate)
       this.tor.writer.enqueue(relay_truncate_cell.tryCell().throw(t))
 
-      return await Plume.tryWaitOrCloseOrErrorOrSignal(this.events, "RELAY_TRUNCATED", e => {
-        return new Some(Ok.void())
-      }, signal2)
+      await Plume.tryWaitOrCloseOrErrorOrSignal(this.events, "RELAY_TRUNCATED", (future: Future<Ok<RelayCell.Streamless<RelayTruncatedCell>>>, e) => {
+        future.resolve(new Ok(e))
+        return new None()
+      }, signal2).then(r => r.throw(t))
+
+      return Ok.void()
     })
   }
 

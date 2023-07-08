@@ -7,8 +7,9 @@ import { TlsClientDuplex } from "@hazae41/cadenas";
 import { ControllerError, SuperTransformStream } from "@hazae41/cascade";
 import { Cursor } from "@hazae41/cursor";
 import type { Ed25519 } from "@hazae41/ed25519";
+import { Future } from "@hazae41/future";
 import { Mutex } from "@hazae41/mutex";
-import { None, Some } from "@hazae41/option";
+import { None } from "@hazae41/option";
 import { Paimon } from "@hazae41/paimon";
 import { TooManyRetriesError } from "@hazae41/piscine";
 import { AbortedError, CloseEvents, ClosedError, ErrorEvents, ErroredError, EventError, Plume, SuperEventTarget } from "@hazae41/plume";
@@ -96,7 +97,10 @@ export class TorClientDuplex {
   async tryWait() {
     if (this.#secret.state.type === "handshaked")
       return Ok.void()
-    return await Plume.tryWaitOrCloseOrError(this.#secret.events, "handshaked", () => new Some(Ok.void()))
+    return await Plume.tryWaitOrCloseOrError(this.#secret.events, "handshaked", (future: Future<Ok<void>>) => {
+      future.resolve(Ok.void())
+      return new None()
+    })
   }
 
   async tryCreateAndExtendLoop(signal?: AbortSignal) {
@@ -252,7 +256,10 @@ export class SecretTorClientDuplex {
     const version = new VersionsCell([5])
     this.writer.enqueue(OldCell.Circuitless.from(undefined, version))
 
-    return await Plume.tryWaitOrCloseOrError(this.events, "handshaked", () => new Some(Ok.void()))
+    return await Plume.tryWaitOrCloseOrError(this.events, "handshaked", (future: Future<Ok<void>>) => {
+      future.resolve(Ok.void())
+      return new None()
+    })
   }
 
   async #onRead(chunk: Opaque): Promise<Result<void, InvalidTorVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError | ControllerError>> {
@@ -639,13 +646,12 @@ export class SecretTorClientDuplex {
   }
 
   async #tryWaitCreatedFast(circuit: SecretCircuit, signal?: AbortSignal): Promise<Result<Cell.Circuitful<CreatedFastCell>, AbortedError | ErroredError | ClosedError>> {
-    const signal2 = AbortSignals.timeout(5_000, signal)
-
-    return await Plume.tryWaitOrCloseOrErrorOrSignal(this.events, "CREATED_FAST", async e => {
+    return await Plume.tryWaitOrCloseOrErrorOrSignal(this.events, "CREATED_FAST", async (future: Future<Ok<Cell.Circuitful<CreatedFastCell>>>, e) => {
       if (e.circuit !== circuit)
         return new None()
-      return new Some(new Ok(e))
-    }, signal2)
+      future.resolve(new Ok(e))
+      return new None()
+    }, AbortSignals.timeout(5_000, signal))
   }
 
   async tryCreateAndExtendLoop(signal?: AbortSignal): Promise<Result<Circuit, TooManyRetriesError | InvalidTorStateError | ErroredError | ClosedError | BinaryError | AbortedError | EmptyFallbacksError | InvalidNtorAuthError | InvalidKdfKeyHashError | BytesCastError | EventError>> {
