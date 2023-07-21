@@ -11,6 +11,7 @@ import { TooManyRetriesError } from "@hazae41/piscine";
 import { AbortedError, CloseEvents, ClosedError, ErrorEvents, ErroredError, EventError, Plume, SuperEventTarget } from "@hazae41/plume";
 import { Err, Ok, Result } from "@hazae41/result";
 import { Aes128Ctr128BEKey } from "@hazae41/zepar";
+import { CryptoError } from "libs/crypto/crypto.js";
 import { AbortSignals } from "libs/signals/signals.js";
 import { Ntor } from "mods/tor/algorithms/ntor/index.js";
 import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
@@ -288,7 +289,7 @@ export class SecretCircuit {
   //   }, signal)
   // }
 
-  async tryExtendLoop(exit: boolean, signal?: AbortSignal): Promise<Result<void, TooManyRetriesError | EmptyFallbacksError | InvalidNtorAuthError | ClosedError | BinaryError | AbortedError | ErroredError>> {
+  async tryExtendLoop(exit: boolean, signal?: AbortSignal): Promise<Result<void, CryptoError | TooManyRetriesError | EmptyFallbacksError | InvalidNtorAuthError | ClosedError | BinaryError | AbortedError | ErroredError>> {
     for (let i = 0; !this.destroyed && !signal?.aborted && i < 3; i++) {
       const result = await this.tryExtend(exit, signal)
 
@@ -324,7 +325,7 @@ export class SecretCircuit {
     return new Err(new TooManyRetriesError())
   }
 
-  async tryExtend(exit: boolean, signal?: AbortSignal): Promise<Result<void, EmptyFallbacksError | InvalidNtorAuthError | ClosedError | BinaryError | AbortedError | ErroredError>> {
+  async tryExtend(exit: boolean, signal?: AbortSignal): Promise<Result<void, CryptoError | EmptyFallbacksError | InvalidNtorAuthError | ClosedError | BinaryError | AbortedError | ErroredError>> {
     if (this.destroyed?.reason !== undefined)
       return new Err(ErroredError.from(this.destroyed.reason))
     if (this.destroyed !== undefined)
@@ -342,7 +343,7 @@ export class SecretCircuit {
     return await this.tryExtendTo(fallback, signal)
   }
 
-  async tryExtendTo(fallback: Fallback, signal?: AbortSignal): Promise<Result<void, BytesCastError | InvalidNtorAuthError | BinaryError | AbortedError | ErroredError | ClosedError>> {
+  async tryExtendTo(fallback: Fallback, signal?: AbortSignal): Promise<Result<void, CryptoError | BytesCastError | InvalidNtorAuthError | BinaryError | AbortedError | ErroredError | ClosedError>> {
     return await Result.unthrow(async t => {
       if (this.destroyed?.reason !== undefined)
         return new Err(ErroredError.from(this.destroyed.reason))
@@ -363,9 +364,19 @@ export class SecretCircuit {
 
       const { StaticSecret, PublicKey } = this.tor.params.x25519
 
-      const wasm_secret_x = new StaticSecret()
+      const wasm_secret_x = await Promise
+        .resolve(StaticSecret.tryCreate())
+        .then(r => r.mapErrSync(CryptoError.from).throw(t))
 
-      const public_x = Bytes.tryCast(wasm_secret_x.to_public().to_bytes(), 32).throw(t)
+      const unsized_public_x = await Promise
+        .resolve(wasm_secret_x.tryGetPublicKey())
+        .then(r => r.mapErrSync(CryptoError.from).throw(t))
+
+      const unsized_public_x_bytes = await Promise
+        .resolve(unsized_public_x.tryExport())
+        .then(r => r.mapErrSync(CryptoError.from).throw(t))
+
+      const public_x = Bytes.tryCast(unsized_public_x_bytes, 32).throw(t)
       const public_b = Bytes.tryCastFrom(fallback.onion, 32).throw(t)
 
       const ntor_request = new Ntor.NtorRequest(public_x, relayid_rsa, public_b)
@@ -381,11 +392,32 @@ export class SecretCircuit {
 
       const { public_y } = response
 
-      const wasm_public_y = new PublicKey(public_y)
-      const wasm_public_b = new PublicKey(public_b)
+      const wasm_public_y = await Promise
+        .resolve(PublicKey.tryImport(public_y))
+        .then(r => r.mapErrSync(CryptoError.from).throw(t))
 
-      const shared_xy = Bytes.tryCast(wasm_secret_x.diffie_hellman(wasm_public_y).to_bytes(), 32).throw(t)
-      const shared_xb = Bytes.tryCast(wasm_secret_x.diffie_hellman(wasm_public_b).to_bytes(), 32).throw(t)
+      const wasm_public_b = await Promise
+        .resolve(PublicKey.tryImport(public_b))
+        .then(r => r.mapErrSync(CryptoError.from).throw(t))
+
+      const unsized_shared_xy = await Promise
+        .resolve(wasm_secret_x.tryComputeDiffieHellman(wasm_public_y))
+        .then(r => r.mapErrSync(CryptoError.from).throw(t))
+
+      const unsized_shared_xy_bytes = await Promise
+        .resolve(unsized_shared_xy.tryExport())
+        .then(r => r.mapErrSync(CryptoError.from).throw(t))
+
+      const unsized_shared_xb = await Promise
+        .resolve(wasm_secret_x.tryComputeDiffieHellman(wasm_public_b))
+        .then(r => r.mapErrSync(CryptoError.from).throw(t))
+
+      const unsized_shared_xb_bytes = await Promise
+        .resolve(unsized_shared_xb.tryExport())
+        .then(r => r.mapErrSync(CryptoError.from).throw(t))
+
+      const shared_xy = Bytes.tryCast(unsized_shared_xy_bytes, 32).throw(t)
+      const shared_xb = Bytes.tryCast(unsized_shared_xb_bytes, 32).throw(t)
 
       const result = await NtorResult.tryFinalize(shared_xy, shared_xb, relayid_rsa, public_b, public_x, public_y).then(r => r.throw(t))
 

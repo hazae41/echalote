@@ -3,8 +3,8 @@ import { Circuit, TorClientDuplex } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
 import { Morax } from "@hazae41/morax";
 import { Mutex } from "@hazae41/mutex";
+import { None } from "@hazae41/option";
 import { Pool } from "@hazae41/piscine";
-import { Ok } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
 import { createCircuitPool, createTorPool, tryCreateTor } from "libs/circuits/circuits";
@@ -22,7 +22,7 @@ async function superfetch(circuit: Circuit) {
   console.log(res, Date.now() - start)
   console.log(await res.text(), Date.now() - start)
 
-  circuit.tryDestroy().then(r => r.unwrap())
+  await circuit.destroy()
 }
 
 function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
@@ -48,11 +48,10 @@ export default function Page() {
     // const x25519 = X25519.fromNoble(noble_ed25519.x25519)
     // const sha1 = Sha1.fromNoble(noble_sha1.sha1)
 
-    await Berith.initBundledOnce()
-    await Morax.initBundledOnce()
+    const ed25519 = await Ed25519.fromSafeOrBerith(Berith)
+    const x25519 = await X25519.fromSafeOrBerith(Berith)
 
-    const ed25519 = Ed25519.fromBerith(Berith)
-    const x25519 = X25519.fromBerith(Berith)
+    await Morax.initBundledOnce()
     const sha1 = Sha1.fromMorax(Morax)
 
     const fallbacksUrl = "https://raw.githubusercontent.com/hazae41/echalote/master/tools/fallbacks/fallbacks.json"
@@ -100,7 +99,7 @@ export default function Page() {
 
     const onCreatedOrDeleted = async () => {
       setCounter(c => c + 1)
-      return Ok.void()
+      return new None()
     }
 
     circuits.inner.events.on("created", onCreatedOrDeleted, { passive: true })

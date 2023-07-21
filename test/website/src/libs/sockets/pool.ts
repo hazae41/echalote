@@ -4,6 +4,7 @@ import { Circuit } from "@hazae41/echalote"
 import { Fleche } from "@hazae41/fleche"
 import { Future } from "@hazae41/future"
 import { Mutex } from "@hazae41/mutex"
+import { None } from "@hazae41/option"
 import { Pool, PoolParams } from "@hazae41/piscine"
 import { AbortedError, ErroredError } from "@hazae41/plume"
 import { Err, Ok, Result } from "@hazae41/result"
@@ -116,7 +117,7 @@ export function createSessionPool(circuits: Mutex<Pool<Circuit, Error>>, params:
 
       const onCircuitCloseOrError = async () => {
         pool.delete(index)
-        return Ok.void()
+        return new None()
       }
 
       circuit.events.on("close", onCircuitCloseOrError)

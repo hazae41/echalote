@@ -3,6 +3,7 @@ import { Bytes } from "@hazae41/bytes";
 import { Cursor } from "@hazae41/cursor";
 import { Ed25519 } from "@hazae41/ed25519";
 import { Err, Ok, Result } from "@hazae41/result";
+import { CryptoError } from "libs/crypto/crypto.js";
 import { SignedWithEd25519Key } from "mods/tor/binary/certs/ed25519/extensions/signer.js";
 import { ExpiredCertError, InvalidSignatureError } from "mods/tor/certs/certs.js";
 
@@ -47,25 +48,35 @@ export class Ed25519Cert {
     readonly signature: Bytes<64>
   ) { }
 
-  tryVerify(ed25519: Ed25519.Adapter): Result<void, ExpiredCertError | InvalidSignatureError> {
-    const now = new Date()
+  async tryVerify(ed25519: Ed25519.Adapter): Promise<Result<void, CryptoError | ExpiredCertError | InvalidSignatureError>> {
+    return await Result.unthrow(async t => {
+      const now = new Date()
 
-    if (now > this.expiration)
-      return new Err(new ExpiredCertError())
+      if (now > this.expiration)
+        return new Err(new ExpiredCertError())
 
-    if (!this.extensions.signer)
+      if (!this.extensions.signer)
+        return Ok.void()
+
+      const { PublicKey, Signature } = ed25519
+
+      const signer = await Promise
+        .resolve(PublicKey.tryImport(this.extensions.signer.key))
+        .then(r => r.mapErrSync(CryptoError.from).throw(t))
+
+      const signature = await Promise
+        .resolve(Signature.tryImport(this.signature))
+        .then(r => r.mapErrSync(CryptoError.from).throw(t))
+
+      const verified = await Promise
+        .resolve(signer.tryVerify(this.payload, signature))
+        .then(r => r.mapErrSync(CryptoError.from).throw(t))
+
+      if (!verified)
+        return new Err(new InvalidSignatureError())
+
       return Ok.void()
-
-    const { PublicKey, Signature } = ed25519
-
-    const signer = new PublicKey(this.extensions.signer.key)
-    const signature = new Signature(this.signature)
-    const verified = signer.verify(this.payload, signature)
-
-    if (!verified)
-      return new Err(new InvalidSignatureError())
-
-    return Ok.void()
+    })
   }
 
   static tryRead(cursor: Cursor): Result<Ed25519Cert, BinaryReadError | UnknownCertExtensionError> {
