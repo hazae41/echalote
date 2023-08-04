@@ -1,5 +1,5 @@
 import { BinaryError, BinaryReadError, BinaryWriteError } from "@hazae41/binary"
-import { Bytes, BytesCastError } from "@hazae41/bytes"
+import { Bytes } from "@hazae41/bytes"
 import { Cursor } from "@hazae41/cursor"
 import { Ok, Result } from "@hazae41/result"
 import { HASH_LEN, KEY_LEN } from "mods/tor/constants.js"
@@ -77,18 +77,18 @@ export namespace NtorResult {
     public_b: Bytes<32>,
     public_x: Bytes<32>,
     public_y: Bytes<32>
-  ): Promise<Result<NtorResult, BinaryError | BytesCastError>> {
+  ): Promise<Result<NtorResult, BinaryError>> {
     return await Result.unthrow(async t => {
       const protoid = "ntor-curve25519-sha256-1"
 
-      const secret_input = Cursor.allocUnsafe(32 + 32 + 20 + 32 + 32 + 32 + protoid.length)
+      const secret_input = Cursor.tryAllocUnsafe(32 + 32 + 20 + 32 + 32 + 32 + protoid.length).throw(t)
       secret_input.tryWrite(shared_xy).throw(t)
       secret_input.tryWrite(shared_xb).throw(t)
       secret_input.tryWrite(relayid_rsa).throw(t)
       secret_input.tryWrite(public_b).throw(t)
       secret_input.tryWrite(public_x).throw(t)
       secret_input.tryWrite(public_y).throw(t)
-      secret_input.tryWriteString(protoid).throw(t)
+      secret_input.tryWriteUtf8(protoid).throw(t)
 
       const t_mac = Bytes.fromUtf8(`${protoid}:mac`)
       const t_key = Bytes.fromUtf8(`${protoid}:key_extract`)
@@ -99,14 +99,14 @@ export namespace NtorResult {
 
       const server = "Server"
 
-      const auth_input = Cursor.allocUnsafe(32 + 20 + 32 + 32 + 32 + protoid.length + server.length)
+      const auth_input = Cursor.tryAllocUnsafe(32 + 20 + 32 + 32 + 32 + protoid.length + server.length).throw(t)
       auth_input.tryWrite(verify).throw(t)
       auth_input.tryWrite(relayid_rsa).throw(t)
       auth_input.tryWrite(public_b).throw(t)
       auth_input.tryWrite(public_y).throw(t)
       auth_input.tryWrite(public_x).throw(t)
-      auth_input.tryWriteString(protoid).throw(t)
-      auth_input.tryWriteString(server).throw(t)
+      auth_input.tryWriteUtf8(protoid).throw(t)
+      auth_input.tryWriteUtf8(server).throw(t)
 
       const t_mac_key = await crypto.subtle.importKey("raw", t_mac, { name: "HMAC", hash: "SHA-256" }, false, ["sign"])
       const auth = Bytes.tryCast(new Uint8Array(await crypto.subtle.sign("HMAC", t_mac_key, auth_input.bytes)), 32).throw(t)
