@@ -335,10 +335,10 @@ export class SecretCircuit {
       ? this.tor.params.fallbacks.filter(it => it.exit)
       : this.tor.params.fallbacks
 
-    if (!fallbacks.length)
-      return new Err(new EmptyFallbacksError())
-
     const fallback = Arrays.cryptoRandom(fallbacks)
+
+    if (fallback == null)
+      return new Err(new EmptyFallbacksError())
 
     return await this.tryExtendTo(fallback, signal)
   }
@@ -522,7 +522,7 @@ export class SecretCircuit {
         const tcp = await this.tryOpen(url.hostname, port, init).then(r => r.throw(t))
 
         const ciphers = [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
-        const tls = new TlsClientDuplex(tcp, { ciphers })
+        const tls = new TlsClientDuplex(tcp, { host_name: url.hostname, ciphers })
 
         return tryFetch(input, { ...init, stream: tls })
       }

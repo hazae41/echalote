@@ -81,7 +81,7 @@ export namespace RelayEarlyCell {
         cursor.fill(0, Math.min(cursor.remaining, 4))
         cursor.tryWrite(Bytes.random(cursor.remaining)).throw(t)
 
-        const exit = Arrays.last(this.circuit.targets)
+        const exit = Arrays.last(this.circuit.targets)!
 
         exit.forward_digest.update(cursor.bytes)
 

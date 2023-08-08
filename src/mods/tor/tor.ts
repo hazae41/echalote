@@ -519,7 +519,7 @@ export class SecretTorClientDuplex {
     return await Result.unthrow(async t => {
       const cell2 = RelayCell.Streamful.tryInto(cell, RelayDataCell).inspectSync(console.debug).throw(t)
 
-      const exit = Arrays.last(cell2.circuit.targets)
+      const exit = Arrays.last(cell2.circuit.targets)!
 
       exit.delivery--
 
@@ -582,7 +582,7 @@ export class SecretTorClientDuplex {
       const cell2 = RelayCell.Streamless.tryInto(cell, RelaySendmeCircuitCell).inspectSync(console.debug).throw(t)
 
       if (cell2.fragment.version === 0) {
-        const exit = Arrays.last(cell2.circuit.targets)
+        const exit = Arrays.last(cell2.circuit.targets)!
 
         exit.package += 100
         return Ok.void()
@@ -591,7 +591,7 @@ export class SecretTorClientDuplex {
       if (cell2.fragment.version === 1) {
         const digest = cell2.fragment.fragment.tryReadInto(RelaySendmeDigest).inspectSync(console.debug).throw(t)
 
-        const exit = Arrays.last(cell2.circuit.targets)
+        const exit = Arrays.last(cell2.circuit.targets)!
         const digest2 = exit.digests.shift()
 
         if (digest2 === undefined)
