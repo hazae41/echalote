@@ -51,7 +51,7 @@ export default function Page() {
     const ed25519 = await Ed25519.fromSafeOrBerith(Berith)
     const x25519 = await X25519.fromSafeOrBerith(Berith)
 
-    await Morax.initBundledOnce()
+    Morax.initSyncBundledOnce()
     const sha1 = Sha1.fromMorax(Morax)
 
     const fallbacksUrl = "https://raw.githubusercontent.com/hazae41/echalote/master/tools/fallbacks/fallbacks.json"

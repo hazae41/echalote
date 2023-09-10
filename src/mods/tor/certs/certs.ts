@@ -165,7 +165,7 @@ export namespace Certs {
       const prefixed = Bytes.concat([prefix, certs.rsa_to_ed.payload])
       const hashed = new Uint8Array(await crypto.subtle.digest("SHA-256", prefixed))
 
-      const verified = identity.verify_pkcs1v15_raw(hashed, certs.rsa_to_ed.signature)
+      const verified = identity.verify_pkcs1v15_unprefixed(hashed, certs.rsa_to_ed.signature)
 
       if (!verified)
         return new Err(new InvalidSignatureError())

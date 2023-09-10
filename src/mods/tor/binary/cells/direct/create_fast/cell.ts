@@ -44,7 +44,7 @@ export class CreateFastCell {
 
   static tryRead(cursor: Cursor): Result<CreateFastCell, BinaryReadError> {
     return Result.unthrowSync(t => {
-      const material = Bytes.from(cursor.tryRead(20).throw(t))
+      const material = Bytes.tryFromSized(cursor.tryRead(20).throw(t)).throw(t)
 
       cursor.offset += cursor.remaining
 

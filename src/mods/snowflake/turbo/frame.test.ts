@@ -12,7 +12,7 @@ console.log(relative(directory, pathname.replace(".mjs", ".ts")))
 globalThis.crypto = webcrypto as any
 
 test("turbo frame", async ({ test }) => {
-  const frame = TurboFrame.tryNew({ padding: false, fragment: Opaque.random(130) }).unwrap()
+  const frame = TurboFrame.tryNew({ padding: false, fragment: new Opaque(Bytes.tryRandom(130).unwrap()) }).unwrap()
   const bytes = Writable.tryWriteToBytes(frame).unwrap()
   const frame2 = Readable.tryReadFromBytes(TurboFrame, bytes).unwrap()
 

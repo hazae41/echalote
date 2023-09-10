@@ -1,6 +1,6 @@
 import { Opaque, Writable } from "@hazae41/binary"
 import { Bytes } from "@hazae41/bytes"
-import { Ok, Result } from "@hazae41/result"
+import { Catched, Ok } from "@hazae41/result"
 import { SecretTurboReader } from "./reader.js"
 import { SecretTurboWriter } from "./writer.js"
 
@@ -107,7 +107,7 @@ export class SecretTurboDuplex {
 
     await this.reader.events.emit("error", [reason])
 
-    return Result.rethrow(reason)
+    return Catched.throwOrErr(reason)
   }
 
   async #onWriteError(reason?: unknown) {
@@ -118,7 +118,7 @@ export class SecretTurboDuplex {
 
     await this.writer.events.emit("error", [reason])
 
-    return Result.rethrow(reason)
+    return Catched.throwOrErr(reason)
   }
 
 }

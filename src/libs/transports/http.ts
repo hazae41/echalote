@@ -33,7 +33,7 @@ export class BatchedFetchStream {
     let batch = new Array<Uint8Array>()
 
     let timeout: NodeJS.Timeout
-    let interval: NodeJS.Timer
+    let interval: NodeJS.Timeout
 
     this.readable = new ReadableStream<Opaque>({
       async start(controller) {

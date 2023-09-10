@@ -1,4 +1,6 @@
 import { Arrays } from "@hazae41/arrays";
+import { Base16 } from "@hazae41/base16";
+import { Base64 } from "@hazae41/base64";
 import { BinaryError, Opaque } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Bytes, BytesCastError } from "@hazae41/bytes";
@@ -10,6 +12,7 @@ import { None, Option, Some } from "@hazae41/option";
 import { TooManyRetriesError } from "@hazae41/piscine";
 import { AbortedError, CloseEvents, ClosedError, ErrorEvents, ErroredError, EventError, Plume, SuperEventTarget } from "@hazae41/plume";
 import { Err, Ok, Result } from "@hazae41/result";
+import { Sha1 } from "@hazae41/sha1";
 import { Aes128Ctr128BEKey } from "@hazae41/zepar";
 import { CryptoError } from "libs/crypto/crypto.js";
 import { AbortSignals } from "libs/signals/signals.js";
@@ -289,7 +292,7 @@ export class SecretCircuit {
   //   }, signal)
   // }
 
-  async tryExtendLoop(exit: boolean, signal?: AbortSignal): Promise<Result<void, CryptoError | TooManyRetriesError | EmptyFallbacksError | InvalidNtorAuthError | ClosedError | BinaryError | AbortedError | ErroredError>> {
+  async tryExtendLoop(exit: boolean, signal?: AbortSignal): Promise<Result<void, CryptoError | TooManyRetriesError | EmptyFallbacksError | InvalidNtorAuthError | ClosedError | BinaryError | AbortedError | ErroredError | Base16.CodingError | Base64.CodingError | Sha1.HashingError>> {
     for (let i = 0; !this.destroyed && !signal?.aborted && i < 3; i++) {
       const result = await this.tryExtend(exit, signal)
 
@@ -325,7 +328,7 @@ export class SecretCircuit {
     return new Err(new TooManyRetriesError())
   }
 
-  async tryExtend(exit: boolean, signal?: AbortSignal): Promise<Result<void, CryptoError | EmptyFallbacksError | InvalidNtorAuthError | ClosedError | BinaryError | AbortedError | ErroredError>> {
+  async tryExtend(exit: boolean, signal?: AbortSignal): Promise<Result<void, CryptoError | EmptyFallbacksError | InvalidNtorAuthError | ClosedError | BinaryError | AbortedError | ErroredError | Base16.CodingError | Base64.CodingError | Sha1.HashingError>> {
     if (this.destroyed?.reason !== undefined)
       return new Err(ErroredError.from(this.destroyed.reason))
     if (this.destroyed !== undefined)
@@ -343,7 +346,7 @@ export class SecretCircuit {
     return await this.tryExtendTo(fallback, signal)
   }
 
-  async tryExtendTo(fallback: Fallback, signal?: AbortSignal): Promise<Result<void, CryptoError | BytesCastError | InvalidNtorAuthError | BinaryError | AbortedError | ErroredError | ClosedError>> {
+  async tryExtendTo(fallback: Fallback, signal?: AbortSignal): Promise<Result<void, CryptoError | BytesCastError | InvalidNtorAuthError | BinaryError | AbortedError | ErroredError | ClosedError | Base16.CodingError | Base64.CodingError | Sha1.HashingError>> {
     return await Result.unthrow(async t => {
       if (this.destroyed?.reason !== undefined)
         return new Err(ErroredError.from(this.destroyed.reason))
@@ -352,8 +355,10 @@ export class SecretCircuit {
 
       const signal2 = AbortSignals.timeout(5_000, signal)
 
-      const relayid_rsa = Bytes.tryCast(Bytes.fromHex(fallback.id), HASH_LEN).throw(t)
-      const relayid_ed = Option.wrap(fallback.eid).mapSync(Bytes.fromBase64).get()
+      const relayid_rsax = Base16.get().tryPadStartAndDecode(fallback.id).throw(t).copyAndDispose()
+      const relayid_rsa = Bytes.tryCast(relayid_rsax, HASH_LEN).throw(t)
+
+      const relayid_ed = Option.wrap(fallback.eid).mapSync(Base64.get().tryDecode).get()?.throw(t).copyAndDispose()
 
       const links: RelayExtend2Link[] = fallback.hosts.map(RelayExtend2Link.fromAddressString)
 
@@ -362,10 +367,10 @@ export class SecretCircuit {
       if (relayid_ed)
         links.push(new RelayExtend2LinkModernID(relayid_ed))
 
-      const { StaticSecret, PublicKey } = this.tor.params.x25519
+      const { PrivateKey, PublicKey } = this.tor.params.x25519
 
       const wasm_secret_x = await Promise
-        .resolve(StaticSecret.tryCreate())
+        .resolve(PrivateKey.tryRandom())
         .then(r => r.mapErrSync(CryptoError.from).throw(t))
 
       const unsized_public_x = await Promise
@@ -374,7 +379,7 @@ export class SecretCircuit {
 
       const unsized_public_x_bytes = await Promise
         .resolve(unsized_public_x.tryExport())
-        .then(r => r.mapErrSync(CryptoError.from).throw(t))
+        .then(r => r.mapErrSync(CryptoError.from).throw(t).copyAndDispose())
 
       const public_x = Bytes.tryCast(unsized_public_x_bytes, 32).throw(t)
       const public_b = Bytes.tryCastFrom(fallback.onion, 32).throw(t)
@@ -401,20 +406,20 @@ export class SecretCircuit {
         .then(r => r.mapErrSync(CryptoError.from).throw(t))
 
       const unsized_shared_xy = await Promise
-        .resolve(wasm_secret_x.tryComputeDiffieHellman(wasm_public_y))
+        .resolve(wasm_secret_x.tryCompute(wasm_public_y))
         .then(r => r.mapErrSync(CryptoError.from).throw(t))
 
       const unsized_shared_xy_bytes = await Promise
         .resolve(unsized_shared_xy.tryExport())
-        .then(r => r.mapErrSync(CryptoError.from).throw(t))
+        .then(r => r.mapErrSync(CryptoError.from).throw(t).copyAndDispose())
 
       const unsized_shared_xb = await Promise
-        .resolve(wasm_secret_x.tryComputeDiffieHellman(wasm_public_b))
+        .resolve(wasm_secret_x.tryCompute(wasm_public_b))
         .then(r => r.mapErrSync(CryptoError.from).throw(t))
 
       const unsized_shared_xb_bytes = await Promise
         .resolve(unsized_shared_xb.tryExport())
-        .then(r => r.mapErrSync(CryptoError.from).throw(t))
+        .then(r => r.mapErrSync(CryptoError.from).throw(t).copyAndDispose())
 
       const shared_xy = Bytes.tryCast(unsized_shared_xy_bytes, 32).throw(t)
       const shared_xb = Bytes.tryCast(unsized_shared_xb_bytes, 32).throw(t)
@@ -424,11 +429,11 @@ export class SecretCircuit {
       if (!Bytes.equals2(response.auth, result.auth))
         return new Err(new InvalidNtorAuthError())
 
-      const forward_digest = new this.tor.params.sha1.Hasher()
-      const backward_digest = new this.tor.params.sha1.Hasher()
+      const forward_digest = this.tor.params.sha1.Hasher.tryNew().throw(t)
+      const backward_digest = this.tor.params.sha1.Hasher.tryNew().throw(t)
 
-      forward_digest.update(result.forwardDigest)
-      backward_digest.update(result.backwardDigest)
+      forward_digest.tryUpdate(result.forwardDigest).throw(t)
+      backward_digest.tryUpdate(result.backwardDigest).throw(t)
 
       const forward_key = new Aes128Ctr128BEKey(result.forwardKey, Bytes.alloc(16))
       const backward_key = new Aes128Ctr128BEKey(result.backwardKey, Bytes.alloc(16))
@@ -446,7 +451,7 @@ export class SecretCircuit {
     await this.events.emit("error", [reason])
   }
 
-  async tryTruncate(reason = RelayTruncateCell.reasons.NONE, signal?: AbortSignal): Promise<Result<void, BinaryError | ClosedError | AbortedError | ErroredError>> {
+  async tryTruncate(reason = RelayTruncateCell.reasons.NONE, signal?: AbortSignal): Promise<Result<void, BinaryError | ClosedError | AbortedError | ErroredError | Sha1.HashingError>> {
     return await Result.unthrow(async t => {
       const signal2 = AbortSignals.timeout(5_000, signal)
 
@@ -463,7 +468,7 @@ export class SecretCircuit {
     })
   }
 
-  async tryOpen(hostname: string, port: number, params: CircuitOpenParams = {}): Promise<Result<TorStreamDuplex, BinaryError | ErroredError | ClosedError | ControllerError>> {
+  async tryOpen(hostname: string, port: number, params: CircuitOpenParams = {}): Promise<Result<TorStreamDuplex, BinaryError | ErroredError | ClosedError | ControllerError | Sha1.HashingError>> {
     return await Result.unthrow(async t => {
       if (this.destroyed?.reason !== undefined)
         return new Err(ErroredError.from(this.destroyed.reason))
@@ -497,7 +502,7 @@ export class SecretCircuit {
    * @param init Fetch init
    * @returns Response promise
    */
-  async tryFetch(input: RequestInfo | URL, init: RequestInit & CircuitOpenParams): Promise<Result<Response, UnknownProtocolError | BinaryError | AbortedError | ErroredError | ClosedError | PipeError | ControllerError>> {
+  async tryFetch(input: RequestInfo | URL, init: RequestInit & CircuitOpenParams): Promise<Result<Response, UnknownProtocolError | BinaryError | AbortedError | ErroredError | ClosedError | PipeError | ControllerError | Sha1.HashingError>> {
     return await Result.unthrow(async t => {
       if (this.destroyed?.reason !== undefined)
         return new Err(ErroredError.from(this.destroyed.reason))

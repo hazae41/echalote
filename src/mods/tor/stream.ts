@@ -3,6 +3,7 @@ import { ControllerError, SuperReadableStream, SuperWritableStream } from "@haza
 import { Cursor } from "@hazae41/cursor";
 import { None, Some } from "@hazae41/option";
 import { Ok, Result } from "@hazae41/result";
+import { Sha1 } from "@hazae41/sha1";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
@@ -134,7 +135,7 @@ export class SecretTorStreamDuplex {
     return new None()
   }
 
-  #onWrite<T extends Writable.Infer<T>>(writable: T): Result<void, BinaryError | Writable.SizeError<T> | Writable.WriteError<T>> {
+  #onWrite<T extends Writable.Infer<T>>(writable: T): Result<void, BinaryError | Writable.SizeError<T> | Writable.WriteError<T> | Sha1.HashingError> {
     return Result.unthrowSync(t => {
       if (writable.trySize().throw(t) <= RelayCell.DATA_LEN)
         return this.#onWriteDirect(writable)
@@ -143,7 +144,7 @@ export class SecretTorStreamDuplex {
     })
   }
 
-  #onWriteDirect<T extends Writable.Infer<T>>(writable: T): Result<void, BinaryError | Writable.SizeError<T> | Writable.WriteError<T>> {
+  #onWriteDirect<T extends Writable.Infer<T>>(writable: T): Result<void, BinaryError | Writable.SizeError<T> | Writable.WriteError<T> | Sha1.HashingError> {
     return Result.unthrowSync(t => {
       const relay_data_cell = new RelayDataCell(writable)
       const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_data_cell)
@@ -156,7 +157,7 @@ export class SecretTorStreamDuplex {
     })
   }
 
-  #onWriteChunked<T extends Writable.Infer<T>>(writable: T): Result<void, BinaryError | Writable.SizeError<T> | Writable.WriteError<T>> {
+  #onWriteChunked<T extends Writable.Infer<T>>(writable: T): Result<void, BinaryError | Writable.SizeError<T> | Writable.WriteError<T> | Sha1.HashingError> {
     return Result.unthrowSync(t => {
       const bytes = Writable.tryWriteToBytes(writable).throw(t)
       const cursor = new Cursor(bytes)

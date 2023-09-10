@@ -1,5 +1,7 @@
 import { Arrays } from "@hazae41/arrays";
 import { ASN1Error, DERReadError } from "@hazae41/asn1";
+import { Base16 } from "@hazae41/base16";
+import { Base64 } from "@hazae41/base64";
 import { BinaryError, BinaryReadError, Opaque, Readable, Writable } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Bytes, BytesCastError } from "@hazae41/bytes";
@@ -13,7 +15,7 @@ import { None } from "@hazae41/option";
 import { Paimon } from "@hazae41/paimon";
 import { TooManyRetriesError } from "@hazae41/piscine";
 import { AbortedError, CloseEvents, ClosedError, ErrorEvents, ErroredError, EventError, Plume, SuperEventTarget } from "@hazae41/plume";
-import { Err, Ok, Panic, Result } from "@hazae41/result";
+import { Catched, Err, Ok, Panic, Result } from "@hazae41/result";
 import type { Sha1 } from "@hazae41/sha1";
 import type { X25519 } from "@hazae41/x25519";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
@@ -143,7 +145,7 @@ export class SecretTorClientDuplex {
 
   readonly #controller: AbortController
 
-  readonly #buffer = Cursor.allocUnsafe(65535)
+  readonly #buffer = new Cursor(Bytes.tryAllocUnsafe(65535).unwrap())
 
   #state: TorState = { type: "none" }
 
@@ -239,7 +241,7 @@ export class SecretTorClientDuplex {
 
     await this.events.emit("error", [reason])
 
-    return Result.rethrow(reason)
+    return Catched.throwOrErr(reason)
   }
 
   async #onWriteError(reason?: unknown) {
@@ -248,7 +250,7 @@ export class SecretTorClientDuplex {
     this.writer.closed = { reason }
     this.reader.error(reason)
 
-    return Result.rethrow(reason)
+    return Catched.throwOrErr(reason)
   }
 
   async #onWriteStart(): Promise<Result<void, ErroredError | ClosedError>> {
@@ -263,7 +265,7 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async #onRead(chunk: Opaque): Promise<Result<void, CryptoError | InvalidTorVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError | ControllerError>> {
+  async #onRead(chunk: Opaque): Promise<Result<void, CryptoError | InvalidTorVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError | ControllerError | Sha1.HashingError>> {
     // console.debug(this.#class.name, "<-", chunk)
 
     if (this.#buffer.offset)
@@ -277,7 +279,7 @@ export class SecretTorClientDuplex {
    * @param chunk 
    * @returns 
    */
-  async #onReadBuffered(chunk: Uint8Array): Promise<Result<void, CryptoError | InvalidTorVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError | ControllerError>> {
+  async #onReadBuffered(chunk: Uint8Array): Promise<Result<void, CryptoError | InvalidTorVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError | ControllerError | Sha1.HashingError>> {
     return await Result.unthrow(async t => {
       this.#buffer.tryWrite(chunk).throw(t)
       const full = new Uint8Array(this.#buffer.before)
@@ -292,7 +294,7 @@ export class SecretTorClientDuplex {
    * @param chunk 
    * @returns 
    */
-  async #onReadDirect(chunk: Uint8Array): Promise<Result<void, CryptoError | InvalidTorVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError | ControllerError>> {
+  async #onReadDirect(chunk: Uint8Array): Promise<Result<void, CryptoError | InvalidTorVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError | ControllerError | Sha1.HashingError>> {
     return await Result.unthrow(async t => {
       const cursor = new Cursor(chunk)
 
@@ -314,7 +316,7 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async #onCell(cell: Cell<Opaque> | OldCell<Opaque>, state: TorState): Promise<Result<void, CryptoError | InvalidTorVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError | ControllerError>> {
+  async #onCell(cell: Cell<Opaque> | OldCell<Opaque>, state: TorState): Promise<Result<void, CryptoError | InvalidTorVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError | ControllerError | Sha1.HashingError>> {
     if (cell.command === PaddingCell.command)
       return new Ok(console.debug(cell))
     if (cell.command === VariablePaddingCell.command)
@@ -369,7 +371,7 @@ export class SecretTorClientDuplex {
     return Ok.void()
   }
 
-  async #onHandshakedStateCell(cell: Cell<Opaque>): Promise<Result<void, BinaryError | CellError | RelayCellError | EventError | ControllerError>> {
+  async #onHandshakedStateCell(cell: Cell<Opaque>): Promise<Result<void, BinaryError | CellError | RelayCellError | EventError | ControllerError | Sha1.HashingError>> {
     if (cell.command === CreatedFastCell.command)
       return await this.#onCreatedFastCell(cell)
     if (cell.command === DestroyCell.command)
@@ -462,7 +464,7 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async #onRelayCell(parent: Cell<Opaque>): Promise<Result<void, BinaryError | CellError | RelayCellError | EventError | ControllerError>> {
+  async #onRelayCell(parent: Cell<Opaque>): Promise<Result<void, BinaryError | CellError | RelayCellError | EventError | ControllerError | Sha1.HashingError>> {
     return await Result.unthrow(async t => {
       const raw = RelayCell.Raw.tryUncell(parent).throw(t)
       const cell = raw.tryUnpack().throw(t)
@@ -515,7 +517,7 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async #onRelayDataCell(cell: RelayCell<Opaque>): Promise<Result<void, BinaryError | RelayCellError | EventError | ControllerError>> {
+  async #onRelayDataCell(cell: RelayCell<Opaque>): Promise<Result<void, BinaryError | RelayCellError | EventError | ControllerError | Sha1.HashingError>> {
     return await Result.unthrow(async t => {
       const cell2 = RelayCell.Streamful.tryInto(cell, RelayDataCell).inspectSync(console.debug).throw(t)
 
@@ -655,7 +657,7 @@ export class SecretTorClientDuplex {
     }, AbortSignals.timeout(5_000, signal))
   }
 
-  async tryCreateAndExtendLoop(signal?: AbortSignal): Promise<Result<Circuit, CryptoError | TooManyRetriesError | InvalidTorStateError | ErroredError | ClosedError | BinaryError | AbortedError | EmptyFallbacksError | InvalidNtorAuthError | InvalidKdfKeyHashError | BytesCastError | EventError>> {
+  async tryCreateAndExtendLoop(signal?: AbortSignal): Promise<Result<Circuit, CryptoError | TooManyRetriesError | InvalidTorStateError | ErroredError | ClosedError | BinaryError | AbortedError | EmptyFallbacksError | InvalidNtorAuthError | InvalidKdfKeyHashError | BytesCastError | EventError | Sha1.HashingError | Base16.CodingError | Base64.CodingError>> {
     return await Result.unthrow(async t => {
 
       for (let i = 0; !this.closed && !signal?.aborted && i < 3; i++) {
@@ -699,7 +701,7 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async tryCreateLoop(signal?: AbortSignal): Promise<Result<Circuit, TooManyRetriesError | InvalidKdfKeyHashError | InvalidTorStateError | BinaryError | AbortedError | ErroredError | ClosedError>> {
+  async tryCreateLoop(signal?: AbortSignal): Promise<Result<Circuit, TooManyRetriesError | InvalidKdfKeyHashError | InvalidTorStateError | BinaryError | AbortedError | ErroredError | ClosedError | Sha1.HashingError>> {
     return await Result.unthrow(async t => {
       for (let i = 0; !this.closed && !signal?.aborted && i < 3; i++) {
         const result = await this.tryCreate(signal)
@@ -737,7 +739,7 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async tryCreate(signal?: AbortSignal): Promise<Result<Circuit, InvalidKdfKeyHashError | InvalidTorStateError | BinaryError | AbortedError | ErroredError | ClosedError>> {
+  async tryCreate(signal?: AbortSignal): Promise<Result<Circuit, InvalidKdfKeyHashError | InvalidTorStateError | BinaryError | AbortedError | ErroredError | ClosedError | Sha1.HashingError>> {
     return await Result.unthrow(async t => {
       if (this.#state.type !== "handshaked")
         return new Err(new InvalidTorStateError())
@@ -756,11 +758,11 @@ export class SecretTorClientDuplex {
       if (!Bytes.equals(result.keyHash, created_fast.fragment.derivative))
         return new Err(new InvalidKdfKeyHashError())
 
-      const forwardDigest = new this.params.sha1.Hasher()
-      const backwardDigest = new this.params.sha1.Hasher()
+      const forwardDigest = this.params.sha1.Hasher.tryNew().throw(t)
+      const backwardDigest = this.params.sha1.Hasher.tryNew().throw(t)
 
-      forwardDigest.update(result.forwardDigest)
-      backwardDigest.update(result.backwardDigest)
+      forwardDigest.tryUpdate(result.forwardDigest).throw(t)
+      backwardDigest.tryUpdate(result.backwardDigest).throw(t)
 
       const forwardKey = new Aes128Ctr128BEKey(result.forwardKey, Bytes.alloc(16))
       const backwardKey = new Aes128Ctr128BEKey(result.backwardKey, Bytes.alloc(16))

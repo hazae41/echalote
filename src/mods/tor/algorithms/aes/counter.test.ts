@@ -1,26 +1,22 @@
-import { Bytes } from "@hazae41/bytes";
-import { assert } from "@hazae41/phobos";
-import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
-import { AesCounter } from "./counter.js";
 
-Zepar.initSyncBundledOnce()
+// Zepar.initSyncBundledOnce()
 
-async function assertEncrypt(key: AesCounter, key2: Aes128Ctr128BEKey, data: Uint8Array) {
-  const cipher = new Uint8Array(await key.encrypt(data))
-  const cipher2 = new Uint8Array(data)
-  key2.apply_keystream(cipher2)
-  console.log(cipher, cipher2)
-  assert(Bytes.equals(cipher, cipher2))
-  return cipher
-}
+// async function assertEncrypt(key: AesCounter, key2: Aes128Ctr128BEKey, data: Uint8Array) {
+//   const cipher = new Uint8Array(await key.encrypt(data))
+//   const cipher2 = new Uint8Array(data)
+//   key2.apply_keystream(cipher2)
+//   console.log(cipher, cipher2)
+//   assert(Bytes.equals(cipher, cipher2))
+//   return cipher
+// }
 
-async function assertDecrypt(key: AesCounter, key2: Aes128Ctr128BEKey, data: Uint8Array) {
-  const cipher = new Uint8Array(await key.decrypt(data))
-  const cipher2 = new Uint8Array(data)
-  key2.apply_keystream(cipher2)
-  assert(Bytes.equals(cipher, cipher2))
-  return cipher
-}
+// async function assertDecrypt(key: AesCounter, key2: Aes128Ctr128BEKey, data: Uint8Array) {
+//   const cipher = new Uint8Array(await key.decrypt(data))
+//   const cipher2 = new Uint8Array(data)
+//   key2.apply_keystream(cipher2)
+//   assert(Bytes.equals(cipher, cipher2))
+//   return cipher
+// }
 
 // test("AES encryption", async ({ test }) => {
 //   const rawKey = Bytes.random(16)

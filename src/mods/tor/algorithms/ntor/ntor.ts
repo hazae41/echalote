@@ -81,7 +81,7 @@ export namespace NtorResult {
     return await Result.unthrow(async t => {
       const protoid = "ntor-curve25519-sha256-1"
 
-      const secret_input = Cursor.tryAllocUnsafe(32 + 32 + 20 + 32 + 32 + 32 + protoid.length).throw(t)
+      const secret_input = new Cursor(Bytes.tryAllocUnsafe(32 + 32 + 20 + 32 + 32 + 32 + protoid.length).throw(t))
       secret_input.tryWrite(shared_xy).throw(t)
       secret_input.tryWrite(shared_xb).throw(t)
       secret_input.tryWrite(relayid_rsa).throw(t)
@@ -99,7 +99,7 @@ export namespace NtorResult {
 
       const server = "Server"
 
-      const auth_input = Cursor.tryAllocUnsafe(32 + 20 + 32 + 32 + 32 + protoid.length + server.length).throw(t)
+      const auth_input = new Cursor(Bytes.tryAllocUnsafe(32 + 20 + 32 + 32 + 32 + protoid.length + server.length).throw(t))
       auth_input.tryWrite(verify).throw(t)
       auth_input.tryWrite(relayid_rsa).throw(t)
       auth_input.tryWrite(public_b).throw(t)

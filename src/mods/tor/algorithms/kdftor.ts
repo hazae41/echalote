@@ -26,10 +26,10 @@ export namespace KDFTorResult {
 
   export async function tryCompute(k0: Uint8Array): Promise<Result<KDFTorResult, BinaryError>> {
     return await Result.unthrow(async t => {
-      const ki = Cursor.allocUnsafe(k0.length + 1)
+      const ki = new Cursor(Bytes.tryAllocUnsafe(k0.length + 1).throw(t))
       ki.tryWrite(k0).throw(t)
 
-      const k = Cursor.allocUnsafe(HASH_LEN * 5)
+      const k = new Cursor(Bytes.tryAllocUnsafe(HASH_LEN * 5).throw(t))
 
       for (let i = 0; k.remaining > 0; i++) {
         ki.trySetUint8(i).throw(t)

@@ -1,8 +1,11 @@
 import { Arrays } from "@hazae41/arrays";
 import { BinaryError, BinaryReadError, Opaque, Readable, Writable } from "@hazae41/binary";
+import { Box } from "@hazae41/box";
 import { Bytes } from "@hazae41/bytes";
 import { Cursor } from "@hazae41/cursor";
 import { Err, Ok, Result } from "@hazae41/result";
+import { Copiable, Copied, Sha1 } from "@hazae41/sha1";
+import { Slot } from "libs/disposable/slot.js";
 import { Cell, } from "mods/tor/binary/cells/cell.js";
 import { SecretCircuit } from "mods/tor/circuit.js";
 import { SecretTorStreamDuplex } from "mods/tor/stream.js";
@@ -64,9 +67,9 @@ export namespace RelayCell {
       return new Ok(new Streamful(this.circuit, stream, this.rcommand, this.fragment, this.digest20))
     }
 
-    tryCell(): Result<Cell.Circuitful<Opaque>, BinaryError | Writable.SizeError<Fragment> | Writable.WriteError<Fragment>> {
+    tryCell(): Result<Cell.Circuitful<Opaque>, BinaryError | Writable.SizeError<Fragment> | Writable.WriteError<Fragment> | Sha1.HashingError> {
       return Result.unthrowSync(t => {
-        const cursor = Cursor.allocUnsafe(Cell.PAYLOAD_LEN)
+        const cursor = new Cursor(Bytes.tryAllocUnsafe(Cell.PAYLOAD_LEN).throw(t))
 
         cursor.tryWriteUint8(this.rcommand).throw(t)
         cursor.tryWriteUint16(0).throw(t)
@@ -85,10 +88,10 @@ export namespace RelayCell {
 
         const exit = Arrays.last(this.circuit.targets)!
 
-        exit.forward_digest.update(cursor.bytes)
+        exit.forward_digest.tryUpdate(cursor.bytes).throw(t)
 
-        const digest20 = Bytes.tryCast(exit.forward_digest.finalize(), 20).throw(t)
-        const digest4 = digest20.subarray(0, 4)
+        const digestSlice = exit.forward_digest.tryFinalize().throw(t)
+        const digest20 = Bytes.tryCast(digestSlice.copyAndDispose(), 20).throw(t)
 
         if (this.rcommand === RelayDataCell.rcommand) {
           if (exit.package % 100 === 1)
@@ -97,24 +100,30 @@ export namespace RelayCell {
         }
 
         cursor.offset = digestOffset
-        cursor.tryWrite(digest4).throw(t)
+        cursor.tryWrite(digest20.subarray(0, 4)).throw(t)
+
+        using copiable = new Slot(new Box<Copiable>(new Copied(cursor.bytes)))
 
         for (let i = this.circuit.targets.length - 1; i >= 0; i--)
-          this.circuit.targets[i].forward_key.apply_keystream(cursor.bytes)
+          copiable.disposeAndReplace(new Box(this.circuit.targets[i].forward_key.apply_keystream(cursor.bytes)))
 
-        return new Ok(new Cell.Circuitful(this.circuit, RelayCell.command, new Opaque(cursor.bytes)))
+        const fragment = new Opaque(copiable.inner.copyAndDispose())
+
+        return new Ok(new Cell.Circuitful(this.circuit, RelayCell.command, fragment))
       })
     }
 
-    static tryUncell(cell: Cell<Opaque>): Result<Raw<Opaque>, BinaryError | ExpectedCircuitError | InvalidRelayCellDigestError | UnrecognisedRelayCellError> {
+    static tryUncell(cell: Cell<Opaque>): Result<Raw<Opaque>, BinaryError | ExpectedCircuitError | InvalidRelayCellDigestError | UnrecognisedRelayCellError | Sha1.HashingError> {
       return Result.unthrowSync(t => {
         if (cell instanceof Cell.Circuitless)
           return new Err(new ExpectedCircuitError())
 
-        for (const target of cell.circuit.targets) {
-          target.backward_key.apply_keystream(cell.fragment.bytes)
+        using copiable = new Slot(new Box<Copiable>(new Copied(cell.fragment.bytes)))
 
-          const cursor = new Cursor(cell.fragment.bytes)
+        for (const target of cell.circuit.targets) {
+          copiable.disposeAndReplace(new Box(target.backward_key.apply_keystream(cell.fragment.bytes)))
+
+          const cursor = new Cursor(copiable.inner.inner.bytes)
 
           const rcommand = cursor.tryReadUint8().throw(t)
           const recognised = cursor.tryReadUint16().throw(t)
@@ -123,21 +132,21 @@ export namespace RelayCell {
             continue
 
           const stream = cursor.tryReadUint16().throw(t)
-          const digest = Bytes.from(cursor.tryGet(4).throw(t))
+          const digest = cursor.tryGet(4).throw(t)
 
           cursor.tryWriteUint32(0).throw(t)
 
-          target.backward_digest.update(cursor.bytes)
+          target.backward_digest.tryUpdate(cursor.bytes).throw(t)
 
-          const digest20 = Bytes.tryCast(target.backward_digest.finalize(), 20).throw(t)
-          const digest4 = digest20.subarray(0, 4)
+          const digestSlice = target.backward_digest.tryFinalize().throw(t)
+          const digest20 = Bytes.tryCast(digestSlice.copyAndDispose(), 20).throw(t)
 
-          if (!Bytes.equals2(digest, digest4))
+          if (!Bytes.equals2(digest, digest20.subarray(0, 4)))
             return new Err(new InvalidRelayCellDigestError())
 
           const length = cursor.tryReadUint16().throw(t)
           const bytes = cursor.tryRead(length).throw(t)
-          const data = new Opaque(bytes)
+          const data = new Opaque(new Uint8Array(bytes))
 
           return new Ok(new Raw<Opaque>(cell.circuit, stream, rcommand, data, digest20))
         }
@@ -165,7 +174,7 @@ export namespace RelayCell {
       return new Streamful(circuit, stream, fragment.rcommand, fragment)
     }
 
-    tryCell(): Result<Cell.Circuitful<Opaque>, BinaryError | Writable.SizeError<Fragment> | Writable.WriteError<Fragment>> {
+    tryCell(): Result<Cell.Circuitful<Opaque>, BinaryError | Writable.SizeError<Fragment> | Writable.WriteError<Fragment> | Sha1.HashingError> {
       return this.#raw.tryCell()
     }
 
@@ -197,7 +206,7 @@ export namespace RelayCell {
       return new Streamless(circuit, stream, fragment.rcommand, fragment)
     }
 
-    tryCell(): Result<Cell.Circuitful<Opaque>, BinaryError | Writable.SizeError<Fragment> | Writable.WriteError<Fragment>> {
+    tryCell(): Result<Cell.Circuitful<Opaque>, BinaryError | Writable.SizeError<Fragment> | Writable.WriteError<Fragment> | Sha1.HashingError> {
       return this.#raw.tryCell()
     }
 

@@ -1,4 +1,3 @@
-import { Bytes } from "@hazae41/bytes"
 
 export class AesCounter {
 
@@ -19,22 +18,22 @@ export class AesCounter {
     return new this(key, counter, length)
   }
 
-  async encrypt(data: Uint8Array) {
-    const counter0 = Bytes.fromBigInt(this.#counter)
-    const counter = Bytes.padStart(counter0, 16)
-    const length = this.#length
-    const result = await crypto.subtle.encrypt({ name: "AES-CTR", counter, length }, this.#key, data)
-    this.#counter += BigInt(Math.ceil(data.length / 16))
-    return result
-  }
+  // async encrypt(data: Uint8Array) {
+  //   const counter0 = Bytes.fromBigInt(this.#counter)
+  //   const counter = Bytes.padStart(counter0, 16)
+  //   const length = this.#length
+  //   const result = await crypto.subtle.encrypt({ name: "AES-CTR", counter, length }, this.#key, data)
+  //   this.#counter += BigInt(Math.ceil(data.length / 16))
+  //   return result
+  // }
 
-  async decrypt(data: Uint8Array) {
-    const counter0 = Bytes.fromBigInt(this.#counter)
-    const counter = Bytes.padStart(counter0, 16)
-    const length = this.#length
-    const result = await crypto.subtle.decrypt({ name: "AES-CTR", counter, length }, this.#key, data)
-    this.#counter += BigInt(Math.ceil(data.length / 16))
-    return result
-  }
+  // async decrypt(data: Uint8Array) {
+  //   const counter0 = Bytes.fromBigInt(this.#counter)
+  //   const counter = Bytes.padStart(counter0, 16)
+  //   const length = this.#length
+  //   const result = await crypto.subtle.decrypt({ name: "AES-CTR", counter, length }, this.#key, data)
+  //   this.#counter += BigInt(Math.ceil(data.length / 16))
+  //   return result
+  // }
 
 }
