@@ -1,4 +1,5 @@
 import { Berith } from "@hazae41/berith";
+import { Disposer } from "@hazae41/cleaner";
 import { Circuit, TorClientDuplex } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
 import { Morax } from "@hazae41/morax";
@@ -38,7 +39,7 @@ function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
 
 export interface TorAndCircuits {
   tor: TorClientDuplex
-  circuits: Mutex<Pool<Circuit>>
+  circuits: Mutex<Pool<Disposer<Circuit>>>
 }
 
 export default function Page() {
@@ -48,10 +49,10 @@ export default function Page() {
     // const x25519 = X25519.fromNoble(noble_ed25519.x25519)
     // const sha1 = Sha1.fromNoble(noble_sha1.sha1)
 
-    const ed25519 = await Ed25519.fromSafeOrBerith(Berith)
+    const ed25519 = await Ed25519.fromNativeOrBerith(Berith)
     const x25519 = await X25519.fromSafeOrBerith(Berith)
 
-    Morax.initSyncBundledOnce()
+    await Morax.initBundledOnce()
     const sha1 = Sha1.fromMorax(Morax)
 
     const fallbacksUrl = "https://raw.githubusercontent.com/hazae41/echalote/master/tools/fallbacks/fallbacks.json"
@@ -86,7 +87,7 @@ export default function Page() {
 
       const circuit = await Pool.takeCryptoRandom(circuits).then(r => r.unwrap().result.get())
 
-      await superfetch(circuit)
+      await superfetch(circuit.inner)
     } catch (e: unknown) {
       console.error("onClick", { e })
     }

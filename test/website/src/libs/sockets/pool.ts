@@ -1,5 +1,5 @@
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas"
-import { Cleaner } from "@hazae41/cleaner"
+import { Disposer } from "@hazae41/cleaner"
 import { Circuit } from "@hazae41/echalote"
 import { Fleche } from "@hazae41/fleche"
 import { Future } from "@hazae41/future"
@@ -73,12 +73,12 @@ export async function tryCreateSocketLoop(circuit: Circuit, url: URL, signal?: A
 }
 
 export function createSocketPool(circuit: Circuit, params: PoolParams = {}) {
-  const pool = new Pool<WebSocket>(async ({ pool, index, signal }) => {
+  const pool = new Pool<Disposer<WebSocket>>(async ({ pool, index, signal }) => {
     return await Result.unthrow(async t => {
       const socket = await tryCreateSocketLoop(circuit, urls[index], signal).then(r => r.throw(t))
 
       const onCloseOrError = () => {
-        pool.delete(index)
+        pool.restart(index)
       }
 
       socket.addEventListener("close", onCloseOrError, { passive: true })
@@ -89,7 +89,7 @@ export function createSocketPool(circuit: Circuit, params: PoolParams = {}) {
         socket.removeEventListener("error", onCloseOrError)
       }
 
-      return new Ok(new Cleaner(socket, onClean))
+      return new Ok(new Disposer(socket, onClean))
     })
   }, params)
 
@@ -98,35 +98,35 @@ export function createSocketPool(circuit: Circuit, params: PoolParams = {}) {
 
 export interface Session {
   circuit: Circuit,
-  sockets: Mutex<Pool<WebSocket>>
+  sockets: Mutex<Pool<Disposer<WebSocket>>>
 }
 
-export function createSessionPool(circuits: Mutex<Pool<Circuit, Error>>, params: PoolParams) {
+export function createSessionPool(circuits: Mutex<Pool<Disposer<Circuit>, Error>>, params: PoolParams) {
   const { capacity } = params
 
   const signal = AbortSignals.merge(circuits.inner.signal, params.signal)
 
-  const pool = new Pool<Session, Error>(async ({ pool, index, signal }) => {
+  const pool = new Pool<Disposer<Session>, Error>(async ({ pool, index, signal }) => {
     return await Result.unthrow(async t => {
       const circuit = await Pool.takeCryptoRandom(circuits).then(r => r.throw(t).result.get())
-      const sockets = createSocketPool(circuit, { capacity: 3, signal })
+      const sockets = createSocketPool(circuit.inner, { capacity: 3, signal })
 
-      const session = { circuit, sockets }
+      const session: Session = { circuit: circuit.inner, sockets }
 
       const onCircuitCloseOrError = async () => {
-        pool.delete(index)
+        pool.restart(index)
         return new None()
       }
 
-      circuit.events.on("close", onCircuitCloseOrError)
-      circuit.events.on("error", onCircuitCloseOrError)
+      circuit.inner.events.on("close", onCircuitCloseOrError)
+      circuit.inner.events.on("error", onCircuitCloseOrError)
 
       const onClean = () => {
-        circuit.events.off("close", onCircuitCloseOrError)
-        circuit.events.off("error", onCircuitCloseOrError)
+        circuit.inner.events.off("close", onCircuitCloseOrError)
+        circuit.inner.events.off("error", onCircuitCloseOrError)
       }
 
-      return new Ok(new Cleaner(session, onClean))
+      return new Ok(new Disposer(session, onClean))
     })
   }, { capacity, signal })
 

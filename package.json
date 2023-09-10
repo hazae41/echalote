@@ -7,8 +7,8 @@
   "description": "Zero-copy Tor protocol for the web",
   "homepage": "https://github.com/hazae41/echalote",
   "repository": "github:hazae41/echalote",
-  "main": "./dist/cjs/index.cjs",
-  "module": "./dist/esm/index.mjs",
+  "main": "./dist/cjs/src/index.cjs",
+  "module": "./dist/esm/src/index.mjs",
   "types": "./dist/types/index.d.ts",
   "sideEffects": false,
   "files": [
@@ -68,8 +68,8 @@
   "exports": {
     ".": {
       "types": "./dist/types/index.d.ts",
-      "import": "./dist/esm/index.mjs",
-      "require": "./dist/cjs/index.cjs"
+      "import": "./dist/esm/src/index.mjs",
+      "require": "./dist/cjs/src/index.cjs"
     }
   },
   "keywords": [
