@@ -20,4 +20,9 @@ export class Target {
     readonly backward_key: Aes128Ctr128BEKey
   ) { }
 
+  [Symbol.dispose]() {
+    this.forward_digest[Symbol.dispose]()
+    this.backward_digest[Symbol.dispose]()
+  }
+
 }

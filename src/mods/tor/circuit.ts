@@ -171,15 +171,31 @@ export class SecretCircuit {
     this.tor.events.on("RELAY_END", onRelayEndCell, { passive: true })
   }
 
+  [Symbol.dispose]() {
+    if (!this.#destroyed)
+      this.#destroyed = {}
+    for (const target of this.targets)
+      target[Symbol.dispose]()
+  }
+
   get destroyed() {
     return this.#destroyed
+  }
+
+  #destroy(reason?: unknown) {
+    this.#destroyed = { reason }
+    this[Symbol.dispose]()
+  }
+
+  async destroy(reason?: unknown) {
+    this.#destroy()
+    await this.events.emit("error", [reason])
   }
 
   async #onTorClose() {
     console.debug(`${this.#class.name}.onTorClose`)
 
-    this.#destroyed = {}
-
+    this.#destroy()
     await this.events.emit("close", [undefined])
 
     return new None()
@@ -188,7 +204,7 @@ export class SecretCircuit {
   async #onTorError(reason?: unknown) {
     console.debug(`${this.#class.name}.onReadError`, { reason })
 
-    this.#destroyed = { reason }
+    this.#destroy(reason)
 
     await this.events.emit("error", [reason])
 
@@ -201,7 +217,7 @@ export class SecretCircuit {
 
     console.debug(`${this.#class.name}.onDestroyCell`, cell)
 
-    this.#destroyed = { reason: cell }
+    this.#destroy(cell)
 
     await this.events.emit("error", [cell])
 
@@ -228,8 +244,7 @@ export class SecretCircuit {
 
     console.debug(`${this.#class.name}.onRelayTruncatedCell`, cell)
 
-    this.#destroyed = {}
-
+    this.#destroy()
     await this.events.emit("error", [cell])
 
     const returned = await this.events.emit("RELAY_TRUNCATED", [cell])
@@ -444,11 +459,6 @@ export class SecretCircuit {
 
       return Ok.void()
     })
-  }
-
-  async destroy(reason?: unknown) {
-    this.#destroyed = { reason }
-    await this.events.emit("error", [reason])
   }
 
   async tryTruncate(reason = RelayTruncateCell.reasons.NONE, signal?: AbortSignal): Promise<Result<void, BinaryError | ClosedError | AbortedError | ErroredError | Sha1.HashingError>> {
