@@ -121,7 +121,7 @@ export namespace RelayCell {
         using copiable = new Slot(new Box<Copiable>(new Copied(cell.fragment.bytes)))
 
         for (const target of cell.circuit.targets) {
-          copiable.disposeAndReplace(new Box(target.backward_key.apply_keystream(cell.fragment.bytes)))
+          copiable.disposeAndReplace(new Box(target.backward_key.apply_keystream(copiable.inner.inner.bytes)))
 
           const cursor = new Cursor(copiable.inner.inner.bytes)
 
@@ -132,7 +132,7 @@ export namespace RelayCell {
             continue
 
           const stream = cursor.tryReadUint16().throw(t)
-          const digest = cursor.tryGet(4).throw(t)
+          const digest = new Uint8Array(cursor.tryGet(4).throw(t))
 
           cursor.tryWriteUint32(0).throw(t)
 

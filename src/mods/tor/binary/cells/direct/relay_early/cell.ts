@@ -88,10 +88,10 @@ export namespace RelayEarlyCell {
 
         exit.forward_digest.tryUpdate(cursor.bytes).throw(t)
 
-        using digest = exit.forward_digest.tryFinalize().throw(t)
+        using digestSlice = exit.forward_digest.tryFinalize().throw(t)
 
         cursor.offset = digestOffset
-        cursor.tryWrite(digest.bytes.subarray(0, 4)).throw(t)
+        cursor.tryWrite(digestSlice.bytes.subarray(0, 4)).throw(t)
 
         using copiable = new Slot(new Box<Copiable>(new Copied(cursor.bytes)))
 
@@ -123,15 +123,15 @@ export namespace RelayEarlyCell {
             continue
 
           const stream = cursor.tryReadUint16().throw(t)
-          const digest = cursor.tryGet(4).throw(t)
+          const digest = new Uint8Array(cursor.tryGet(4).throw(t))
 
           cursor.tryWriteUint32(0).throw(t)
 
           target.backward_digest.tryUpdate(cursor.bytes).throw(t)
 
-          using digest2 = target.backward_digest.tryFinalize().throw(t)
+          using digestSlice = target.backward_digest.tryFinalize().throw(t)
 
-          if (!Bytes.equals2(digest, digest2.bytes.subarray(0, 4)))
+          if (!Bytes.equals2(digest, digestSlice.bytes.subarray(0, 4)))
             return new Err(new InvalidRelayCellDigestError())
 
           const length = cursor.tryReadUint16().throw(t)
