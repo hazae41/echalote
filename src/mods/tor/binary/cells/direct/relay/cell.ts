@@ -105,7 +105,7 @@ export namespace RelayCell {
         using copiable = new Slot(new Box<Copiable>(new Copied(cursor.bytes)))
 
         for (let i = this.circuit.targets.length - 1; i >= 0; i--)
-          copiable.disposeAndReplace(new Box(this.circuit.targets[i].forward_key.apply_keystream(cursor.bytes)))
+          copiable.disposeAndReplace(new Box(this.circuit.targets[i].forward_key.apply_keystream(copiable.inner.inner.bytes)))
 
         const fragment = new Opaque(copiable.inner.copyAndDispose())
 
