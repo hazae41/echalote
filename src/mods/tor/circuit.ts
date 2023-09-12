@@ -183,6 +183,7 @@ export class SecretCircuit {
   }
 
   #destroy(reason?: unknown) {
+    if (this.#destroyed) return
     this.#destroyed = { reason }
     this[Symbol.dispose]()
   }
