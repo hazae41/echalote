@@ -135,7 +135,7 @@ export class SecretTorStreamDuplex {
     return new None()
   }
 
-  #onWrite<T extends Writable.Infer<T>>(writable: T): Result<void, BinaryError | Writable.SizeError<T> | Writable.WriteError<T> | Sha1.HashingError> {
+  #onWrite<T extends Writable.Infer<T>>(writable: T): Result<void, BinaryError | Writable.SizeError<T> | Writable.WriteError<T> | Sha1.AnyError> {
     return Result.unthrowSync(t => {
       if (writable.trySize().throw(t) <= RelayCell.DATA_LEN)
         return this.#onWriteDirect(writable)
@@ -144,7 +144,7 @@ export class SecretTorStreamDuplex {
     })
   }
 
-  #onWriteDirect<T extends Writable.Infer<T>>(writable: T): Result<void, BinaryError | Writable.SizeError<T> | Writable.WriteError<T> | Sha1.HashingError> {
+  #onWriteDirect<T extends Writable.Infer<T>>(writable: T): Result<void, BinaryError | Writable.SizeError<T> | Writable.WriteError<T> | Sha1.AnyError> {
     return Result.unthrowSync(t => {
       const relay_data_cell = new RelayDataCell(writable)
       const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_data_cell)
@@ -157,7 +157,7 @@ export class SecretTorStreamDuplex {
     })
   }
 
-  #onWriteChunked<T extends Writable.Infer<T>>(writable: T): Result<void, BinaryError | Writable.SizeError<T> | Writable.WriteError<T> | Sha1.HashingError> {
+  #onWriteChunked<T extends Writable.Infer<T>>(writable: T): Result<void, BinaryError | Writable.SizeError<T> | Writable.WriteError<T> | Sha1.AnyError> {
     return Result.unthrowSync(t => {
       const bytes = Writable.tryWriteToBytes(writable).throw(t)
       const cursor = new Cursor(bytes)

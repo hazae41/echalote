@@ -67,7 +67,7 @@ export namespace RelayCell {
       return new Ok(new Streamful(this.circuit, stream, this.rcommand, this.fragment, this.digest20))
     }
 
-    tryCell(): Result<Cell.Circuitful<Opaque>, BinaryError | Writable.SizeError<Fragment> | Writable.WriteError<Fragment> | Sha1.HashingError> {
+    tryCell(): Result<Cell.Circuitful<Opaque>, BinaryError | Writable.SizeError<Fragment> | Writable.WriteError<Fragment> | Sha1.AnyError> {
       return Result.unthrowSync(t => {
         const cursor = new Cursor(Bytes.tryAllocUnsafe(Cell.PAYLOAD_LEN).throw(t))
 
@@ -113,7 +113,7 @@ export namespace RelayCell {
       })
     }
 
-    static tryUncell(cell: Cell<Opaque>): Result<Raw<Opaque>, BinaryError | ExpectedCircuitError | InvalidRelayCellDigestError | UnrecognisedRelayCellError | Sha1.HashingError> {
+    static tryUncell(cell: Cell<Opaque>): Result<Raw<Opaque>, BinaryError | ExpectedCircuitError | InvalidRelayCellDigestError | UnrecognisedRelayCellError | Sha1.AnyError> {
       return Result.unthrowSync(t => {
         if (cell instanceof Cell.Circuitless)
           return new Err(new ExpectedCircuitError())
@@ -174,7 +174,7 @@ export namespace RelayCell {
       return new Streamful(circuit, stream, fragment.rcommand, fragment)
     }
 
-    tryCell(): Result<Cell.Circuitful<Opaque>, BinaryError | Writable.SizeError<Fragment> | Writable.WriteError<Fragment> | Sha1.HashingError> {
+    tryCell(): Result<Cell.Circuitful<Opaque>, BinaryError | Writable.SizeError<Fragment> | Writable.WriteError<Fragment> | Sha1.AnyError> {
       return this.#raw.tryCell()
     }
 
@@ -206,7 +206,7 @@ export namespace RelayCell {
       return new Streamless(circuit, stream, fragment.rcommand, fragment)
     }
 
-    tryCell(): Result<Cell.Circuitful<Opaque>, BinaryError | Writable.SizeError<Fragment> | Writable.WriteError<Fragment> | Sha1.HashingError> {
+    tryCell(): Result<Cell.Circuitful<Opaque>, BinaryError | Writable.SizeError<Fragment> | Writable.WriteError<Fragment> | Sha1.AnyError> {
       return this.#raw.tryCell()
     }
 
