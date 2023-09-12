@@ -374,7 +374,7 @@ export class SecretCircuit {
       const relayid_rsax = Base16.get().tryPadStartAndDecode(fallback.id).throw(t).copyAndDispose()
       const relayid_rsa = Bytes.tryCast(relayid_rsax, HASH_LEN).throw(t)
 
-      const relayid_ed = Option.wrap(fallback.eid).mapSync(Base64.get().tryDecode).get()?.throw(t).copyAndDispose()
+      const relayid_ed = Option.wrap(fallback.eid).mapSync(x => Base64.get().tryDecode(x)).get()?.throw(t).copyAndDispose()
 
       const links: RelayExtend2Link[] = fallback.hosts.map(RelayExtend2Link.fromAddressString)
 
