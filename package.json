@@ -50,7 +50,7 @@
     "@hazae41/smux": "^0.1.22",
     "@hazae41/x25519": "^2.1.2",
     "@hazae41/x509": "^1.1.15",
-    "@hazae41/zepar": "^1.1.2"
+    "@hazae41/zepar": "^1.1.3"
   },
   "devDependencies": {
     "@hazae41/deimos": "^1.0.6",

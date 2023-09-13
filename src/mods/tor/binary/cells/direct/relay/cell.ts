@@ -1,6 +1,5 @@
 import { Arrays } from "@hazae41/arrays";
 import { BinaryError, BinaryReadError, Opaque, Readable, Writable } from "@hazae41/binary";
-import { Box } from "@hazae41/box";
 import { Bytes } from "@hazae41/bytes";
 import { Cursor } from "@hazae41/cursor";
 import { Err, Ok, Result } from "@hazae41/result";
@@ -102,10 +101,10 @@ export namespace RelayCell {
         cursor.offset = digestOffset
         cursor.tryWrite(digest20.subarray(0, 4)).throw(t)
 
-        using copiable = new Slot(new Box<Copiable>(new Copied(cursor.bytes)))
+        using copiable = new Slot<Copiable>(new Copied(cursor.bytes))
 
         for (let i = this.circuit.targets.length - 1; i >= 0; i--)
-          copiable.disposeAndReplace(new Box(this.circuit.targets[i].forward_key.apply_keystream(copiable.inner.inner.bytes)))
+          copiable.inner = this.circuit.targets[i].forward_key.apply_keystream(copiable.inner.bytes)
 
         const fragment = new Opaque(copiable.inner.copyAndDispose())
 
@@ -118,12 +117,12 @@ export namespace RelayCell {
         if (cell instanceof Cell.Circuitless)
           return new Err(new ExpectedCircuitError())
 
-        using copiable = new Slot(new Box<Copiable>(new Copied(cell.fragment.bytes)))
+        using copiable = new Slot<Copiable>(new Copied(cell.fragment.bytes))
 
         for (const target of cell.circuit.targets) {
-          copiable.disposeAndReplace(new Box(target.backward_key.apply_keystream(copiable.inner.inner.bytes)))
+          copiable.inner = target.backward_key.apply_keystream(copiable.inner.bytes)
 
-          const cursor = new Cursor(copiable.inner.inner.bytes)
+          const cursor = new Cursor(copiable.inner.bytes)
 
           const rcommand = cursor.tryReadUint8().throw(t)
           const recognised = cursor.tryReadUint16().throw(t)
