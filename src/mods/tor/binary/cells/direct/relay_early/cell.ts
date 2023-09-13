@@ -1,5 +1,6 @@
 import { Arrays } from "@hazae41/arrays";
 import { BinaryError, BinaryReadError, BinaryWriteError, Opaque, Readable, Writable } from "@hazae41/binary";
+import { Box } from "@hazae41/box";
 import { Bytes } from "@hazae41/bytes";
 import { Cursor } from "@hazae41/cursor";
 import { Err, Ok, Result } from "@hazae41/result";
@@ -92,17 +93,17 @@ export namespace RelayEarlyCell {
         cursor.offset = digestOffset
         cursor.tryWrite(digestSlice.bytes.subarray(0, 4)).throw(t)
 
-        using copiable = new Slot<Copiable>(new Copied(cursor.bytes))
+        using copiable = new Box(new Slot(new Copied(cursor.bytes)))
 
         for (let i = this.circuit.targets.length - 1; i >= 0; i--) {
           console.log("in")
-          copiable.inner = this.circuit.targets[i].forward_key.apply_keystream(copiable.inner.bytes)
+          copiable.inner.inner = this.circuit.targets[i].forward_key.apply_keystream(copiable.inner.inner.bytes)
           console.log("out")
         }
 
         console.log("after")
 
-        const fragment = new Opaque(copiable.inner.copyAndDispose())
+        const fragment = new Opaque(copiable.unwrap().inner.copyAndDispose())
 
         return new Ok(new Cell.Circuitful(this.circuit, RelayEarlyCell.command, fragment))
       })
