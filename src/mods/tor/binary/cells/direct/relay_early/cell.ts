@@ -94,6 +94,8 @@ export namespace RelayEarlyCell {
 
         using copiable = new Slot<Copiable>(new Copied(cursor.bytes))
 
+        console.log("lol")
+
         for (let i = this.circuit.targets.length - 1; i >= 0; i--)
           copiable.inner = this.circuit.targets[i].forward_key.apply_keystream(copiable.inner.bytes)
 
