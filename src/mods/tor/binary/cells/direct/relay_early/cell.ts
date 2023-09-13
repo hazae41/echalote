@@ -95,13 +95,8 @@ export namespace RelayEarlyCell {
 
         using copiable = new Box(new Slot(new Copied(cursor.bytes)))
 
-        for (let i = this.circuit.targets.length - 1; i >= 0; i--) {
-          console.log("in")
+        for (let i = this.circuit.targets.length - 1; i >= 0; i--)
           copiable.inner.inner = this.circuit.targets[i].forward_key.apply_keystream(copiable.inner.inner.bytes)
-          console.log("out")
-        }
-
-        console.log("after")
 
         const fragment = new Opaque(copiable.unwrap().inner.copyAndDispose())
 
