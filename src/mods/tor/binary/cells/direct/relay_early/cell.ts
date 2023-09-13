@@ -100,6 +100,8 @@ export namespace RelayEarlyCell {
           console.log("out")
         }
 
+        console.log("after")
+
         const fragment = new Opaque(copiable.inner.copyAndDispose())
 
         return new Ok(new Cell.Circuitful(this.circuit, RelayEarlyCell.command, fragment))
