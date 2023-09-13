@@ -103,11 +103,8 @@ export namespace RelayCell {
 
         using copiable = new Slot<Copiable>(new Copied(cursor.bytes))
 
-        for (let i = this.circuit.targets.length - 1; i >= 0; i--) {
-          console.log("in")
+        for (let i = this.circuit.targets.length - 1; i >= 0; i--)
           copiable.inner = this.circuit.targets[i].forward_key.apply_keystream(copiable.inner.bytes)
-          console.log("out")
-        }
 
         const fragment = new Opaque(copiable.inner.copyAndDispose())
 
@@ -123,9 +120,7 @@ export namespace RelayCell {
         using copiable = new Slot<Copiable>(new Copied(cell.fragment.bytes))
 
         for (const target of cell.circuit.targets) {
-          console.log("in2")
           copiable.inner = target.backward_key.apply_keystream(copiable.inner.bytes)
-          console.log("out2")
 
           const cursor = new Cursor(copiable.inner.bytes)
 

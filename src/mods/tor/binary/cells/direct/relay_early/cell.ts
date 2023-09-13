@@ -112,6 +112,8 @@ export namespace RelayEarlyCell {
 
         using copiable = new Slot<Copiable>(new Copied(cell.fragment.bytes))
 
+        console.log("lol2")
+
         for (const target of cell.circuit.targets) {
           copiable.inner = target.backward_key.apply_keystream(copiable.inner.bytes)
 
