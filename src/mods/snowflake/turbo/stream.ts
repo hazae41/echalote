@@ -1,6 +1,7 @@
 import { Opaque, Writable } from "@hazae41/binary"
 import { Bytes } from "@hazae41/bytes"
 import { Catched, Ok } from "@hazae41/result"
+import { Console } from "mods/console/index.js"
 import { SecretTurboReader } from "./reader.js"
 import { SecretTurboWriter } from "./writer.js"
 
@@ -79,7 +80,7 @@ export class SecretTurboDuplex {
   }
 
   async #onReadClose() {
-    console.debug(`${this.#class.name}.onReadClose`)
+    Console.debug(`${this.#class.name}.onReadClose`)
 
     this.reader.stream.closed = {}
 
@@ -90,7 +91,7 @@ export class SecretTurboDuplex {
 
 
   async #onWriteClose() {
-    console.debug(`${this.#class.name}.onWriteClose`)
+    Console.debug(`${this.#class.name}.onWriteClose`)
 
     this.writer.stream.closed = {}
 
@@ -100,7 +101,7 @@ export class SecretTurboDuplex {
   }
 
   async #onReadError(reason?: unknown) {
-    console.debug(`${this.#class.name}.onReadError`, { reason })
+    Console.debug(`${this.#class.name}.onReadError`, { reason })
 
     this.reader.stream.closed = { reason }
     this.writer.stream.error(reason)
@@ -111,7 +112,7 @@ export class SecretTurboDuplex {
   }
 
   async #onWriteError(reason?: unknown) {
-    console.debug(`${this.#class.name}.onWriteError`, { reason })
+    Console.debug(`${this.#class.name}.onWriteError`, { reason })
 
     this.writer.stream.closed = { reason }
     this.reader.stream.error(reason)

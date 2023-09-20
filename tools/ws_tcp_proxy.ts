@@ -7,7 +7,7 @@ for await (const conn of server)
 
 async function pipeToWsAndLog(symbol: string, reader: Deno.Reader, socket: WebSocket) {
   for await (const bytes of iterateReader(reader)) {
-    console.debug(symbol, bytes)
+    Console.debug(symbol, bytes)
     socket.send(bytes)
   }
 }
@@ -26,7 +26,7 @@ async function onconn(conn: Deno.Conn) {
       socket.addEventListener("message", async e => {
         try {
           const bytes = new Uint8Array(e.data)
-          console.debug("->", bytes)
+          Console.debug("->", bytes)
           await writeAll(target, bytes)
         } catch (_: unknown) {
           socket.close()

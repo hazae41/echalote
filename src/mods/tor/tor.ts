@@ -21,6 +21,7 @@ import type { X25519 } from "@hazae41/x25519";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
 import { CryptoError } from "libs/crypto/crypto.js";
 import { AbortSignals } from "libs/signals/signals.js";
+import { Console } from "mods/console/index.js";
 import { TypedAddress } from "mods/tor/binary/address.js";
 import { Cell } from "mods/tor/binary/cells/cell.js";
 import { AuthChallengeCell } from "mods/tor/binary/cells/direct/auth_challenge/cell.js";
@@ -216,7 +217,7 @@ export class SecretTorClientDuplex {
   }
 
   async #onReadClose() {
-    console.debug(`${this.#class.name}.onReadClose`)
+    Console.debug(`${this.#class.name}.onReadClose`)
 
     this.reader.closed = {}
 
@@ -226,7 +227,7 @@ export class SecretTorClientDuplex {
   }
 
   async #onWriteClose() {
-    console.debug(`${this.#class.name}.onWriteClose`)
+    Console.debug(`${this.#class.name}.onWriteClose`)
 
     this.writer.closed = {}
 
@@ -234,7 +235,7 @@ export class SecretTorClientDuplex {
   }
 
   async #onReadError(reason?: unknown) {
-    console.debug(`${this.#class.name}.onReadError`, { reason })
+    Console.debug(`${this.#class.name}.onReadError`, { reason })
 
     this.reader.closed = { reason }
     this.writer.error(reason)
@@ -245,7 +246,7 @@ export class SecretTorClientDuplex {
   }
 
   async #onWriteError(reason?: unknown) {
-    console.debug(`${this.#class.name}.onWriteError`, { reason })
+    Console.debug(`${this.#class.name}.onWriteError`, { reason })
 
     this.writer.closed = { reason }
     this.reader.error(reason)
@@ -266,7 +267,7 @@ export class SecretTorClientDuplex {
   }
 
   async #onRead(chunk: Opaque): Promise<Result<void, CryptoError | InvalidTorVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError | ControllerError | Sha1.AnyError>> {
-    // console.debug(this.#class.name, "<-", chunk)
+    // Console.debug(this.#class.name, "<-", chunk)
 
     if (this.#buffer.offset)
       return await this.#onReadBuffered(chunk.bytes)
@@ -318,9 +319,9 @@ export class SecretTorClientDuplex {
 
   async #onCell(cell: Cell<Opaque> | OldCell<Opaque>, state: TorState): Promise<Result<void, CryptoError | InvalidTorVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError | ControllerError | Sha1.AnyError>> {
     if (cell.command === PaddingCell.command)
-      return new Ok(console.debug(cell))
+      return new Ok(Console.debug(cell))
     if (cell.command === VariablePaddingCell.command)
-      return new Ok(console.debug(cell))
+      return new Ok(Console.debug(cell))
 
     if (state.type === "none")
       return await this.#onNoneStateCell(cell, state)
@@ -385,7 +386,7 @@ export class SecretTorClientDuplex {
 
   async #onVersionsCell(cell: OldCell<Opaque>, state: TorNoneState): Promise<Result<void, InvalidTorVersionError | BinaryReadError | CellError>> {
     return await Result.unthrow(async t => {
-      const cell2 = OldCell.Circuitless.tryInto(cell, VersionsCell).inspectSync(console.debug).throw(t)
+      const cell2 = OldCell.Circuitless.tryInto(cell, VersionsCell).inspectSync(Console.debug).throw(t)
 
       if (!cell2.fragment.versions.includes(5))
         return new Err(new InvalidTorVersionError())
@@ -398,7 +399,7 @@ export class SecretTorClientDuplex {
 
   async #onCertsCell(cell: Cell<Opaque>, state: TorVersionedState): Promise<Result<void, CryptoError | BinaryError | CellError | DERReadError | ASN1Error | CertError>> {
     return await Result.unthrow(async t => {
-      const cell2 = Cell.Circuitless.tryInto(cell, CertsCell).inspectSync(console.debug).throw(t)
+      const cell2 = Cell.Circuitless.tryInto(cell, CertsCell).inspectSync(Console.debug).throw(t)
 
       const certs = await Certs.tryVerify(cell2.fragment.certs, this.params.ed25519).then(r => r.throw(t))
 
@@ -412,12 +413,12 @@ export class SecretTorClientDuplex {
   }
 
   async #onAuthChallengeCell(cell: Cell<Opaque>, state: TorHandshakingState): Promise<Result<void, BinaryReadError | CellError | ExpectedCircuitError>> {
-    return Cell.Circuitless.tryInto(cell, AuthChallengeCell).inspectSync(console.debug).clear()
+    return Cell.Circuitless.tryInto(cell, AuthChallengeCell).inspectSync(Console.debug).clear()
   }
 
   async #onNetinfoCell(cell: Cell<Opaque>, state: TorHandshakingState): Promise<Result<void, BinaryReadError | CellError | EventError>> {
     return await Result.unthrow(async t => {
-      Cell.Circuitless.tryInto(cell, NetinfoCell).inspectSync(console.debug).throw(t)
+      Cell.Circuitless.tryInto(cell, NetinfoCell).inspectSync(Console.debug).throw(t)
 
       const address = new TypedAddress(4, new Uint8Array([127, 0, 0, 1]))
       const netinfo = new NetinfoCell(0, address, [])
@@ -438,7 +439,7 @@ export class SecretTorClientDuplex {
 
   async #onCreatedFastCell(cell: Cell<Opaque>): Promise<Result<void, BinaryReadError | CellError | EventError>> {
     return await Result.unthrow(async t => {
-      const cell2 = Cell.Circuitful.tryInto(cell, CreatedFastCell).inspectSync(console.debug).throw(t)
+      const cell2 = Cell.Circuitful.tryInto(cell, CreatedFastCell).inspectSync(Console.debug).throw(t)
 
       const returned = await this.events.emit("CREATED_FAST", [cell2])
 
@@ -451,7 +452,7 @@ export class SecretTorClientDuplex {
 
   async #onDestroyCell(cell: Cell<Opaque>): Promise<Result<void, BinaryReadError | CellError | EventError>> {
     return await Result.unthrow(async t => {
-      const cell2 = Cell.Circuitful.tryInto(cell, DestroyCell).inspectSync(console.debug).throw(t)
+      const cell2 = Cell.Circuitful.tryInto(cell, DestroyCell).inspectSync(Console.debug).throw(t)
 
       this.circuits.inner.delete(cell2.circuit.id)
 
@@ -493,7 +494,7 @@ export class SecretTorClientDuplex {
 
   async #onRelayExtended2Cell(cell: RelayCell<Opaque>): Promise<Result<void, BinaryError | RelayCellError | EventError>> {
     return await Result.unthrow(async t => {
-      const cell2 = RelayCell.Streamless.tryInto(cell, RelayExtended2Cell).inspectSync(console.debug).throw(t)
+      const cell2 = RelayCell.Streamless.tryInto(cell, RelayExtended2Cell).inspectSync(Console.debug).throw(t)
 
       const returned = await this.events.emit("RELAY_EXTENDED2", [cell2])
 
@@ -506,7 +507,7 @@ export class SecretTorClientDuplex {
 
   async #onRelayConnectedCell(cell: RelayCell<Opaque>): Promise<Result<void, BinaryError | RelayCellError | EventError>> {
     return await Result.unthrow(async t => {
-      const cell2 = RelayCell.Streamful.tryInto(cell, RelayConnectedCell).inspectSync(console.debug).throw(t)
+      const cell2 = RelayCell.Streamful.tryInto(cell, RelayConnectedCell).inspectSync(Console.debug).throw(t)
 
       const returned = await this.events.emit("RELAY_CONNECTED", [cell2])
 
@@ -519,7 +520,7 @@ export class SecretTorClientDuplex {
 
   async #onRelayDataCell(cell: RelayCell<Opaque>): Promise<Result<void, BinaryError | RelayCellError | EventError | ControllerError | Sha1.AnyError>> {
     return await Result.unthrow(async t => {
-      const cell2 = RelayCell.Streamful.tryInto(cell, RelayDataCell).inspectSync(console.debug).throw(t)
+      const cell2 = RelayCell.Streamful.tryInto(cell, RelayDataCell).inspectSync(Console.debug).throw(t)
 
       const exit = Arrays.last(cell2.circuit.targets)!
 
@@ -549,7 +550,7 @@ export class SecretTorClientDuplex {
 
   async #onRelayEndCell(cell: RelayCell<Opaque>): Promise<Result<void, BinaryError | RelayCellError | EventError>> {
     return await Result.unthrow(async t => {
-      const cell2 = RelayCell.Streamful.tryInto(cell, RelayEndCell).inspectSync(console.debug).throw(t)
+      const cell2 = RelayCell.Streamful.tryInto(cell, RelayEndCell).inspectSync(Console.debug).throw(t)
 
       const returned = await this.events.emit("RELAY_END", [cell2])
 
@@ -561,12 +562,12 @@ export class SecretTorClientDuplex {
   }
 
   async #onRelayDropCell(cell: RelayCell<Opaque>): Promise<Result<void, BinaryError | RelayCellError>> {
-    return RelayCell.Streamful.tryInto(cell, RelayDropCell).inspectSync(console.debug).clear()
+    return RelayCell.Streamful.tryInto(cell, RelayDropCell).inspectSync(Console.debug).clear()
   }
 
   async #onRelayTruncatedCell(cell: RelayCell<Opaque>): Promise<Result<void, BinaryError | RelayCellError | EventError>> {
     return await Result.unthrow(async t => {
-      const cell2 = RelayCell.Streamless.tryInto(cell, RelayTruncatedCell).inspectSync(console.debug).throw(t)
+      const cell2 = RelayCell.Streamless.tryInto(cell, RelayTruncatedCell).inspectSync(Console.debug).throw(t)
 
       cell2.circuit.targets.pop()
 
@@ -581,7 +582,7 @@ export class SecretTorClientDuplex {
 
   async #onRelaySendmeCircuitCell(cell: RelayCell<Opaque>): Promise<Result<void, BinaryError | RelayCellError | EventError>> {
     return await Result.unthrow(async t => {
-      const cell2 = RelayCell.Streamless.tryInto(cell, RelaySendmeCircuitCell).inspectSync(console.debug).throw(t)
+      const cell2 = RelayCell.Streamless.tryInto(cell, RelaySendmeCircuitCell).inspectSync(Console.debug).throw(t)
 
       if (cell2.fragment.version === 0) {
         const exit = Arrays.last(cell2.circuit.targets)!
@@ -591,7 +592,7 @@ export class SecretTorClientDuplex {
       }
 
       if (cell2.fragment.version === 1) {
-        const digest = cell2.fragment.fragment.tryReadInto(RelaySendmeDigest).inspectSync(console.debug).throw(t)
+        const digest = cell2.fragment.fragment.tryReadInto(RelaySendmeDigest).inspectSync(Console.debug).throw(t)
 
         const exit = Arrays.last(cell2.circuit.targets)!
         const digest2 = exit.digests.shift()
@@ -612,7 +613,7 @@ export class SecretTorClientDuplex {
 
   async #onRelaySendmeStreamCell(cell: RelayCell<Opaque>): Promise<Result<void, BinaryError | RelayCellError | EventError>> {
     return await Result.unthrow(async t => {
-      const cell2 = RelayCell.Streamful.tryInto(cell, RelaySendmeStreamCell).inspectSync(console.debug).throw(t)
+      const cell2 = RelayCell.Streamful.tryInto(cell, RelaySendmeStreamCell).inspectSync(Console.debug).throw(t)
 
       cell2.stream.package += 50
       return Ok.void()
@@ -672,7 +673,7 @@ export class SecretTorClientDuplex {
             return new Ok(circuit)
 
           if (circuit.destroyed && !this.closed && !signal?.aborted) {
-            console.debug("Create and extend failed", { error: extend2.get() })
+            Console.debug("Create and extend failed", { error: extend2.get() })
             await circuit.destroy()
             await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
             continue
@@ -682,7 +683,7 @@ export class SecretTorClientDuplex {
         }
 
         if (circuit.destroyed && !this.closed && !signal?.aborted) {
-          console.debug("Create and extend failed", { error: extend1.get() })
+          Console.debug("Create and extend failed", { error: extend1.get() })
           await circuit.destroy()
           await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
           continue
@@ -715,13 +716,13 @@ export class SecretTorClientDuplex {
           return result
 
         if (result.inner.name === AbortedError.name) {
-          console.debug("Create aborted", { error: result.get() })
+          Console.debug("Create aborted", { error: result.get() })
           await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
           continue
         }
 
         if (result.inner.name === InvalidKdfKeyHashError.name) {
-          console.debug("Create failed", { error: result.get() })
+          Console.debug("Create failed", { error: result.get() })
           await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
           continue
         }

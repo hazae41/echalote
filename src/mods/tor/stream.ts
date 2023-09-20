@@ -4,6 +4,7 @@ import { Cursor } from "@hazae41/cursor";
 import { None, Some } from "@hazae41/option";
 import { Ok, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
+import { Console } from "mods/console/index.js";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
@@ -80,17 +81,17 @@ export class SecretTorStreamDuplex {
   }
 
   async #onCircuitClose() {
-    console.debug(`${this.#class.name}.onCircuitClose`)
+    Console.debug(`${this.#class.name}.onCircuitClose`)
 
-    this.#tryClose().inspectErrSync(e => console.debug({ e })).ignore()
+    this.#tryClose().inspectErrSync(e => Console.debug({ e })).ignore()
 
     return new None()
   }
 
   async #onCircuitError(reason?: unknown) {
-    console.debug(`${this.#class.name}.onCircuitError`, { reason })
+    Console.debug(`${this.#class.name}.onCircuitError`, { reason })
 
-    this.#tryClose(reason).inspectErrSync(e => console.debug({ e })).ignore()
+    this.#tryClose(reason).inspectErrSync(e => Console.debug({ e })).ignore()
 
     return new None()
   }
@@ -100,7 +101,7 @@ export class SecretTorStreamDuplex {
       return new None()
 
     const result = await Result.unthrow<Result<void, Error>>(async t => {
-      console.debug(`${this.#class.name}.onRelayDataCell`, cell)
+      Console.debug(`${this.#class.name}.onRelayDataCell`, cell)
 
       this.delivery--
 
@@ -113,7 +114,7 @@ export class SecretTorStreamDuplex {
         this.circuit.tor.writer.tryEnqueue(sendme_cell.tryCell().throw(t)).throw(t)
       }
 
-      this.#reader.tryEnqueue(cell.fragment.fragment).inspectErrSync(e => console.debug({ e })).ignore()
+      this.#reader.tryEnqueue(cell.fragment.fragment).inspectErrSync(e => Console.debug({ e })).ignore()
 
       return Ok.void()
     })
@@ -128,9 +129,9 @@ export class SecretTorStreamDuplex {
     if (cell.stream !== this)
       return new None()
 
-    console.debug(`${this.#class.name}.onRelayEndCell`, cell)
+    Console.debug(`${this.#class.name}.onRelayEndCell`, cell)
 
-    this.#tryClose(cell.fragment.reason).inspectErrSync(e => console.debug({ e })).ignore()
+    this.#tryClose(cell.fragment.reason).inspectErrSync(e => Console.debug({ e })).ignore()
 
     return new None()
   }

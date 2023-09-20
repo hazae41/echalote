@@ -16,6 +16,7 @@ import { Sha1 } from "@hazae41/sha1";
 import { Aes128Ctr128BEKey } from "@hazae41/zepar";
 import { CryptoError } from "libs/crypto/crypto.js";
 import { AbortSignals } from "libs/signals/signals.js";
+import { Console } from "mods/console/index.js";
 import { Ntor } from "mods/tor/algorithms/ntor/index.js";
 import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
 import { RelayBeginCell } from "mods/tor/binary/cells/relayed/relay_begin/cell.js";
@@ -194,7 +195,7 @@ export class SecretCircuit {
   }
 
   async #onTorClose() {
-    console.debug(`${this.#class.name}.onTorClose`)
+    Console.debug(`${this.#class.name}.onTorClose`)
 
     this.#destroy()
     await this.events.emit("close", [undefined])
@@ -203,7 +204,7 @@ export class SecretCircuit {
   }
 
   async #onTorError(reason?: unknown) {
-    console.debug(`${this.#class.name}.onReadError`, { reason })
+    Console.debug(`${this.#class.name}.onReadError`, { reason })
 
     this.#destroy(reason)
 
@@ -216,7 +217,7 @@ export class SecretCircuit {
     if (cell.circuit !== this)
       return new None()
 
-    console.debug(`${this.#class.name}.onDestroyCell`, cell)
+    Console.debug(`${this.#class.name}.onDestroyCell`, cell)
 
     this.#destroy(cell)
 
@@ -229,7 +230,7 @@ export class SecretCircuit {
     if (cell.circuit !== this)
       return new None()
 
-    console.debug(`${this.#class.name}.onRelayExtended2Cell`, cell)
+    Console.debug(`${this.#class.name}.onRelayExtended2Cell`, cell)
 
     const returned = await this.events.emit("RELAY_EXTENDED2", [cell])
 
@@ -243,7 +244,7 @@ export class SecretCircuit {
     if (cell.circuit !== this)
       return new None()
 
-    console.debug(`${this.#class.name}.onRelayTruncatedCell`, cell)
+    Console.debug(`${this.#class.name}.onRelayTruncatedCell`, cell)
 
     this.#destroy()
     await this.events.emit("error", [cell])
@@ -260,7 +261,7 @@ export class SecretCircuit {
     if (cell.circuit !== this)
       return new None()
 
-    console.debug(`${this.#class.name}.onRelayConnectedCell`, cell)
+    Console.debug(`${this.#class.name}.onRelayConnectedCell`, cell)
 
     return new None()
   }
@@ -269,7 +270,7 @@ export class SecretCircuit {
     if (cell.circuit !== this)
       return new None()
 
-    console.debug(`${this.#class.name}.onRelayDataCell`, cell)
+    Console.debug(`${this.#class.name}.onRelayDataCell`, cell)
 
     const returned = await this.events.emit("RELAY_DATA", [cell])
 
@@ -283,7 +284,7 @@ export class SecretCircuit {
     if (cell.circuit !== this)
       return new None()
 
-    console.debug(`${this.#class.name}.onRelayEndCell`, cell)
+    Console.debug(`${this.#class.name}.onRelayEndCell`, cell)
 
     this.streams.delete(cell.stream.id)
 
@@ -321,13 +322,13 @@ export class SecretCircuit {
         return result
 
       if (result.inner.name === AbortedError.name) {
-        console.debug("Extend aborted", { error: result.get() })
+        Console.debug("Extend aborted", { error: result.get() })
         await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
         continue
       }
 
       if (result.inner.name === InvalidNtorAuthError.name) {
-        console.debug("Extend failed", { error: result.get() })
+        Console.debug("Extend failed", { error: result.get() })
         await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
         continue
       }
