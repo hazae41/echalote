@@ -4,11 +4,11 @@ import { PoolCreatorParams } from "@hazae41/piscine";
 import { Circuit } from "mods/tor/circuit.js";
 import { TorClientDuplex } from "mods/tor/tor.js";
 
-export function createPooledCircuit<PoolError>(circuit: Circuit, params: PoolCreatorParams<Disposer<Circuit>, PoolError>) {
+export function createPooledCircuitDisposer(circuit: Circuit, params: PoolCreatorParams<any, any>) {
   const { pool, index } = params
 
   const onCloseOrError = async (reason?: unknown) => {
-    pool.restart(index)
+    await pool.restart(index)
     return new None()
   }
 
@@ -23,11 +23,11 @@ export function createPooledCircuit<PoolError>(circuit: Circuit, params: PoolCre
   return new Disposer(circuit, onClean)
 }
 
-export function createPooledTor<PoolError>(tor: TorClientDuplex, params: PoolCreatorParams<Disposer<TorClientDuplex>, PoolError>) {
+export function createPooledTorDisposer(tor: TorClientDuplex, params: PoolCreatorParams<any, any>) {
   const { pool, index } = params
 
   const onCloseOrError = async (reason?: unknown) => {
-    pool.restart(index)
+    await pool.restart(index)
     return new None()
   }
 
