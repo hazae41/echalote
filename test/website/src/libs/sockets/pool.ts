@@ -77,8 +77,8 @@ export function createSocketPool(circuit: Circuit, params: PoolParams = {}) {
     return await Result.unthrow(async t => {
       const socket = await tryCreateSocketLoop(circuit, urls[index], signal).then(r => r.throw(t))
 
-      const onCloseOrError = () => {
-        pool.restart(index)
+      const onCloseOrError = async () => {
+        await pool.restart(index)
       }
 
       socket.addEventListener("close", onCloseOrError, { passive: true })
@@ -114,7 +114,7 @@ export function createSessionPool(circuits: Mutex<Pool<Disposer<Circuit>, Error>
       const session: Session = { circuit: circuit.inner, sockets }
 
       const onCircuitCloseOrError = async () => {
-        pool.restart(index)
+        await pool.restart(index)
         return new None()
       }
 
