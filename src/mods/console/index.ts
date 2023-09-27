@@ -4,7 +4,7 @@ export namespace Console {
   export function debug(...params: any[]) {
     if (!debugging)
       return
-    console.debug(params)
+    console.debug(...params)
   }
 
 }
