@@ -47,7 +47,7 @@
     "@hazae41/plume": "^2.1.8",
     "@hazae41/result": "^1.1.4",
     "@hazae41/sha1": "^1.1.7",
-    "@hazae41/smux": "^0.1.22",
+    "@hazae41/smux": "^0.1.23",
     "@hazae41/x25519": "^2.1.2",
     "@hazae41/x509": "^1.1.15",
     "@hazae41/zepar": "^1.1.4"
