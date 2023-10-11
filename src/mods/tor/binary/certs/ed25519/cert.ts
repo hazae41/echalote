@@ -49,7 +49,7 @@ export class Ed25519Cert {
     readonly signature: Bytes<64>
   ) { }
 
-  async tryVerify(ed25519: Ed25519.Adapter): Promise<Result<void, CryptoError | ExpiredCertError | InvalidSignatureError>> {
+  async tryVerify(): Promise<Result<void, CryptoError | ExpiredCertError | InvalidSignatureError>> {
     return await Result.unthrow(async t => {
       const now = new Date()
 
@@ -59,13 +59,11 @@ export class Ed25519Cert {
       if (!this.extensions.signer)
         return Ok.void()
 
-      const { PublicKey, Signature } = ed25519
-
-      using signer = await PublicKey
+      using signer = await Ed25519.get().PublicKey
         .tryImport(new Box(new Copied(this.extensions.signer.key)))
         .then(r => r.mapErrSync(CryptoError.from).throw(t))
 
-      using signature = Signature
+      using signature = Ed25519.get().Signature
         .tryImport(new Box(new Copied(this.signature)))
         .mapErrSync(CryptoError.from).throw(t)
 

@@ -14,6 +14,7 @@ import { TooManyRetriesError } from "@hazae41/piscine";
 import { AbortedError, CloseEvents, ClosedError, ErrorEvents, ErroredError, EventError, Plume, SuperEventTarget } from "@hazae41/plume";
 import { Err, Ok, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
+import { X25519 } from "@hazae41/x25519";
 import { Aes128Ctr128BEKey } from "@hazae41/zepar";
 import { CryptoError } from "libs/crypto/crypto.js";
 import { AbortSignals } from "libs/signals/signals.js";
@@ -385,9 +386,7 @@ export class SecretCircuit {
       if (relayid_ed)
         links.push(new RelayExtend2LinkModernID(relayid_ed))
 
-      const { PrivateKey, PublicKey } = this.tor.params.x25519
-
-      using wasm_secret_x = await PrivateKey.tryRandom().then(r => r.mapErrSync(CryptoError.from).throw(t))
+      using wasm_secret_x = await X25519.get().PrivateKey.tryRandom().then(r => r.mapErrSync(CryptoError.from).throw(t))
       using wasm_public_x = wasm_secret_x.tryGetPublicKey().mapErrSync(CryptoError.from).throw(t)
 
       const unsized_public_x_bytes = await wasm_public_x.tryExport().then(r => r.mapErrSync(CryptoError.from).throw(t).copyAndDispose().bytes)
@@ -408,8 +407,8 @@ export class SecretCircuit {
 
       const { public_y } = response
 
-      using wasm_public_y = await PublicKey.tryImport(new Box(new Copied(public_y))).then(r => r.mapErrSync(CryptoError.from).throw(t))
-      using wasm_public_b = await PublicKey.tryImport(new Box(new Copied(public_b))).then(r => r.mapErrSync(CryptoError.from).throw(t))
+      using wasm_public_y = await X25519.get().PublicKey.tryImport(new Box(new Copied(public_y))).then(r => r.mapErrSync(CryptoError.from).throw(t))
+      using wasm_public_b = await X25519.get().PublicKey.tryImport(new Box(new Copied(public_b))).then(r => r.mapErrSync(CryptoError.from).throw(t))
 
       using wasm_shared_xy = await wasm_secret_x.tryCompute(wasm_public_y).then(r => r.mapErrSync(CryptoError.from).throw(t))
       using wasm_shared_xb = await wasm_secret_x.tryCompute(wasm_public_b).then(r => r.mapErrSync(CryptoError.from).throw(t))
@@ -425,8 +424,8 @@ export class SecretCircuit {
       if (!Bytes.equals2(response.auth, result.auth))
         return new Err(new InvalidNtorAuthError())
 
-      const forward_digest = this.tor.params.sha1.Hasher.tryNew().throw(t)
-      const backward_digest = this.tor.params.sha1.Hasher.tryNew().throw(t)
+      const forward_digest = Sha1.get().Hasher.tryNew().throw(t)
+      const backward_digest = Sha1.get().Hasher.tryNew().throw(t)
 
       forward_digest.tryUpdate(new Box(new Copied(result.forwardDigest))).throw(t)
       backward_digest.tryUpdate(new Box(new Copied(result.backwardDigest))).throw(t)

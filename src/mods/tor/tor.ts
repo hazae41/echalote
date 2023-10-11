@@ -9,7 +9,6 @@ import { Bytes, BytesCastError } from "@hazae41/bytes";
 import { TlsClientDuplex } from "@hazae41/cadenas";
 import { ControllerError, SuperTransformStream } from "@hazae41/cascade";
 import { Cursor } from "@hazae41/cursor";
-import type { Ed25519 } from "@hazae41/ed25519";
 import { Future } from "@hazae41/future";
 import { Mutex } from "@hazae41/mutex";
 import { None } from "@hazae41/option";
@@ -17,8 +16,7 @@ import { Paimon } from "@hazae41/paimon";
 import { TooManyRetriesError } from "@hazae41/piscine";
 import { AbortedError, CloseEvents, ClosedError, ErrorEvents, ErroredError, EventError, Plume, SuperEventTarget } from "@hazae41/plume";
 import { Catched, Err, Ok, Panic, Result } from "@hazae41/result";
-import type { Sha1 } from "@hazae41/sha1";
-import type { X25519 } from "@hazae41/x25519";
+import { Sha1 } from "@hazae41/sha1";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
 import { CryptoError } from "libs/crypto/crypto.js";
 import { AbortSignals } from "libs/signals/signals.js";
@@ -69,9 +67,6 @@ export interface Fallback {
 }
 
 export interface TorClientParams {
-  readonly ed25519: Ed25519.Adapter
-  readonly x25519: X25519.Adapter
-  readonly sha1: Sha1.Adapter
   readonly fallbacks: Fallback[]
   readonly signal?: AbortSignal
 }
@@ -402,7 +397,7 @@ export class SecretTorClientDuplex {
     return await Result.unthrow(async t => {
       const cell2 = Cell.Circuitless.tryInto(cell, CertsCell).inspectSync(Console.debug).throw(t)
 
-      const certs = await Certs.tryVerify(cell2.fragment.certs, this.params.ed25519).then(r => r.throw(t))
+      const certs = await Certs.tryVerify(cell2.fragment.certs).then(r => r.throw(t))
 
       const idh = await certs.rsa_self.tryHash().then(r => r.throw(t))
       const guard = { certs, idh }
@@ -760,8 +755,8 @@ export class SecretTorClientDuplex {
       if (!Bytes.equals(result.keyHash, created_fast.fragment.derivative))
         return new Err(new InvalidKdfKeyHashError())
 
-      const forwardDigest = this.params.sha1.Hasher.tryNew().throw(t)
-      const backwardDigest = this.params.sha1.Hasher.tryNew().throw(t)
+      const forwardDigest = Sha1.get().Hasher.tryNew().throw(t)
+      const backwardDigest = Sha1.get().Hasher.tryNew().throw(t)
 
       forwardDigest.tryUpdate(new Box(new Copied(result.forwardDigest))).throw(t)
       backwardDigest.tryUpdate(new Box(new Copied(result.backwardDigest))).throw(t)
