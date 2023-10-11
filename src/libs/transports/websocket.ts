@@ -56,9 +56,9 @@ export class WebSocketStream {
 
   static tryNew(socket: WebSocket, params?: WebSocketStreamParams) {
     if (socket.readyState !== WebSocket.OPEN)
-      throw new Panic(`WebSocket is not open`)
+      throw Panic.from(new Error(`WebSocket is not open`))
     if (socket.binaryType !== "arraybuffer")
-      throw new Panic(`WebSocket binaryType is not arraybuffer`)
+      throw Panic.from(new Error(`WebSocket binaryType is not arraybuffer`))
 
     return new WebSocketStream(socket, params)
   }

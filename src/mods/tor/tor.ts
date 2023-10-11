@@ -4,6 +4,7 @@ import { Base16 } from "@hazae41/base16";
 import { Base64 } from "@hazae41/base64";
 import { BinaryError, BinaryReadError, Opaque, Readable, Writable } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
+import { Box, Copied } from "@hazae41/box";
 import { Bytes, BytesCastError } from "@hazae41/bytes";
 import { TlsClientDuplex } from "@hazae41/cadenas";
 import { ControllerError, SuperTransformStream } from "@hazae41/cascade";
@@ -762,11 +763,11 @@ export class SecretTorClientDuplex {
       const forwardDigest = this.params.sha1.Hasher.tryNew().throw(t)
       const backwardDigest = this.params.sha1.Hasher.tryNew().throw(t)
 
-      forwardDigest.tryUpdate(result.forwardDigest).throw(t)
-      backwardDigest.tryUpdate(result.backwardDigest).throw(t)
+      forwardDigest.tryUpdate(new Box(new Copied(result.forwardDigest))).throw(t)
+      backwardDigest.tryUpdate(new Box(new Copied(result.backwardDigest))).throw(t)
 
-      const forwardKey = new Aes128Ctr128BEKey(result.forwardKey, Bytes.alloc(16))
-      const backwardKey = new Aes128Ctr128BEKey(result.backwardKey, Bytes.alloc(16))
+      const forwardKey = new Aes128Ctr128BEKey(new Box(new Copied(result.forwardKey)), new Box(new Copied(Bytes.tryAlloc(16).throw(t))))
+      const backwardKey = new Aes128Ctr128BEKey(new Box(new Copied(result.backwardKey)), new Box(new Copied(Bytes.tryAlloc(16).throw(t))))
 
       const target = new Target(this.#state.guard.idh, circuit, forwardDigest, backwardDigest, forwardKey, backwardKey)
 

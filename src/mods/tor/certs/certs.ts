@@ -1,4 +1,5 @@
 import { BinaryWriteError } from "@hazae41/binary";
+import { Box, Copied } from "@hazae41/box";
 import { Bytes } from "@hazae41/bytes";
 import { Ed25519 } from "@hazae41/ed25519";
 import { RsaPublicKey } from "@hazae41/paimon";
@@ -159,13 +160,13 @@ export namespace Certs {
       certs.rsa_to_ed.tryVerify().throw(t)
 
       const publicKey = X509.tryWriteToBytes(certs.rsa_self.x509.tbsCertificate.subjectPublicKeyInfo).throw(t)
-      const identity = RsaPublicKey.from_public_key_der(publicKey)
+      const identity = RsaPublicKey.from_public_key_der(new Box(new Copied(publicKey)))
 
       const prefix = Bytes.fromUtf8("Tor TLS RSA/Ed25519 cross-certificate")
       const prefixed = Bytes.concat([prefix, certs.rsa_to_ed.payload])
       const hashed = new Uint8Array(await crypto.subtle.digest("SHA-256", prefixed))
 
-      const verified = identity.verify_pkcs1v15_unprefixed(hashed, certs.rsa_to_ed.signature)
+      const verified = identity.verify_pkcs1v15_unprefixed(new Box(new Copied(hashed)), new Box(new Copied(certs.rsa_to_ed.signature)))
 
       if (!verified)
         return new Err(new InvalidSignatureError())
@@ -180,19 +181,19 @@ export namespace Certs {
 
       const { PublicKey, Signature } = ed25519
 
-      const identity = await Promise
-        .resolve(PublicKey.tryImport(certs.rsa_to_ed.key))
+      using identity = await PublicKey
+        .tryImport(new Box(new Copied(certs.rsa_to_ed.key)))
         .then(r => r.mapErrSync(CryptoError.from).throw(t))
 
-      const signature = await Promise
-        .resolve(Signature.tryImport(certs.ed_to_sign.signature))
+      using signature = Signature
+        .tryImport(new Box(new Copied(certs.ed_to_sign.signature)))
+        .mapErrSync(CryptoError.from).throw(t)
+
+      const verified = await identity
+        .tryVerify(new Box(new Copied(certs.ed_to_sign.payload)), signature)
         .then(r => r.mapErrSync(CryptoError.from).throw(t))
 
-      const verified = await Promise
-        .resolve(identity.tryVerify(certs.ed_to_sign.payload, signature))
-        .then(r => r.mapErrSync(CryptoError.from).throw(t))
-
-      if (!verified)
+      if (verified !== true)
         return new Err(new InvalidSignatureError())
 
       return Ok.void()
@@ -205,19 +206,19 @@ export namespace Certs {
 
       const { PublicKey, Signature } = ed25519
 
-      const identity = await Promise
-        .resolve(PublicKey.tryImport(certs.ed_to_sign.certKey))
+      using identity = await PublicKey
+        .tryImport(new Box(new Copied(certs.ed_to_sign.certKey)))
         .then(r => r.mapErrSync(CryptoError.from).throw(t))
 
-      const signature = await Promise
-        .resolve(Signature.tryImport(certs.sign_to_tls.signature))
+      using signature = Signature
+        .tryImport(new Box(new Copied(certs.sign_to_tls.signature)))
+        .mapErrSync(CryptoError.from).throw(t)
+
+      const verified = await identity
+        .tryVerify(new Box(new Copied(certs.sign_to_tls.payload)), signature)
         .then(r => r.mapErrSync(CryptoError.from).throw(t))
 
-      const verified = await Promise
-        .resolve(identity.tryVerify(certs.sign_to_tls.payload, signature))
-        .then(r => r.mapErrSync(CryptoError.from).throw(t))
-
-      if (!verified)
+      if (verified !== true)
         return new Err(new InvalidSignatureError())
 
       console.warn("Could not verify SIGNING_TO_TLS cert key")

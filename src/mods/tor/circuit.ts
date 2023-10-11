@@ -3,6 +3,7 @@ import { Base16 } from "@hazae41/base16";
 import { Base64 } from "@hazae41/base64";
 import { BinaryError, Opaque } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
+import { Box, Copied } from "@hazae41/box";
 import { Bytes, BytesCastError } from "@hazae41/bytes";
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
 import { ControllerError } from "@hazae41/cascade";
@@ -372,10 +373,10 @@ export class SecretCircuit {
 
       const signal2 = AbortSignals.timeout(5_000, signal)
 
-      const relayid_rsax = Base16.get().tryPadStartAndDecode(fallback.id).throw(t).copyAndDispose()
+      const relayid_rsax = Base16.get().tryPadStartAndDecode(fallback.id).throw(t).copyAndDispose().bytes
       const relayid_rsa = Bytes.tryCast(relayid_rsax, HASH_LEN).throw(t)
 
-      const relayid_ed = Option.wrap(fallback.eid).mapSync(Base64.get().tryDecodeUnpadded).get()?.throw(t).copyAndDispose()
+      const relayid_ed = Option.wrap(fallback.eid).mapSync(Base64.get().tryDecodeUnpadded).get()?.throw(t).copyAndDispose().bytes
 
       const links: RelayExtend2Link[] = fallback.hosts.map(RelayExtend2Link.fromAddressString)
 
@@ -386,17 +387,10 @@ export class SecretCircuit {
 
       const { PrivateKey, PublicKey } = this.tor.params.x25519
 
-      const wasm_secret_x = await Promise
-        .resolve(PrivateKey.tryRandom())
-        .then(r => r.mapErrSync(CryptoError.from).throw(t))
+      using wasm_secret_x = await PrivateKey.tryRandom().then(r => r.mapErrSync(CryptoError.from).throw(t))
+      using wasm_public_x = wasm_secret_x.tryGetPublicKey().mapErrSync(CryptoError.from).throw(t)
 
-      const unsized_public_x = await Promise
-        .resolve(wasm_secret_x.tryGetPublicKey())
-        .then(r => r.mapErrSync(CryptoError.from).throw(t))
-
-      const unsized_public_x_bytes = await Promise
-        .resolve(unsized_public_x.tryExport())
-        .then(r => r.mapErrSync(CryptoError.from).throw(t).copyAndDispose())
+      const unsized_public_x_bytes = await wasm_public_x.tryExport().then(r => r.mapErrSync(CryptoError.from).throw(t).copyAndDispose().bytes)
 
       const public_x = Bytes.tryCast(unsized_public_x_bytes, 32).throw(t)
       const public_b = Bytes.tryCastFrom(fallback.onion, 32).throw(t)
@@ -414,29 +408,14 @@ export class SecretCircuit {
 
       const { public_y } = response
 
-      const wasm_public_y = await Promise
-        .resolve(PublicKey.tryImport(public_y))
-        .then(r => r.mapErrSync(CryptoError.from).throw(t))
+      using wasm_public_y = await PublicKey.tryImport(new Box(new Copied(public_y))).then(r => r.mapErrSync(CryptoError.from).throw(t))
+      using wasm_public_b = await PublicKey.tryImport(new Box(new Copied(public_b))).then(r => r.mapErrSync(CryptoError.from).throw(t))
 
-      const wasm_public_b = await Promise
-        .resolve(PublicKey.tryImport(public_b))
-        .then(r => r.mapErrSync(CryptoError.from).throw(t))
+      using wasm_shared_xy = await wasm_secret_x.tryCompute(wasm_public_y).then(r => r.mapErrSync(CryptoError.from).throw(t))
+      using wasm_shared_xb = await wasm_secret_x.tryCompute(wasm_public_b).then(r => r.mapErrSync(CryptoError.from).throw(t))
 
-      const unsized_shared_xy = await Promise
-        .resolve(wasm_secret_x.tryCompute(wasm_public_y))
-        .then(r => r.mapErrSync(CryptoError.from).throw(t))
-
-      const unsized_shared_xy_bytes = await Promise
-        .resolve(unsized_shared_xy.tryExport())
-        .then(r => r.mapErrSync(CryptoError.from).throw(t).copyAndDispose())
-
-      const unsized_shared_xb = await Promise
-        .resolve(wasm_secret_x.tryCompute(wasm_public_b))
-        .then(r => r.mapErrSync(CryptoError.from).throw(t))
-
-      const unsized_shared_xb_bytes = await Promise
-        .resolve(unsized_shared_xb.tryExport())
-        .then(r => r.mapErrSync(CryptoError.from).throw(t).copyAndDispose())
+      const unsized_shared_xy_bytes = wasm_shared_xy.tryExport().mapErrSync(CryptoError.from).throw(t).copyAndDispose().bytes
+      const unsized_shared_xb_bytes = wasm_shared_xb.tryExport().mapErrSync(CryptoError.from).throw(t).copyAndDispose().bytes
 
       const shared_xy = Bytes.tryCast(unsized_shared_xy_bytes, 32).throw(t)
       const shared_xb = Bytes.tryCast(unsized_shared_xb_bytes, 32).throw(t)
@@ -449,11 +428,11 @@ export class SecretCircuit {
       const forward_digest = this.tor.params.sha1.Hasher.tryNew().throw(t)
       const backward_digest = this.tor.params.sha1.Hasher.tryNew().throw(t)
 
-      forward_digest.tryUpdate(result.forwardDigest).throw(t)
-      backward_digest.tryUpdate(result.backwardDigest).throw(t)
+      forward_digest.tryUpdate(new Box(new Copied(result.forwardDigest))).throw(t)
+      backward_digest.tryUpdate(new Box(new Copied(result.backwardDigest))).throw(t)
 
-      const forward_key = new Aes128Ctr128BEKey(result.forwardKey, Bytes.alloc(16))
-      const backward_key = new Aes128Ctr128BEKey(result.backwardKey, Bytes.alloc(16))
+      const forward_key = new Aes128Ctr128BEKey(new Box(new Copied(result.forwardKey)), new Box(new Copied(Bytes.tryAlloc(16).throw(t))))
+      const backward_key = new Aes128Ctr128BEKey(new Box(new Copied(result.backwardKey)), new Box(new Copied(Bytes.tryAlloc(16).throw(t))))
 
       const target = new Target(relayid_rsa, this, forward_digest, backward_digest, forward_key, backward_key)
 

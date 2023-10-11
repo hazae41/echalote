@@ -60,7 +60,7 @@ export class TurboFrame<T extends Writable.Infer<T>> {
     if (this.fragmentSize < (2 ** 20))
       return new Ok(3 + this.fragmentSize)
 
-    throw new Panic(`Should have failed earlier`, { cause: new FragmentOverflowError() })
+    throw Panic.from(new Error(`Should have failed earlier`, { cause: new FragmentOverflowError() }))
   }
 
   tryWrite(cursor: Cursor) {
@@ -71,7 +71,7 @@ export class TurboFrame<T extends Writable.Infer<T>> {
     if (this.fragmentSize < (2 ** 20))
       return this.tryWrite20(cursor, this.fragmentSize)
 
-    throw new Panic(`Should have failed earlier`, { cause: new FragmentOverflowError() })
+    throw Panic.from(new Error(`Should have failed earlier`, { cause: new FragmentOverflowError() }))
   }
 
   tryWrite6(cursor: Cursor, size: number): Result<void, Writable.WriteError<T> | BinaryWriteError> {
