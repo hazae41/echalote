@@ -1,5 +1,5 @@
 import { Disposer } from "@hazae41/cleaner"
-import { Circuit, TorClientDuplex, TorClientParams, createPooledCircuit, createPooledTor, createWebSocketSnowflakeStream } from "@hazae41/echalote"
+import { Circuit, TorClientDuplex, TorClientParams, createPooledCircuitDisposer, createPooledTorDisposer, createWebSocketSnowflakeStream } from "@hazae41/echalote"
 import { Mutex } from "@hazae41/mutex"
 import { Cancel, Looped, Looper, Pool, PoolParams, Retry, TooManyRetriesError, tryLoop } from "@hazae41/piscine"
 import { AbortedError } from "@hazae41/plume"
@@ -22,7 +22,7 @@ export function createTorPool<CreateError extends Looped.Infer<CreateError>>(try
     return await Result.unthrow(async t => {
       const tor = await tryLoop(tryCreate, params).then(r => r.throw(t))
 
-      return new Ok(createPooledTor(tor, params))
+      return new Ok(createPooledTorDisposer(tor, params))
     })
   }, params))
 }
@@ -33,10 +33,10 @@ export function createCircuitPool<TorPoolError>(tors: Mutex<Pool<Disposer<TorCli
     return await Result.unthrow(async t => {
       const { index, signal } = params
 
-      const tor = await tors.inner.tryGet(index % tors.inner.capacity).then(r => r.throw(t))
+      const tor = await tors.inner.tryGet(index % tors.inner.capacity).then(r => r.throw(t).throw(t))
       const circuit = await tor.inner.tryCreateAndExtendLoop(signal).then(r => r.throw(t))
 
-      return new Ok(createPooledCircuit(circuit, params))
+      return new Ok(createPooledCircuitDisposer(circuit, params))
     })
   }, params))
 }

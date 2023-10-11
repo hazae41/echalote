@@ -11,7 +11,7 @@ import { Err, Ok, Result } from "@hazae41/result"
 import { AbortSignals } from "libs/signals/signals"
 
 const urls = [
-  new URL("wss://relay.walletconnect.com/?auth=eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkaWQ6a2V5Ono2TWtyTXdjaUFNQ245eW5Hb2dyeDFuQ3FWd1ZMVGVTN0RqOFlnWU5mSFdDUFNOWCIsInN1YiI6IjlkZTc3Zjc0MjRiOTBlMTViNTM1MzQ3NTljNDU5ZmI4NmYxZjJkNDdjZTY1MjU5NjFkOWE3ZmRiYTg2Y2FmZjEiLCJhdWQiOiJ3c3M6Ly9yZWxheS53YWxsZXRjb25uZWN0LmNvbSIsImlhdCI6MTY5MzA0MzU4NywiZXhwIjoxNjkzMTI5OTg3fQ.mp6zjHTzQta5FvmjOjXOmfXIwobO9k2uot6kW202ksqUjTwzSf796k9X_AoBKhpQqu2291SNjLgNdL2iEFRqBA&projectId=a6e0e589ca8c0326addb7c877bbb0857"),
+  new URL("wss://ethereum.publicnode.com"),
 ]
 
 export async function tryCreateWebSocket(circuit: Circuit, url: URL, signal?: AbortSignal): Promise<Result<WebSocket, Error>> {

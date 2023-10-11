@@ -1,8 +1,6 @@
-import { Berith } from "@hazae41/berith";
 import { Disposer } from "@hazae41/cleaner";
-import { Circuit, TorClientDuplex } from "@hazae41/echalote";
+import { Circuit, Echalote, TorClientDuplex } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
-import { Morax } from "@hazae41/morax";
 import { Mutex } from "@hazae41/mutex";
 import { None } from "@hazae41/option";
 import { Pool } from "@hazae41/piscine";
@@ -14,7 +12,7 @@ import { DependencyList, useCallback, useEffect, useMemo, useState } from "react
 async function superfetch(circuit: Circuit) {
   const start = Date.now()
 
-  const body = JSON.stringify({ "jsonrpc": "2.0", "method": "web3_clientVersion", "params": [], "id": 67 })
+  const body = JSON.stringify({ "jsonrpc": "2.0", "method": "eth_blockNumber", "params": [], "id": 67 })
   const headers = { "content-type": "application/json" }
   const res = await circuit.tryFetch("https://eth.llamarpc.com", { method: "POST", headers, body }).then(r => r.unwrap())
 
@@ -49,11 +47,11 @@ export default function Page() {
     // const x25519 = X25519.fromNoble(noble_ed25519.x25519)
     // const sha1 = Sha1.fromNoble(noble_sha1.sha1)
 
-    const ed25519 = await Ed25519.fromNativeOrBerith(Berith)
-    const x25519 = await X25519.fromSafeOrBerith(Berith)
+    Ed25519.set(await Ed25519.fromSafeOrBerith())
+    X25519.set(await X25519.fromSafeOrBerith())
+    Sha1.set(await Sha1.fromMorax())
 
-    await Morax.initBundledOnce()
-    const sha1 = Sha1.fromMorax(Morax)
+    Echalote.Console.debugging = true
 
     const fallbacksUrl = "https://raw.githubusercontent.com/hazae41/echalote/master/tools/fallbacks/fallbacks.json"
     const fallbacksRes = await fetch(fallbacksUrl)
@@ -63,7 +61,7 @@ export default function Page() {
 
     const fallbacks = await fallbacksRes.json()
 
-    return { fallbacks, ed25519, sha1, x25519 }
+    return { fallbacks }
   }, [])
 
   const tors = useAsyncMemo(async () => {
