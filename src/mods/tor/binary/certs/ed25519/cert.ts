@@ -1,5 +1,4 @@
 import { BinaryReadError } from "@hazae41/binary";
-import { Box, Copied } from "@hazae41/box";
 import { Bytes } from "@hazae41/bytes";
 import { Cursor } from "@hazae41/cursor";
 import { Ed25519 } from "@hazae41/ed25519";
@@ -60,15 +59,15 @@ export class Ed25519Cert {
         return Ok.void()
 
       using signer = await Ed25519.get().PublicKey
-        .tryImport(new Box(new Copied(this.extensions.signer.key)))
+        .tryImport(this.extensions.signer.key)
         .then(r => r.mapErrSync(CryptoError.from).throw(t))
 
       using signature = Ed25519.get().Signature
-        .tryImport(new Box(new Copied(this.signature)))
+        .tryImport(this.signature)
         .mapErrSync(CryptoError.from).throw(t)
 
       const verified = await signer
-        .tryVerify(new Box(new Copied(this.payload)), signature)
+        .tryVerify(this.payload, signature)
         .then(r => r.mapErrSync(CryptoError.from).throw(t))
 
       if (verified !== true)

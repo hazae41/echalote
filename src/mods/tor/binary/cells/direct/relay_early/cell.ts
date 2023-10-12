@@ -1,11 +1,10 @@
 import { Arrays } from "@hazae41/arrays";
 import { BinaryError, BinaryReadError, BinaryWriteError, Opaque, Readable, Writable } from "@hazae41/binary";
-import { Box, Copiable, Copied } from "@hazae41/box";
 import { Bytes } from "@hazae41/bytes";
 import { Cursor } from "@hazae41/cursor";
 import { Err, Ok, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
-import { Slot } from "libs/disposable/slot.js";
+import { Zepar } from "@hazae41/zepar";
 import { Cell, } from "mods/tor/binary/cells/cell.js";
 import { SecretCircuit } from "mods/tor/circuit.js";
 import { SecretTorStreamDuplex } from "mods/tor/stream.js";
@@ -86,19 +85,19 @@ export namespace RelayEarlyCell {
 
         const exit = Arrays.last(this.circuit.targets)!
 
-        exit.forward_digest.tryUpdate(new Box(new Copied(cursor.bytes))).throw(t)
+        exit.forward_digest.tryUpdate(cursor.bytes).throw(t)
 
         using digestSlice = exit.forward_digest.tryFinalize().throw(t)
 
         cursor.offset = digestOffset
         cursor.tryWrite(digestSlice.bytes.subarray(0, 4)).throw(t)
 
-        using copiable = new Box(new Slot<Box<Copiable>>(new Box(new Copied(cursor.bytes))))
+        using memory = new Zepar.Memory(cursor.bytes)
 
         for (let i = this.circuit.targets.length - 1; i >= 0; i--)
-          copiable.inner.inner = new Box(this.circuit.targets[i].forward_key.apply_keystream(copiable.get().inner))
+          this.circuit.targets[i].forward_key.apply_keystream(memory)
 
-        const fragment = new Opaque(copiable.unwrap().inner.unwrap().copyAndDispose().bytes)
+        const fragment = new Opaque(memory.bytes.slice())
 
         return new Ok(new Cell.Circuitful(this.circuit, RelayEarlyCell.command, fragment))
       })
@@ -109,12 +108,12 @@ export namespace RelayEarlyCell {
         if (cell instanceof Cell.Circuitless)
           return new Err(new ExpectedCircuitError())
 
-        using copiable = new Slot<Box<Copiable>>(new Box(new Copied(cell.fragment.bytes)))
+        using memory = new Zepar.Memory(cell.fragment.bytes)
 
         for (const target of cell.circuit.targets) {
-          copiable.inner = new Box(target.backward_key.apply_keystream(copiable.inner))
+          target.backward_key.apply_keystream(memory)
 
-          const cursor = new Cursor(copiable.inner.get().bytes)
+          const cursor = new Cursor(memory.bytes)
 
           const rcommand = cursor.tryReadUint8().throw(t)
           const recognised = cursor.tryReadUint16().throw(t)
@@ -127,7 +126,7 @@ export namespace RelayEarlyCell {
 
           cursor.tryWriteUint32(0).throw(t)
 
-          target.backward_digest.tryUpdate(new Box(new Copied(cursor.bytes))).throw(t)
+          target.backward_digest.tryUpdate(cursor.bytes).throw(t)
 
           using digestSlice = target.backward_digest.tryFinalize().throw(t)
 
@@ -136,7 +135,7 @@ export namespace RelayEarlyCell {
 
           const length = cursor.tryReadUint16().throw(t)
           const bytes = cursor.tryRead(length).throw(t)
-          const data = new Opaque(new Uint8Array(bytes))
+          const data = new Opaque(bytes.slice())
 
           return new Ok(new Raw<Opaque>(cell.circuit, stream, rcommand, data))
         }

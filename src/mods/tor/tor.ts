@@ -4,7 +4,6 @@ import { Base16 } from "@hazae41/base16";
 import { Base64 } from "@hazae41/base64";
 import { BinaryError, BinaryReadError, Opaque, Readable, Writable } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
-import { Box, Copied } from "@hazae41/box";
 import { Bytes, BytesCastError } from "@hazae41/bytes";
 import { TlsClientDuplex } from "@hazae41/cadenas";
 import { ControllerError, SuperTransformStream } from "@hazae41/cascade";
@@ -758,11 +757,17 @@ export class SecretTorClientDuplex {
       const forwardDigest = Sha1.get().Hasher.tryNew().throw(t)
       const backwardDigest = Sha1.get().Hasher.tryNew().throw(t)
 
-      forwardDigest.tryUpdate(new Box(new Copied(result.forwardDigest))).throw(t)
-      backwardDigest.tryUpdate(new Box(new Copied(result.backwardDigest))).throw(t)
+      forwardDigest.tryUpdate(result.forwardDigest).throw(t)
+      backwardDigest.tryUpdate(result.backwardDigest).throw(t)
 
-      const forwardKey = new Aes128Ctr128BEKey(new Box(new Copied(result.forwardKey)), new Box(new Copied(Bytes.tryAlloc(16).throw(t))))
-      const backwardKey = new Aes128Ctr128BEKey(new Box(new Copied(result.backwardKey)), new Box(new Copied(Bytes.tryAlloc(16).throw(t))))
+      using forwardKeyMemory = new Zepar.Memory(result.forwardKey)
+      using forwardIvMemory = new Zepar.Memory(Bytes.tryAlloc(16).throw(t))
+
+      using backwardKeyMemory = new Zepar.Memory(result.backwardKey)
+      using backwardIvMemory = new Zepar.Memory(Bytes.tryAlloc(16).throw(t))
+
+      const forwardKey = new Aes128Ctr128BEKey(forwardKeyMemory, forwardIvMemory)
+      const backwardKey = new Aes128Ctr128BEKey(backwardKeyMemory, backwardIvMemory)
 
       const target = new Target(this.#state.guard.idh, circuit, forwardDigest, backwardDigest, forwardKey, backwardKey)
 

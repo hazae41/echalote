@@ -1,8 +1,7 @@
 import { BinaryWriteError } from "@hazae41/binary";
-import { Box, Copied } from "@hazae41/box";
 import { Bytes } from "@hazae41/bytes";
 import { Ed25519 } from "@hazae41/ed25519";
-import { RsaPublicKey } from "@hazae41/paimon";
+import { Paimon, RsaPublicKey } from "@hazae41/paimon";
 import { Err, Ok, Result } from "@hazae41/result";
 import { X509 } from "@hazae41/x509";
 import { CryptoError } from "libs/crypto/crypto.js";
@@ -159,14 +158,18 @@ export namespace Certs {
     return await Result.unthrow(async t => {
       certs.rsa_to_ed.tryVerify().throw(t)
 
-      const publicKey = X509.tryWriteToBytes(certs.rsa_self.x509.tbsCertificate.subjectPublicKeyInfo).throw(t)
-      const identity = RsaPublicKey.from_public_key_der(new Box(new Copied(publicKey)))
+      const publicKeyBytes = X509.tryWriteToBytes(certs.rsa_self.x509.tbsCertificate.subjectPublicKeyInfo).throw(t)
+      using publicKeyMemory = new Paimon.Memory(publicKeyBytes)
+      using publicKeyPointer = RsaPublicKey.from_public_key_der(publicKeyMemory)
 
       const prefix = Bytes.fromUtf8("Tor TLS RSA/Ed25519 cross-certificate")
       const prefixed = Bytes.concat([prefix, certs.rsa_to_ed.payload])
       const hashed = new Uint8Array(await crypto.subtle.digest("SHA-256", prefixed))
 
-      const verified = identity.verify_pkcs1v15_unprefixed(new Box(new Copied(hashed)), new Box(new Copied(certs.rsa_to_ed.signature)))
+      using hashedMemory = new Paimon.Memory(hashed)
+      using signatureMemory = new Paimon.Memory(certs.rsa_to_ed.signature)
+
+      const verified = publicKeyPointer.verify_pkcs1v15_unprefixed(hashedMemory, signatureMemory)
 
       if (!verified)
         return new Err(new InvalidSignatureError())
@@ -180,15 +183,15 @@ export namespace Certs {
       await certs.ed_to_sign.tryVerify().then(r => r.throw(t))
 
       using identity = await Ed25519.get().PublicKey
-        .tryImport(new Box(new Copied(certs.rsa_to_ed.key)))
+        .tryImport(certs.rsa_to_ed.key)
         .then(r => r.mapErrSync(CryptoError.from).throw(t))
 
       using signature = Ed25519.get().Signature
-        .tryImport(new Box(new Copied(certs.ed_to_sign.signature)))
+        .tryImport(certs.ed_to_sign.signature)
         .mapErrSync(CryptoError.from).throw(t)
 
       const verified = await identity
-        .tryVerify(new Box(new Copied(certs.ed_to_sign.payload)), signature)
+        .tryVerify(certs.ed_to_sign.payload, signature)
         .then(r => r.mapErrSync(CryptoError.from).throw(t))
 
       if (verified !== true)
@@ -203,15 +206,15 @@ export namespace Certs {
       await certs.sign_to_tls.tryVerify().then(r => r.throw(t))
 
       using identity = await Ed25519.get().PublicKey
-        .tryImport(new Box(new Copied(certs.ed_to_sign.certKey)))
+        .tryImport(certs.ed_to_sign.certKey)
         .then(r => r.mapErrSync(CryptoError.from).throw(t))
 
       using signature = Ed25519.get().Signature
-        .tryImport(new Box(new Copied(certs.sign_to_tls.signature)))
+        .tryImport(certs.sign_to_tls.signature)
         .mapErrSync(CryptoError.from).throw(t)
 
       const verified = await identity
-        .tryVerify(new Box(new Copied(certs.sign_to_tls.payload)), signature)
+        .tryVerify(certs.sign_to_tls.payload, signature)
         .then(r => r.mapErrSync(CryptoError.from).throw(t))
 
       if (verified !== true)
