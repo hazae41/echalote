@@ -1,6 +1,4 @@
-import { BinaryReadError, BinaryWriteError } from "@hazae41/binary";
 import { Cursor } from "@hazae41/cursor";
-import { Ok, Result } from "@hazae41/result";
 import { TypedAddress } from "mods/tor/binary/address.js";
 
 export class NetinfoCell {
@@ -28,40 +26,37 @@ export class NetinfoCell {
     return this.#class.command
   }
 
-  trySize(): Result<number, never> {
-    return new Ok(0
+  sizeOrThrow() {
+    return 0
       + 4
-      + this.other.trySize().get()
+      + this.other.sizeOrThrow()
       + 1
-      + this.owneds.reduce((p, c) => p + c.trySize().get(), 0))
+      + this.owneds.reduce((p, c) => p + c.sizeOrThrow(), 0)
   }
 
-  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
-    return Result.unthrowSync(t => {
-      cursor.tryWriteUint32(this.time).throw(t)
-      this.other.tryWrite(cursor).throw(t)
-      cursor.tryWriteUint8(this.owneds.length).throw(t)
+  writeOrThrow(cursor: Cursor) {
+    cursor.writeUint32OrThrow(this.time)
+    this.other.writeOrThrow(cursor)
+    cursor.writeUint8OrThrow(this.owneds.length)
 
-      for (const owned of this.owneds)
-        owned.tryWrite(cursor).throw(t)
+    for (const owned of this.owneds)
+      owned.writeOrThrow(cursor)
 
-      return Ok.void()
-    })
+    return
   }
 
-  static tryRead(cursor: Cursor): Result<NetinfoCell, BinaryReadError> {
-    return Result.unthrowSync(t => {
-      const time = cursor.tryReadUint32().throw(t)
-      const other = TypedAddress.tryRead(cursor).throw(t)
-      const owneds = new Array<TypedAddress>(cursor.tryReadUint8().throw(t))
+  static readOrThrow(cursor: Cursor) {
+    const time = cursor.readUint32OrThrow()
+    const other = TypedAddress.readOrThrow(cursor)
 
-      for (let i = 0; i < owneds.length; i++)
-        owneds[i] = TypedAddress.tryRead(cursor).throw(t)
+    const owneds = new Array<TypedAddress>(cursor.readUint8OrThrow())
 
-      cursor.offset += cursor.remaining
+    for (let i = 0; i < owneds.length; i++)
+      owneds[i] = TypedAddress.readOrThrow(cursor)
 
-      return new Ok(new NetinfoCell(time, other, owneds))
-    })
+    cursor.offset += cursor.remaining
+
+    return new NetinfoCell(time, other, owneds)
   }
 
 }

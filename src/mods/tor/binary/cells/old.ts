@@ -50,7 +50,7 @@ export namespace OldCell {
 
       const circuit = tor.circuits.inner.get(this.circuit)
 
-      if (circuit === undefined)
+      if (circuit == null)
         return new Err(new UnknownCircuitError())
 
       return new Ok(new Circuitful(circuit, this.command, this.fragment))
@@ -138,7 +138,7 @@ export namespace OldCell {
     static tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: OldCell<Opaque>, readable: OldCellable.Circuitful & Readable<ReadOutput, ReadError>): Result<Circuitful<ReadOutput>, ReadError | BinaryReadError | InvalidCommandError | ExpectedCircuitError> {
       if (cell.command !== readable.command)
         return new Err(new InvalidCommandError())
-      if (cell.circuit === undefined)
+      if (cell.circuit == null)
         return new Err(new ExpectedCircuitError())
 
       return cell.fragment.tryReadInto(readable).mapSync(fragment => new Circuitful(cell.circuit, readable.command, fragment))
@@ -172,7 +172,7 @@ export namespace OldCell {
     static tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: OldCell<Opaque>, readable: OldCellable.Circuitless & Readable<ReadOutput, ReadError>): Result<Circuitless<ReadOutput>, ReadError | BinaryReadError | InvalidCommandError | UnexpectedCircuitError> {
       if (cell.command !== readable.command)
         return new Err(new InvalidCommandError())
-      if (cell.circuit !== undefined)
+      if (cell.circuit != null)
         return new Err(new UnexpectedCircuitError())
 
       return cell.fragment.tryReadInto(readable).mapSync(fragment => new Circuitless(cell.circuit, readable.command, fragment))

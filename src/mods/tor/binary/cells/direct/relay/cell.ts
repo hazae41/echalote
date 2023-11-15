@@ -1,4 +1,3 @@
-import { Arrays } from "@hazae41/arrays";
 import { BinaryError, BinaryReadError, Opaque, Readable, Writable } from "@hazae41/binary";
 import { Bytes } from "@hazae41/bytes";
 import { Cursor } from "@hazae41/cursor";
@@ -12,28 +11,28 @@ import { ExpectedCircuitError, ExpectedStreamError, InvalidRelayCellDigestError,
 import { RelayDataCell } from "../../relayed/relay_data/cell.js";
 
 export interface RelayCellable {
-  rcommand: number,
-  early: false,
-  stream: boolean
+  readonly rcommand: number,
+  readonly early: false,
+  readonly stream: boolean
 }
 
 export namespace RelayCellable {
 
   export interface Streamful {
-    rcommand: number,
-    early: false,
-    stream: true
+    readonly rcommand: number,
+    readonly early: false,
+    readonly stream: true
   }
 
   export interface Streamless {
-    rcommand: number,
-    early: false,
-    stream: false
+    readonly rcommand: number,
+    readonly early: false,
+    readonly stream: false
   }
 
 }
 
-export type RelayCell<T extends Writable.Infer<T>> =
+export type RelayCell<T extends Writable> =
   | RelayCell.Streamful<T>
   | RelayCell.Streamless<T>
 
@@ -44,7 +43,7 @@ export namespace RelayCell {
 
   export const command = 3
 
-  export class Raw<Fragment extends Writable.Infer<Fragment>> {
+  export class Raw<Fragment extends Writable> {
 
     constructor(
       readonly circuit: SecretCircuit,
@@ -54,62 +53,60 @@ export namespace RelayCell {
       readonly digest20?: Bytes<20>
     ) { }
 
-    tryUnpack(): Result<RelayCell<Fragment>, UnknownStreamError> {
+    unpackOrThrow(): RelayCell<Fragment> {
       if (this.stream === 0)
-        return new Ok(new Streamless(this.circuit, undefined, this.rcommand, this.fragment, this.digest20))
+        return new Streamless(this.circuit, undefined, this.rcommand, this.fragment, this.digest20)
 
       const stream = this.circuit.streams.get(this.stream)
 
-      if (stream === undefined)
-        return new Err(new UnknownStreamError())
+      if (stream == null)
+        throw new UnknownStreamError()
 
-      return new Ok(new Streamful(this.circuit, stream, this.rcommand, this.fragment, this.digest20))
+      return new Streamful(this.circuit, stream, this.rcommand, this.fragment, this.digest20)
     }
 
-    tryCell(): Result<Cell.Circuitful<Opaque>, BinaryError | Writable.SizeError<Fragment> | Writable.WriteError<Fragment> | Sha1.AnyError> {
-      return Result.unthrowSync(t => {
-        const cursor = new Cursor(Bytes.tryAllocUnsafe(Cell.PAYLOAD_LEN).throw(t))
+    cellOrThrow(): Cell.Circuitful<Opaque> {
+      const cursor = new Cursor(Bytes.alloc(Cell.PAYLOAD_LEN))
 
-        cursor.tryWriteUint8(this.rcommand).throw(t)
-        cursor.tryWriteUint16(0).throw(t)
-        cursor.tryWriteUint16(this.stream).throw(t)
+      cursor.writeUint8OrThrow(this.rcommand)
+      cursor.writeUint16OrThrow(0)
+      cursor.writeUint16OrThrow(this.stream)
 
-        const digestOffset = cursor.offset
+      const digestOffset = cursor.offset
 
-        cursor.tryWriteUint32(0).throw(t)
+      cursor.writeUint32OrThrow(0)
 
-        const size = this.fragment.trySize().throw(t)
-        cursor.tryWriteUint16(size).throw(t)
-        this.fragment.tryWrite(cursor).throw(t)
+      const size = this.fragment.sizeOrThrow()
+      cursor.writeUint16OrThrow(size)
+      this.fragment.writeOrThrow(cursor)
 
-        cursor.fill(0, Math.min(cursor.remaining, 4))
-        cursor.tryWrite(Bytes.random(cursor.remaining)).throw(t)
+      cursor.fillOrThrow(0, Math.min(cursor.remaining, 4))
+      cursor.writeOrThrow(Bytes.random(cursor.remaining))
 
-        const exit = Arrays.last(this.circuit.targets)!
+      const exit = this.circuit.targets[this.circuit.targets.length - 1]
 
-        exit.forward_digest.tryUpdate(cursor.bytes).throw(t)
+      exit.forward_digest.tryUpdate(cursor.bytes).throw(t)
 
-        const digestSlice = exit.forward_digest.tryFinalize().throw(t)
-        const digest20 = Bytes.tryCast(digestSlice.copyAndDispose(), 20).throw(t)
+      const digestSlice = exit.forward_digest.tryFinalize().throw(t)
+      const digest20 = Bytes.tryCast(digestSlice.copyAndDispose(), 20).throw(t)
 
-        if (this.rcommand === RelayDataCell.rcommand) {
-          if (exit.package % 100 === 1)
-            exit.digests.push(digest20)
-          exit.package--
-        }
+      if (this.rcommand === RelayDataCell.rcommand) {
+        if (exit.package % 100 === 1)
+          exit.digests.push(digest20)
+        exit.package--
+      }
 
-        cursor.offset = digestOffset
-        cursor.tryWrite(digest20.subarray(0, 4)).throw(t)
+      cursor.offset = digestOffset
+      cursor.tryWrite(digest20.subarray(0, 4)).throw(t)
 
-        using memory = new Zepar.Memory(cursor.bytes)
+      using memory = new Zepar.Memory(cursor.bytes)
 
-        for (let i = this.circuit.targets.length - 1; i >= 0; i--)
-          this.circuit.targets[i].forward_key.apply_keystream(memory)
+      for (let i = this.circuit.targets.length - 1; i >= 0; i--)
+        this.circuit.targets[i].forward_key.apply_keystream(memory)
 
-        const fragment = new Opaque(memory.bytes.slice())
+      const fragment = new Opaque(memory.bytes.slice())
 
-        return new Ok(new Cell.Circuitful(this.circuit, RelayCell.command, fragment))
-      })
+      return new Ok(new Cell.Circuitful(this.circuit, RelayCell.command, fragment))
     }
 
     static tryUncell(cell: Cell<Opaque>): Result<Raw<Opaque>, BinaryError | ExpectedCircuitError | InvalidRelayCellDigestError | UnrecognisedRelayCellError | Sha1.AnyError> {
@@ -156,7 +153,7 @@ export namespace RelayCell {
 
   }
 
-  export class Streamful<Fragment extends Writable.Infer<Fragment>> {
+  export class Streamful<Fragment extends Writable> {
     readonly #raw: Raw<Fragment>
 
     constructor(
@@ -169,7 +166,7 @@ export namespace RelayCell {
       this.#raw = new Raw(circuit, stream.id, rcommand, fragment)
     }
 
-    static from<Fragment extends RelayCellable.Streamful & Writable.Infer<Fragment>>(circuit: SecretCircuit, stream: SecretTorStreamDuplex, fragment: Fragment) {
+    static from<Fragment extends RelayCellable.Streamful & Writable>(circuit: SecretCircuit, stream: SecretTorStreamDuplex, fragment: Fragment) {
       return new Streamful(circuit, stream, fragment.rcommand, fragment)
     }
 
@@ -180,7 +177,7 @@ export namespace RelayCell {
     static tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: RelayCell<Opaque>, readable: RelayCellable.Streamful & Readable<ReadOutput, ReadError>): Result<Streamful<ReadOutput>, ReadError | BinaryReadError | InvalidRelayCommandError | ExpectedStreamError> {
       if (cell.rcommand !== readable.rcommand)
         return new Err(new InvalidRelayCommandError())
-      if (cell.stream === undefined)
+      if (cell.stream == null)
         return new Err(new ExpectedStreamError())
 
       return cell.fragment.tryReadInto(readable).mapSync(fragment => new Streamful(cell.circuit, cell.stream, readable.rcommand, fragment, cell.digest20))
@@ -188,7 +185,7 @@ export namespace RelayCell {
 
   }
 
-  export class Streamless<Fragment extends Writable.Infer<Fragment>> {
+  export class Streamless<Fragment extends Writable> {
     readonly #raw: Raw<Fragment>
 
     constructor(
@@ -209,10 +206,10 @@ export namespace RelayCell {
       return this.#raw.tryCell()
     }
 
-    static tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: RelayCell<Opaque>, readable: RelayCellable.Streamless & Readable<ReadOutput, ReadError>): Result<Streamless<ReadOutput>, ReadError | BinaryReadError | InvalidRelayCommandError | UnexpectedStreamError> {
+    static tryInto<ReadOutput extends Writable, ReadError>(cell: RelayCell<Opaque>, readable: RelayCellable.Streamless & Readable<ReadOutput, ReadError>): Result<Streamless<ReadOutput>, ReadError | BinaryReadError | InvalidRelayCommandError | UnexpectedStreamError> {
       if (cell.rcommand !== readable.rcommand)
         return new Err(new InvalidRelayCommandError())
-      if (cell.stream !== undefined)
+      if (cell.stream != null)
         return new Err(new UnexpectedStreamError())
 
       return cell.fragment.tryReadInto(readable).mapSync(fragment => new Streamless(cell.circuit, cell.stream, readable.rcommand, fragment, cell.digest20))

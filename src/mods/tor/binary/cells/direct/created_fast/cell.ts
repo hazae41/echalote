@@ -1,7 +1,5 @@
-import { BinaryReadError, BinaryWriteError } from "@hazae41/binary";
 import { Bytes } from "@hazae41/bytes";
 import { Cursor } from "@hazae41/cursor";
-import { Ok, Result } from "@hazae41/result";
 
 export class CreatedFastCell {
   readonly #class = CreatedFastCell
@@ -19,28 +17,22 @@ export class CreatedFastCell {
     return this.#class.command
   }
 
-  trySize(): Result<number, never> {
-    return new Ok(this.material.length + this.derivative.length)
+  sizeOrThrow() {
+    return this.material.length + this.derivative.length
   }
 
-  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
-    return Result.unthrowSync(t => {
-      cursor.tryWrite(this.material).throw(t)
-      cursor.tryWrite(this.derivative).throw(t)
-
-      return Ok.void()
-    })
+  writeOrThrow(cursor: Cursor) {
+    cursor.writeOrThrow(this.material)
+    cursor.writeOrThrow(this.derivative)
   }
 
-  static tryRead(cursor: Cursor): Result<CreatedFastCell, BinaryReadError> {
-    return Result.unthrowSync(t => {
-      const material = Bytes.tryFromSized(cursor.tryRead(20).throw(t)).throw(t)
-      const derivative = Bytes.tryFromSized(cursor.tryRead(20).throw(t)).throw(t)
+  static tryRead(cursor: Cursor) {
+    const material = cursor.readAndCopyOrThrow(20)
+    const derivative = cursor.readAndCopyOrThrow(20)
 
-      cursor.offset += cursor.remaining
+    cursor.offset += cursor.remaining
 
-      return new Ok(new CreatedFastCell(material, derivative))
-    })
+    return new CreatedFastCell(material, derivative)
   }
 
 }

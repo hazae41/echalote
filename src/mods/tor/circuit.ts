@@ -337,9 +337,9 @@ export class SecretCircuit {
       return result
     }
 
-    if (this.destroyed?.reason !== undefined)
+    if (this.destroyed?.reason != null)
       return new Err(ErroredError.from(this.destroyed.reason))
-    if (this.destroyed !== undefined)
+    if (this.destroyed != null)
       return new Err(ClosedError.from(this.destroyed.reason))
     if (signal?.aborted)
       return new Err(AbortedError.from(signal.reason))
@@ -347,9 +347,9 @@ export class SecretCircuit {
   }
 
   async tryExtend(exit: boolean, signal?: AbortSignal): Promise<Result<void, CryptoError | EmptyFallbacksError | InvalidNtorAuthError | ClosedError | BinaryError | AbortedError | ErroredError | Base16.AnyError | Base64.AnyError | Sha1.AnyError>> {
-    if (this.destroyed?.reason !== undefined)
+    if (this.destroyed?.reason != null)
       return new Err(ErroredError.from(this.destroyed.reason))
-    if (this.destroyed !== undefined)
+    if (this.destroyed != null)
       return new Err(ClosedError.from(this.destroyed.reason))
 
     const fallbacks = exit
@@ -366,9 +366,9 @@ export class SecretCircuit {
 
   async tryExtendTo(fallback: Fallback, signal?: AbortSignal): Promise<Result<void, CryptoError | BytesCastError | InvalidNtorAuthError | BinaryError | AbortedError | ErroredError | ClosedError | Base16.AnyError | Base64.AnyError | Sha1.AnyError>> {
     return await Result.unthrow(async t => {
-      if (this.destroyed?.reason !== undefined)
+      if (this.destroyed?.reason != null)
         return new Err(ErroredError.from(this.destroyed.reason))
-      if (this.destroyed !== undefined)
+      if (this.destroyed != null)
         return new Err(ClosedError.from(this.destroyed.reason))
 
       const signal2 = AbortSignals.timeout(5_000, signal)
@@ -465,9 +465,9 @@ export class SecretCircuit {
 
   async tryOpen(hostname: string, port: number, params: CircuitOpenParams = {}): Promise<Result<TorStreamDuplex, BinaryError | ErroredError | ClosedError | ControllerError | Sha1.AnyError>> {
     return await Result.unthrow(async t => {
-      if (this.destroyed?.reason !== undefined)
+      if (this.destroyed?.reason != null)
         return new Err(ErroredError.from(this.destroyed.reason))
-      if (this.destroyed !== undefined)
+      if (this.destroyed != null)
         return new Err(ClosedError.from(this.destroyed.reason))
 
       const { ipv6 = "preferred" } = params
@@ -499,9 +499,9 @@ export class SecretCircuit {
    */
   async tryFetch(input: RequestInfo | URL, init: RequestInit & CircuitOpenParams): Promise<Result<Response, UnknownProtocolError | BinaryError | AbortedError | ErroredError | ClosedError | PipeError | ControllerError | Sha1.AnyError>> {
     return await Result.unthrow(async t => {
-      if (this.destroyed?.reason !== undefined)
+      if (this.destroyed?.reason != null)
         return new Err(ErroredError.from(this.destroyed.reason))
-      if (this.destroyed !== undefined)
+      if (this.destroyed != null)
         return new Err(ClosedError.from(this.destroyed.reason))
 
       const req = new Request(input, init)

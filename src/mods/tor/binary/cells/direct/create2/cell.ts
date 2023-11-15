@@ -1,6 +1,4 @@
-import { BinaryReadError, BinaryWriteError } from "@hazae41/binary";
 import { Cursor } from "@hazae41/cursor";
-import { Ok, Result } from "@hazae41/result";
 
 export class Create2Cell {
   readonly #class = Create2Cell
@@ -29,30 +27,24 @@ export class Create2Cell {
     return this.#class.command
   }
 
-  trySize(): Result<number, never> {
-    return new Ok(2 + 2 + this.data.length)
+  sizeOrThrow() {
+    return 2 + 2 + this.data.length
   }
 
-  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
-    return Result.unthrowSync(t => {
-      cursor.tryWriteUint16(this.type).throw(t)
-      cursor.tryWriteUint16(this.data.length).throw(t)
-      cursor.tryWrite(this.data).throw(t)
-
-      return Ok.void()
-    })
+  writeOrThrow(cursor: Cursor) {
+    cursor.writeUint16OrThrow(this.type)
+    cursor.writeUint16OrThrow(this.data.length)
+    cursor.writeOrThrow(this.data)
   }
 
-  static tryRead(cursor: Cursor): Result<Create2Cell, BinaryReadError> {
-    return Result.unthrowSync(t => {
-      const type = cursor.tryReadUint16().throw(t)
-      const length = cursor.tryReadUint16().throw(t)
-      const data = cursor.tryRead(length).throw(t)
+  static readOrThrow(cursor: Cursor) {
+    const type = cursor.readUint16OrThrow()
+    const length = cursor.readUint16OrThrow()
+    const data = cursor.readAndCopyOrThrow(length)
 
-      cursor.offset += cursor.remaining
+    cursor.offset += cursor.remaining
 
-      return new Ok(new Create2Cell(type, data))
-    })
+    return new Create2Cell(type, data)
   }
 
 }

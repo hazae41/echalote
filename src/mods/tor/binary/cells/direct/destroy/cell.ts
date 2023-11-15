@@ -1,6 +1,4 @@
-import { BinaryReadError, BinaryWriteError } from "@hazae41/binary"
 import { Cursor } from "@hazae41/cursor"
-import { Ok, Result } from "@hazae41/result"
 
 export class DestroyCell {
   readonly #class = DestroyCell
@@ -33,22 +31,20 @@ export class DestroyCell {
     return this.#class.command
   }
 
-  trySize(): Result<number, never> {
-    return new Ok(1)
+  sizeOrThrow() {
+    return 1
   }
 
-  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
-    return cursor.tryWriteUint8(this.reason)
+  writeOrThrow(cursor: Cursor) {
+    cursor.writeUint8OrThrow(this.reason)
   }
 
-  static tryRead(cursor: Cursor): Result<DestroyCell, BinaryReadError> {
-    return Result.unthrowSync(t => {
-      const code = cursor.tryReadUint8().throw(t)
+  static readOrThrow(cursor: Cursor) {
+    const code = cursor.readUint8OrThrow()
 
-      cursor.offset += cursor.remaining
+    cursor.offset += cursor.remaining
 
-      return new Ok(new DestroyCell(code))
-    })
+    return new DestroyCell(code)
   }
 
 }

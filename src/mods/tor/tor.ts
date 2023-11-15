@@ -477,9 +477,9 @@ export class SecretTorClientDuplex {
         return await this.#onRelayDropCell(cell)
       if (cell.rcommand === RelayTruncatedCell.rcommand)
         return await this.#onRelayTruncatedCell(cell)
-      if (cell.rcommand === RelaySendmeCircuitCell.rcommand && cell.stream === undefined)
+      if (cell.rcommand === RelaySendmeCircuitCell.rcommand && cell.stream == null)
         return await this.#onRelaySendmeCircuitCell(cell)
-      if (cell.rcommand === RelaySendmeStreamCell.rcommand && cell.stream !== undefined)
+      if (cell.rcommand === RelaySendmeStreamCell.rcommand && cell.stream != null)
         return await this.#onRelaySendmeStreamCell(cell)
 
       console.warn(`Unknown relay cell ${cell.rcommand}`)
@@ -524,7 +524,7 @@ export class SecretTorClientDuplex {
       if (exit.delivery === 900) {
         exit.delivery = 1000
 
-        if (cell2.digest20 === undefined)
+        if (cell2.digest20 == null)
           throw Panic.from(new InvalidRelayCellDigestError())
 
         const digest = new RelaySendmeDigest(cell2.digest20)
@@ -592,7 +592,7 @@ export class SecretTorClientDuplex {
         const exit = Arrays.last(cell2.circuit.targets)!
         const digest2 = exit.digests.shift()
 
-        if (digest2 === undefined)
+        if (digest2 == null)
           return new Err(new InvalidRelaySendmeCellDigestError())
         if (!Bytes.equals(digest.digest, digest2))
           return new Err(new InvalidRelaySendmeCellDigestError())
@@ -687,9 +687,9 @@ export class SecretTorClientDuplex {
         return extend1
       }
 
-      if (this.closed?.reason !== undefined)
+      if (this.closed?.reason != null)
         return new Err(ErroredError.from(this.closed.reason))
-      if (this.closed !== undefined)
+      if (this.closed != null)
         return new Err(ClosedError.from(this.closed.reason))
       if (signal?.aborted)
         return new Err(AbortedError.from(signal.reason))
@@ -725,9 +725,9 @@ export class SecretTorClientDuplex {
         return result
       }
 
-      if (this.closed?.reason !== undefined)
+      if (this.closed?.reason != null)
         return new Err(ErroredError.from(this.closed.reason))
-      if (this.closed !== undefined)
+      if (this.closed != null)
         return new Err(ClosedError.from(this.closed.reason))
       if (signal?.aborted)
         return new Err(AbortedError.from(signal.reason))

@@ -5,7 +5,7 @@ export namespace AbortSignals {
   }
 
   export function merge(a: AbortSignal, b?: AbortSignal) {
-    if (b === undefined)
+    if (b == null)
       return a
 
     const c = new AbortController()

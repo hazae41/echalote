@@ -1,6 +1,4 @@
-import { BinaryReadError, BinaryWriteError } from "@hazae41/binary"
 import { Cursor } from "@hazae41/cursor"
-import { Ok, Result } from "@hazae41/result"
 
 export class TypedAddress {
 
@@ -14,28 +12,22 @@ export class TypedAddress {
     readonly value: Uint8Array
   ) { }
 
-  trySize(): Result<number, never> {
-    return new Ok(1 + 1 + this.value.length)
+  sizeOrThrow() {
+    return 1 + 1 + this.value.length
   }
 
-  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
-    return Result.unthrowSync(t => {
-      cursor.tryWriteUint8(this.type).throw(t)
-      cursor.tryWriteUint8(this.value.length).throw(t)
-      cursor.tryWrite(this.value).throw(t)
-
-      return Ok.void()
-    })
+  writeOrThrow(cursor: Cursor) {
+    cursor.tryWriteUint8(this.type)
+    cursor.tryWriteUint8(this.value.length)
+    cursor.tryWrite(this.value)
   }
 
-  static tryRead(cursor: Cursor): Result<TypedAddress, BinaryReadError> {
-    return Result.unthrowSync(t => {
-      const type = cursor.tryReadUint8().throw(t)
-      const length = cursor.tryReadUint8().throw(t)
-      const value = cursor.tryRead(length).throw(t)
+  static readOrThrow(cursor: Cursor) {
+    const type = cursor.readUint8OrThrow()
+    const length = cursor.readUint8OrThrow()
+    const value = cursor.readAndCopyOrThrow(length)
 
-      return new Ok(new TypedAddress(type, value))
-    })
+    return new TypedAddress(type, value)
   }
 
 }
@@ -50,30 +42,26 @@ export class Address4 {
     readonly address: string
   ) { }
 
-  trySize(): Result<number, never> {
-    return new Ok(1 * 4)
+  sizeOrThrow() {
+    return 4
   }
 
-  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
-    return Result.unthrowSync(t => {
-      const parts = this.address.split(".")
+  writeOrThrow(cursor: Cursor) {
+    const parts = this.address.split(".")
 
-      for (let i = 0; i < 4; i++)
-        cursor.tryWriteUint8(Number(parts[i])).throw(t)
+    for (let i = 0; i < 4; i++)
+      cursor.writeUint8OrThrow(Number(parts[i]))
 
-      return Ok.void()
-    })
+    return
   }
 
-  static tryRead(cursor: Cursor): Result<Address4, BinaryReadError> {
-    return Result.unthrowSync(t => {
-      const parts = new Array<string>(4)
+  static readOrThrow(cursor: Cursor) {
+    const parts = new Array<string>(4)
 
-      for (let i = 0; i < 4; i++)
-        parts[i] = String(cursor.tryReadUint8().throw(t))
+    for (let i = 0; i < 4; i++)
+      parts[i] = String(cursor.readUint8OrThrow())
 
-      return new Ok(new Address4(parts.join(".")))
-    })
+    return new Address4(parts.join("."))
   }
 
 }
@@ -88,30 +76,26 @@ export class Address6 {
     readonly address: `[${string}]`
   ) { }
 
-  trySize(): Result<number, never> {
-    return new Ok(2 * 8)
+  sizeOrThrow() {
+    return 16
   }
 
-  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
-    return Result.unthrowSync(t => {
-      const parts = this.address.slice(1, -1).split(":")
+  writeOrThrow(cursor: Cursor) {
+    const parts = this.address.slice(1, -1).split(":")
 
-      for (let i = 0; i < 8; i++)
-        cursor.tryWriteUint16(Number(parts[i])).throw(t)
+    for (let i = 0; i < 8; i++)
+      cursor.writeUint16OrThrow(Number(parts[i]))
 
-      return Ok.void()
-    })
+    return
   }
 
-  static tryRead(cursor: Cursor): Result<Address6, BinaryReadError> {
-    return Result.unthrowSync(t => {
-      const parts = new Array<string>(8)
+  static readOrThrow(cursor: Cursor) {
+    const parts = new Array<string>(8)
 
-      for (let i = 0; i < 8; i++)
-        parts[i] = String(cursor.tryReadUint16().throw(t))
+    for (let i = 0; i < 8; i++)
+      parts[i] = String(cursor.readUint16OrThrow())
 
-      return new Ok(new Address6(`[${parts.join(":")}]`))
-    })
+    return new Address6(`[${parts.join(":")}]`)
   }
 
 }

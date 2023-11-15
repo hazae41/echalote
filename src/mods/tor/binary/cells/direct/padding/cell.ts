@@ -1,6 +1,5 @@
-import { BinaryReadError } from "@hazae41/binary"
 import { Cursor } from "@hazae41/cursor"
-import { Panic, Result, Unimplemented } from "@hazae41/result"
+import { Unimplemented } from "@hazae41/result"
 
 export class PaddingCell {
   readonly #class = PaddingCell
@@ -16,16 +15,16 @@ export class PaddingCell {
     return this.#class.command
   }
 
-  trySize(): Result<never, never> {
-    throw Panic.from(new Unimplemented())
+  sizeOrThrow(): never {
+    throw new Unimplemented()
   }
 
-  tryWrite(cursor: Cursor): Result<never, never> {
-    throw Panic.from(new Unimplemented())
+  writeOrThrow(cursor: Cursor): never {
+    throw new Unimplemented()
   }
 
-  static tryRead(cursor: Cursor): Result<PaddingCell, BinaryReadError> {
-    return cursor.tryRead(cursor.remaining).mapSync(x => new PaddingCell(x))
+  static readOrThrow(cursor: Cursor) {
+    return new PaddingCell(cursor.readAndCopyOrThrow(cursor.remaining))
   }
 
 }

@@ -58,7 +58,7 @@ export namespace RelayEarlyCell {
 
       const stream = this.circuit.streams.get(this.stream)
 
-      if (stream === undefined)
+      if (stream == null)
         return new Err(new UnknownStreamError())
 
       return new Ok(new Streamful(this.circuit, stream, this.rcommand, this.fragment))
@@ -169,7 +169,7 @@ export namespace RelayEarlyCell {
     static tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: RelayEarlyCell<Opaque>, readable: RelayEarlyCellable.Streamful & Readable<ReadOutput, ReadError>): Result<Streamful<ReadOutput>, ReadError | BinaryReadError | InvalidRelayCommandError | ExpectedStreamError> {
       if (cell.rcommand !== readable.rcommand)
         return new Err(new InvalidRelayCommandError())
-      if (cell.stream === undefined)
+      if (cell.stream == null)
         return new Err(new ExpectedStreamError())
 
       return cell.fragment.tryReadInto(readable).mapSync(fragment => new Streamful(cell.circuit, cell.stream, readable.rcommand, fragment))
@@ -200,7 +200,7 @@ export namespace RelayEarlyCell {
     static tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: RelayEarlyCell<Opaque>, readable: RelayEarlyCellable.Streamless & Readable<ReadOutput, ReadError>): Result<Streamless<ReadOutput>, ReadError | BinaryReadError | InvalidRelayCommandError | UnexpectedStreamError> {
       if (cell.rcommand !== readable.rcommand)
         return new Err(new InvalidRelayCommandError())
-      if (cell.stream !== undefined)
+      if (cell.stream != null)
         return new Err(new UnexpectedStreamError())
 
       return cell.fragment.tryReadInto(readable).mapSync(fragment => new Streamless(cell.circuit, cell.stream, readable.rcommand, fragment))
