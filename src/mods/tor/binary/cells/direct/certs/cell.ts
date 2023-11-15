@@ -1,9 +1,8 @@
-import { ASN1Error, DERReadError } from "@hazae41/asn1"
 import { Readable } from "@hazae41/binary"
 import { Cursor } from "@hazae41/cursor"
-import { Err, Ok, Panic, Result, Unimplemented } from "@hazae41/result"
+import { Err, Unimplemented } from "@hazae41/result"
 import { CrossCert } from "mods/tor/binary/certs/cross/cert.js"
-import { Ed25519Cert, UnknownCertExtensionError } from "mods/tor/binary/certs/ed25519/cert.js"
+import { Ed25519Cert } from "mods/tor/binary/certs/ed25519/cert.js"
 import { RsaCert } from "mods/tor/binary/certs/rsa/cert.js"
 import { Certs, DuplicatedCertError, UnknownCertError } from "mods/tor/certs/certs.js"
 
@@ -26,91 +25,89 @@ export class CertsCell {
     return this.#class.command
   }
 
-  trySize(): Result<never, never> {
-    throw Panic.from(new Unimplemented())
+  sizeOrThrow(): never {
+    throw new Unimplemented()
   }
 
-  tryWrite(cursor: Cursor): Result<never, never> {
-    throw Panic.from(new Unimplemented())
+  writeOrThrow(cursor: Cursor): never {
+    throw new Unimplemented()
   }
 
-  static tryRead(cursor: Cursor): Result<CertsCell, DERReadError | ASN1Error | DuplicatedCertError | UnknownCertError | UnknownCertExtensionError> {
-    return Result.unthrowSync(t => {
-      const ncerts = cursor.tryReadUint8().throw(t)
+  static readOrThrow(cursor: Cursor) {
+    const certs: Partial<Certs> = {}
 
-      const certs: Partial<Certs> = {}
+    const count = cursor.readUint8OrThrow()
 
-      for (let i = 0; i < ncerts; i++) {
-        const offset = cursor.offset
+    for (let i = 0; i < count; i++) {
+      const offset = cursor.offset
 
-        const type = cursor.tryReadUint8().throw(t)
-        const length = cursor.tryReadUint16().throw(t)
+      const type = cursor.readUint8OrThrow()
+      const length = cursor.readUint16OrThrow()
 
-        cursor.offset = offset
+      cursor.offset = offset
 
-        const bytes = cursor.tryRead(1 + 2 + length).throw(t)
+      const bytes = cursor.readOrThrow(1 + 2 + length)
 
-        if (type === RsaCert.types.RSA_SELF) {
-          if (certs.rsa_self)
-            return new Err(new DuplicatedCertError())
+      if (type === RsaCert.types.RSA_SELF) {
+        if (certs.rsa_self != null)
+          throw new DuplicatedCertError()
 
-          certs.rsa_self = Readable.tryReadFromBytes(RsaCert, bytes).throw(t)
-          continue
-        }
-
-        if (type === RsaCert.types.RSA_TO_AUTH) {
-          if (certs.rsa_to_auth)
-            return new Err(new DuplicatedCertError())
-
-          certs.rsa_to_auth = Readable.tryReadFromBytes(RsaCert, bytes).throw(t)
-          continue
-        }
-
-        if (type === RsaCert.types.RSA_TO_TLS) {
-          if (certs.rsa_to_tls)
-            return new Err(new DuplicatedCertError())
-
-          certs.rsa_to_tls = Readable.tryReadFromBytes(RsaCert, bytes).throw(t)
-          continue
-        }
-
-        if (type === CrossCert.types.RSA_TO_ED) {
-          if (certs.rsa_to_ed)
-            return new Err(new DuplicatedCertError())
-
-          certs.rsa_to_ed = Readable.tryReadFromBytes(CrossCert, bytes).throw(t)
-          continue
-        }
-
-        if (type === Ed25519Cert.types.ED_TO_SIGN) {
-          if (certs.ed_to_sign)
-            return new Err(new DuplicatedCertError())
-
-          certs.ed_to_sign = Readable.tryReadFromBytes(Ed25519Cert, bytes).throw(t)
-          continue
-        }
-
-        if (type === Ed25519Cert.types.SIGN_TO_TLS) {
-          if (certs.sign_to_tls)
-            return new Err(new DuplicatedCertError())
-
-          certs.sign_to_tls = Readable.tryReadFromBytes(Ed25519Cert, bytes).throw(t)
-          continue
-        }
-
-        if (type === Ed25519Cert.types.SIGN_TO_AUTH) {
-          if (certs.sign_to_auth)
-            return new Err(new DuplicatedCertError())
-
-          certs.sign_to_auth = Readable.tryReadFromBytes(Ed25519Cert, bytes).throw(t)
-          continue
-        }
-
-        return new Err(new UnknownCertError())
+        certs.rsa_self = Readable.readFromBytesOrThrow(RsaCert, bytes)
+        continue
       }
 
-      return new Ok(new CertsCell(certs))
-    })
+      if (type === RsaCert.types.RSA_TO_AUTH) {
+        if (certs.rsa_to_auth != null)
+          throw new DuplicatedCertError()
+
+        certs.rsa_to_auth = Readable.readFromBytesOrThrow(RsaCert, bytes)
+        continue
+      }
+
+      if (type === RsaCert.types.RSA_TO_TLS) {
+        if (certs.rsa_to_tls != null)
+          return new Err(new DuplicatedCertError())
+
+        certs.rsa_to_tls = Readable.readFromBytesOrThrow(RsaCert, bytes)
+        continue
+      }
+
+      if (type === CrossCert.types.RSA_TO_ED) {
+        if (certs.rsa_to_ed != null)
+          return new Err(new DuplicatedCertError())
+
+        certs.rsa_to_ed = Readable.readFromBytesOrThrow(CrossCert, bytes)
+        continue
+      }
+
+      if (type === Ed25519Cert.types.ED_TO_SIGN) {
+        if (certs.ed_to_sign != null)
+          return new Err(new DuplicatedCertError())
+
+        certs.ed_to_sign = Readable.readFromBytesOrThrow(Ed25519Cert, bytes)
+        continue
+      }
+
+      if (type === Ed25519Cert.types.SIGN_TO_TLS) {
+        if (certs.sign_to_tls != null)
+          return new Err(new DuplicatedCertError())
+
+        certs.sign_to_tls = Readable.readFromBytesOrThrow(Ed25519Cert, bytes)
+        continue
+      }
+
+      if (type === Ed25519Cert.types.SIGN_TO_AUTH) {
+        if (certs.sign_to_auth != null)
+          return new Err(new DuplicatedCertError())
+
+        certs.sign_to_auth = Readable.readFromBytesOrThrow(Ed25519Cert, bytes)
+        continue
+      }
+
+      throw new UnknownCertError()
+    }
+
+    return new CertsCell(certs)
   }
 
 }

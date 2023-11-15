@@ -1,7 +1,5 @@
-import { BinaryReadError } from "@hazae41/binary";
 import { Bytes } from "@hazae41/bytes";
 import { Cursor } from "@hazae41/cursor";
-import { Result } from "@hazae41/result";
 
 export class SignedWithEd25519Key {
   readonly #class = SignedWithEd25519Key
@@ -16,8 +14,8 @@ export class SignedWithEd25519Key {
     return this.#class.type
   }
 
-  static tryRead(cursor: Cursor): Result<SignedWithEd25519Key, BinaryReadError> {
-    return cursor.tryRead(32).mapSync(x => new SignedWithEd25519Key(x))
+  static readOrThrow(cursor: Cursor) {
+    return new SignedWithEd25519Key(cursor.readAndCopyOrThrow(32))
   }
 
 }

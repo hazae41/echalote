@@ -115,7 +115,8 @@ export namespace Certs {
 
   async function tryVerifyRsaSelf(certs: Certs): Promise<Result<void, CryptoError | ExpiredCertError | PrematureCertError | BinaryWriteError | InvalidSignatureError>> {
     return await Result.unthrow(async t => {
-      certs.rsa_self.tryVerify().throw(t)
+      if (!certs.rsa_self.verifyOrThrow())
+        throw new Error("Could not verify RSA_SELF cert")
 
       const signed = X509.tryWriteToBytes(certs.rsa_self.x509.tbsCertificate).throw(t)
       const publicKey = X509.tryWriteToBytes(certs.rsa_self.x509.tbsCertificate.subjectPublicKeyInfo).throw(t)

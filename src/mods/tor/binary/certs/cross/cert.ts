@@ -1,15 +1,14 @@
-import { BinaryReadError } from "@hazae41/binary"
 import { Bytes } from "@hazae41/bytes"
 import { Cursor } from "@hazae41/cursor"
-import { Err, Ok, Panic, Result, Unimplemented } from "@hazae41/result"
+import { Unimplemented } from "@hazae41/result"
 import { ExpiredCertError } from "mods/tor/certs/certs.js"
 
 export class CrossCert {
   readonly #class = CrossCert
 
-  static types = {
+  static readonly types = {
     RSA_TO_ED: 7
-  }
+  } as const
 
   constructor(
     readonly type: number,
@@ -19,45 +18,43 @@ export class CrossCert {
     readonly signature: Uint8Array
   ) { }
 
-  tryVerify(): Result<void, ExpiredCertError> {
+  verifyOrThrow() {
     const now = new Date()
 
     if (now > this.expiration)
-      return new Err(new ExpiredCertError())
+      throw new ExpiredCertError()
 
-    return Ok.void()
+    return true
   }
 
-  trySize(): Result<never, never> {
-    throw Panic.from(new Unimplemented())
+  sizeOrThrow(): never {
+    throw new Unimplemented()
   }
 
-  tryWrite(cursor: Cursor): Result<never, never> {
-    throw Panic.from(new Unimplemented())
+  writeOrThrow(cursor: Cursor): never {
+    throw new Unimplemented()
   }
 
-  static tryRead(cursor: Cursor): Result<CrossCert, BinaryReadError> {
-    return Result.unthrowSync(t => {
-      const type = cursor.tryReadUint8().throw(t)
-      const length = cursor.tryReadUint16().throw(t)
+  static readOrThrow(cursor: Cursor) {
+    const type = cursor.readUint8OrThrow()
+    const length = cursor.readUint16OrThrow() // TODO: check length
 
-      const start = cursor.offset
+    const start = cursor.offset
 
-      const key = cursor.tryRead(32).throw(t)
+    const key = cursor.readAndCopyOrThrow(32)
 
-      const expDateHours = cursor.tryReadUint32().throw(t)
-      const expiration = new Date(expDateHours * 60 * 60 * 1000)
+    const expDateHours = cursor.readUint32OrThrow()
+    const expiration = new Date(expDateHours * 60 * 60 * 1000)
 
-      const content = cursor.offset - start
+    const content = cursor.offset - start
 
-      cursor.offset = start
+    cursor.offset = start
 
-      const payload = cursor.tryRead(content).throw(t)
+    const payload = cursor.readAndCopyOrThrow(content)
 
-      const sigLength = cursor.tryReadUint8().throw(t)
-      const signature = cursor.tryRead(sigLength).throw(t)
+    const sigLength = cursor.readUint8OrThrow()
+    const signature = cursor.readAndCopyOrThrow(sigLength)
 
-      return new Ok(new CrossCert(type, key, expiration, payload, signature))
-    })
+    return new CrossCert(type, key, expiration, payload, signature)
   }
 }

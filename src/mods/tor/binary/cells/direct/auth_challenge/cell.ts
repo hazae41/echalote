@@ -1,7 +1,6 @@
-import { BinaryReadError } from "@hazae41/binary"
 import { Bytes } from "@hazae41/bytes"
 import { Cursor } from "@hazae41/cursor"
-import { Ok, Panic, Result, Unimplemented } from "@hazae41/result"
+import { Unimplemented } from "@hazae41/result"
 
 export class AuthChallengeCell {
   readonly #class = AuthChallengeCell
@@ -23,25 +22,23 @@ export class AuthChallengeCell {
     return this.#class.command
   }
 
-  trySize(): Result<never, never> {
-    throw Panic.from(new Unimplemented())
+  sizeOrThrow(): never {
+    throw new Unimplemented()
   }
 
-  tryWrite(cursor: Cursor): Result<never, never> {
-    throw Panic.from(new Unimplemented())
+  writeOrThrow(cursor: Cursor): never {
+    throw new Unimplemented()
   }
 
-  static tryRead(cursor: Cursor): Result<AuthChallengeCell, BinaryReadError> {
-    return Result.unthrowSync(t => {
-      const challenge = cursor.tryRead(32).throw(t)
-      const nmethods = cursor.tryReadUint16().throw(t)
-      const methods = new Array<number>(nmethods)
+  static readOrThrow(cursor: Cursor) {
+    const challenge = cursor.readAndCopyOrThrow(32)
+    const nmethods = cursor.readUint16OrThrow()
+    const methods = new Array<number>(nmethods)
 
-      for (let i = 0; i < nmethods; i++)
-        methods[i] = cursor.tryReadUint16().throw(t)
+    for (let i = 0; i < nmethods; i++)
+      methods[i] = cursor.readUint16OrThrow()
 
-      return new Ok(new AuthChallengeCell(challenge, methods))
-    })
+    return new AuthChallengeCell(challenge, methods)
   }
 
 }

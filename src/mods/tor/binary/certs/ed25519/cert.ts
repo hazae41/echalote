@@ -1,9 +1,6 @@
-import { BinaryReadError } from "@hazae41/binary";
 import { Bytes } from "@hazae41/bytes";
 import { Cursor } from "@hazae41/cursor";
 import { Ed25519 } from "@hazae41/ed25519";
-import { Err, Ok, Result } from "@hazae41/result";
-import { CryptoError } from "libs/crypto/crypto.js";
 import { SignedWithEd25519Key } from "mods/tor/binary/certs/ed25519/extensions/signer.js";
 import { ExpiredCertError, InvalidSignatureError } from "mods/tor/certs/certs.js";
 
@@ -24,7 +21,6 @@ export class UnknownCertExtensionError extends Error {
 }
 
 export class Ed25519Cert {
-  readonly #class = Ed25519Cert
 
   static readonly types = {
     ED_TO_SIGN: 4,
@@ -48,80 +44,68 @@ export class Ed25519Cert {
     readonly signature: Bytes<64>
   ) { }
 
-  async tryVerify(): Promise<Result<void, CryptoError | ExpiredCertError | InvalidSignatureError>> {
-    return await Result.unthrow(async t => {
-      const now = new Date()
+  async verifyOrThrow() {
+    const now = new Date()
 
-      if (now > this.expiration)
-        return new Err(new ExpiredCertError())
+    if (now > this.expiration)
+      throw new ExpiredCertError()
 
-      if (!this.extensions.signer)
-        return Ok.void()
+    if (!this.extensions.signer)
+      return true // TODO maybe do additionnal check?
 
-      using signer = await Ed25519.get().PublicKey
-        .tryImport(this.extensions.signer.key)
-        .then(r => r.mapErrSync(CryptoError.from).throw(t))
+    using signer = await Ed25519.get().PublicKey.importOrThrow(this.extensions.signer.key)
+    using signature = Ed25519.get().Signature.importOrThrow(this.signature)
 
-      using signature = Ed25519.get().Signature
-        .tryImport(this.signature)
-        .mapErrSync(CryptoError.from).throw(t)
+    const verified = await signer.verifyOrThrow(this.payload, signature)
 
-      const verified = await signer
-        .tryVerify(this.payload, signature)
-        .then(r => r.mapErrSync(CryptoError.from).throw(t))
+    if (verified !== true)
+      throw new InvalidSignatureError()
 
-      if (verified !== true)
-        return new Err(new InvalidSignatureError())
-
-      return Ok.void()
-    })
+    return true
   }
 
-  static tryRead(cursor: Cursor): Result<Ed25519Cert, BinaryReadError | UnknownCertExtensionError> {
-    return Result.unthrowSync(t => {
-      const type = cursor.tryReadUint8().throw(t)
-      const length = cursor.tryReadUint16().throw(t)
+  static readOrThrow(cursor: Cursor) {
+    const type = cursor.readUint8OrThrow()
+    const length = cursor.readUint16OrThrow() // TODO check length
 
-      const start = cursor.offset
+    const start = cursor.offset
 
-      const version = cursor.tryReadUint8().throw(t)
-      const certType = cursor.tryReadUint8().throw(t)
+    const version = cursor.readUint8OrThrow()
+    const certType = cursor.readUint8OrThrow()
 
-      const expDateHours = cursor.tryReadUint32().throw(t)
-      const expiration = new Date(expDateHours * 60 * 60 * 1000)
+    const expDateHours = cursor.readUint32OrThrow()
+    const expiration = new Date(expDateHours * 60 * 60 * 1000)
 
-      const certKeyType = cursor.tryReadUint8().throw(t)
-      const certKey = cursor.tryRead(32).throw(t)
+    const certKeyType = cursor.readUint8OrThrow()
+    const certKey = cursor.readAndCopyOrThrow(32)
 
-      const nextensions = cursor.tryReadUint8().throw(t)
-      const extensions: Extensions = {}
+    const nextensions = cursor.readUint8OrThrow()
+    const extensions: Extensions = {}
 
-      for (let i = 0; i < nextensions; i++) {
-        const length = cursor.tryReadUint16().throw(t)
-        const type = cursor.tryReadUint8().throw(t)
-        const flags = cursor.tryReadUint8().throw(t)
+    for (let i = 0; i < nextensions; i++) {
+      const length = cursor.readUint16OrThrow()
+      const type = cursor.readUint8OrThrow()
+      const flags = cursor.readUint8OrThrow()
 
-        if (type === SignedWithEd25519Key.type) {
-          extensions.signer = SignedWithEd25519Key.tryRead(cursor).throw(t)
-          continue
-        }
-
-        if (flags === this.flags.AFFECTS_VALIDATION)
-          return new Err(new UnknownCertExtensionError(type))
-        else
-          cursor.tryRead(length).throw(t)
+      if (type === SignedWithEd25519Key.type) {
+        extensions.signer = SignedWithEd25519Key.readOrThrow(cursor)
+        continue
       }
 
-      const content = cursor.offset - start
+      if (flags === this.flags.AFFECTS_VALIDATION)
+        throw new UnknownCertExtensionError(type)
 
-      cursor.offset = start
+      cursor.readOrThrow(length)
+    }
 
-      const payload = cursor.tryRead(content).throw(t)
+    const content = cursor.offset - start
 
-      const signature = cursor.tryRead(64).throw(t)
+    cursor.offset = start
 
-      return new Ok(new Ed25519Cert(type, version, certType, expiration, certKeyType, certKey, extensions, payload, signature))
-    })
+    const payload = cursor.readAndCopyOrThrow(content)
+    const signature = cursor.readAndCopyOrThrow(64)
+
+    return new Ed25519Cert(type, version, certType, expiration, certKeyType, certKey, extensions, payload, signature)
   }
 
 }
