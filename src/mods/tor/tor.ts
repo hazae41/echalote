@@ -502,7 +502,7 @@ export class SecretTorClientDuplex {
 
   async #onRelayConnectedCell(cell: RelayCell<Opaque>): Promise<Result<void, BinaryError | RelayCellError | EventError>> {
     return await Result.unthrow(async t => {
-      const cell2 = RelayCell.Streamful.tryInto(cell, RelayConnectedCell).inspectSync(Console.debug).throw(t)
+      const cell2 = RelayCell.Streamful.intoOrThrow(cell, RelayConnectedCell).inspectSync(Console.debug).throw(t)
 
       const returned = await this.events.emit("RELAY_CONNECTED", [cell2])
 
@@ -515,7 +515,7 @@ export class SecretTorClientDuplex {
 
   async #onRelayDataCell(cell: RelayCell<Opaque>): Promise<Result<void, BinaryError | RelayCellError | EventError | ControllerError | Sha1.AnyError>> {
     return await Result.unthrow(async t => {
-      const cell2 = RelayCell.Streamful.tryInto(cell, RelayDataCell).inspectSync(Console.debug).throw(t)
+      const cell2 = RelayCell.Streamful.intoOrThrow(cell, RelayDataCell).inspectSync(Console.debug).throw(t)
 
       const exit = Arrays.last(cell2.circuit.targets)!
 
@@ -545,7 +545,7 @@ export class SecretTorClientDuplex {
 
   async #onRelayEndCell(cell: RelayCell<Opaque>): Promise<Result<void, BinaryError | RelayCellError | EventError>> {
     return await Result.unthrow(async t => {
-      const cell2 = RelayCell.Streamful.tryInto(cell, RelayEndCell).inspectSync(Console.debug).throw(t)
+      const cell2 = RelayCell.Streamful.intoOrThrow(cell, RelayEndCell).inspectSync(Console.debug).throw(t)
 
       const returned = await this.events.emit("RELAY_END", [cell2])
 
@@ -557,7 +557,7 @@ export class SecretTorClientDuplex {
   }
 
   async #onRelayDropCell(cell: RelayCell<Opaque>): Promise<Result<void, BinaryError | RelayCellError>> {
-    return RelayCell.Streamful.tryInto(cell, RelayDropCell).inspectSync(Console.debug).clear()
+    return RelayCell.Streamful.intoOrThrow(cell, RelayDropCell).inspectSync(Console.debug).clear()
   }
 
   async #onRelayTruncatedCell(cell: RelayCell<Opaque>): Promise<Result<void, BinaryError | RelayCellError | EventError>> {
@@ -608,7 +608,7 @@ export class SecretTorClientDuplex {
 
   async #onRelaySendmeStreamCell(cell: RelayCell<Opaque>): Promise<Result<void, BinaryError | RelayCellError | EventError>> {
     return await Result.unthrow(async t => {
-      const cell2 = RelayCell.Streamful.tryInto(cell, RelaySendmeStreamCell).inspectSync(Console.debug).throw(t)
+      const cell2 = RelayCell.Streamful.intoOrThrow(cell, RelaySendmeStreamCell).inspectSync(Console.debug).throw(t)
 
       cell2.stream.package += 50
       return Ok.void()
