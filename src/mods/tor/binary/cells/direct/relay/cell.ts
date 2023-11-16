@@ -1,7 +1,6 @@
 import { Opaque, Readable, Writable } from "@hazae41/binary";
 import { Bytes, type Uint8Array } from "@hazae41/bytes";
 import { Cursor } from "@hazae41/cursor";
-import { Err, Ok } from "@hazae41/result";
 import { Zepar } from "@hazae41/zepar";
 import { Cell, } from "mods/tor/binary/cells/cell.js";
 import { SecretCircuit } from "mods/tor/circuit.js";
@@ -52,7 +51,7 @@ export namespace RelayCell {
       readonly digest20?: Uint8Array<20>
     ) { }
 
-    unpackOrThrow(): RelayCell<T> {
+    unpackOrThrow() {
       if (this.stream === 0)
         return new Streamless(this.circuit, undefined, this.rcommand, this.fragment, this.digest20)
 
@@ -64,7 +63,7 @@ export namespace RelayCell {
       return new Streamful(this.circuit, stream, this.rcommand, this.fragment, this.digest20)
     }
 
-    cellOrThrow(): Cell.Circuitful<Opaque> {
+    cellOrThrow() {
       const cursor = new Cursor(new Uint8Array(Cell.PAYLOAD_LEN))
 
       cursor.writeUint8OrThrow(this.rcommand)
@@ -134,16 +133,16 @@ export namespace RelayCell {
         const digest20 = target.backward_digest.finalizeOrThrow().copyAndDispose() as Uint8Array<20>
 
         if (!Bytes.equals2(digest, digest20.subarray(0, 4)))
-          return new Err(new InvalidRelayCellDigestError())
+          throw new InvalidRelayCellDigestError()
 
         const length = cursor.readUint16OrThrow()
         const bytes = cursor.readAndCopyOrThrow(length)
         const data = new Opaque(bytes)
 
-        return new Ok(new Raw<Opaque>(cell.circuit, stream, rcommand, data, digest20))
+        return new Raw<Opaque>(cell.circuit, stream, rcommand, data, digest20)
       }
 
-      return new Err(new UnrecognisedRelayCellError())
+      throw new UnrecognisedRelayCellError()
     }
 
   }
@@ -165,11 +164,11 @@ export namespace RelayCell {
       return new Streamful(circuit, stream, fragment.rcommand, fragment)
     }
 
-    cellOrThrow(): Cell.Circuitful<Opaque> {
+    cellOrThrow() {
       return this.#raw.cellOrThrow()
     }
 
-    static intoOrThrow<T extends Writable>(cell: RelayCell<Opaque>, readable: RelayCellable.Streamful & Readable<T>): Streamful<T> {
+    static intoOrThrow<T extends Writable>(cell: RelayCell<Opaque>, readable: RelayCellable.Streamful & Readable<T>) {
       if (cell.rcommand !== readable.rcommand)
         throw new InvalidRelayCommandError()
       if (cell.stream == null)
@@ -203,7 +202,7 @@ export namespace RelayCell {
       return this.#raw.cellOrThrow()
     }
 
-    static intoOrThrow<T extends Writable>(cell: RelayCell<Opaque>, readable: RelayCellable.Streamless & Readable<T>): Streamless<T> {
+    static intoOrThrow<T extends Writable>(cell: RelayCell<Opaque>, readable: RelayCellable.Streamless & Readable<T>) {
       if (cell.rcommand !== readable.rcommand)
         throw new InvalidRelayCommandError()
       if (cell.stream != null)
