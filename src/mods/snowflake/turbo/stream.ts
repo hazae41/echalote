@@ -13,10 +13,9 @@ export class TurboDuplex {
   readonly #secret: SecretTurboDuplex
 
   constructor(
-    readonly stream: ReadableWritablePair<Opaque, Writable>,
     readonly params: TurboDuplexParams = {}
   ) {
-    this.#secret = new SecretTurboDuplex(stream, params)
+    this.#secret = new SecretTurboDuplex(params)
   }
 
   get inner() {
@@ -43,7 +42,6 @@ export class SecretTurboDuplex {
   readonly clientID: Uint8Array
 
   constructor(
-    readonly stream: ReadableWritablePair<Opaque, Writable>,
     readonly params: TurboDuplexParams = {}
   ) {
     const { clientID = Bytes.random(8) } = params
