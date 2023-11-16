@@ -1,6 +1,5 @@
-import { BinaryReadError, BinaryWriteError } from "@hazae41/binary"
+import { Bytes } from "@hazae41/bytes"
 import { Cursor } from "@hazae41/cursor"
-import { Ok, Result } from "@hazae41/result"
 
 export class RelayBeginCell {
   readonly #class = RelayBeginCell
@@ -9,16 +8,21 @@ export class RelayBeginCell {
   static readonly stream = true
   static readonly rcommand = 1
 
-  static flags = {
+  static readonly flags = {
     IPV6_OK: 0,
     IPV4_NOT_OK: 1,
     IPV6_PREFER: 2
-  }
+  } as const
 
-  constructor(
+  private constructor(
     readonly address: string,
+    readonly bytes: Uint8Array,
     readonly flags: number
   ) { }
+
+  static create(address: string, flags: number) {
+    return new RelayBeginCell(address, Bytes.fromUtf8(address), flags)
+  }
 
   get early(): false {
     return this.#class.early
@@ -32,26 +36,21 @@ export class RelayBeginCell {
     return this.#class.rcommand
   }
 
-  trySize(): Result<number, never> {
-    return new Ok((this.address.length + 1) + 4)
+  sizeOrThrow() {
+    return (this.bytes.length + 1) + 4
   }
 
-  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
-    return Result.unthrowSync(t => {
-      cursor.tryWriteNulledString(this.address).throw(t)
-      cursor.tryWriteUint32(this.flags).throw(t)
-
-      return Ok.void()
-    })
+  writeOrThrow(cursor: Cursor) {
+    cursor.writeNulledOrThrow(this.bytes)
+    cursor.writeUint32OrThrow(this.flags)
   }
 
-  static tryRead(cursor: Cursor): Result<RelayBeginCell, BinaryReadError> {
-    return Result.unthrowSync(t => {
-      const address = cursor.tryReadNulledString().throw(t)
-      const flags = cursor.tryReadUint32().throw(t)
+  static readOrThrow(cursor: Cursor) {
+    const bytes = cursor.readNulledAndCopyOrThrow()
+    const address = Bytes.toUtf8(bytes)
+    const flags = cursor.readUint32OrThrow()
 
-      return new Ok(new RelayBeginCell(address, flags))
-    })
+    return new RelayBeginCell(address, bytes, flags)
   }
 
 }

@@ -28,7 +28,7 @@ export class RelayEndReasonOther {
 export class RelayEndReasonExitPolicy {
   readonly #class = RelayEndReasonExitPolicy
 
-  static id = 4
+  static readonly id = 4
 
   constructor(
     readonly address: Address4 | Address6,

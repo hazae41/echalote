@@ -1,6 +1,5 @@
-import { BinaryReadError } from "@hazae41/binary"
 import { Cursor } from "@hazae41/cursor"
-import { Err, Ok, Panic, Result, Unimplemented } from "@hazae41/result"
+import { Unimplemented } from "@hazae41/result"
 import { Dates } from "libs/dates/dates.js"
 import { Address4, Address6 } from "mods/tor/binary/address.js"
 
@@ -40,37 +39,35 @@ export class RelayConnectedCell {
     return this.#class.rcommand
   }
 
-  trySize(): Result<never, never> {
-    throw Panic.from(new Unimplemented())
+  sizeOrThrow(): never {
+    throw new Unimplemented()
   }
 
-  tryWrite(cursor: Cursor): Result<never, never> {
-    throw Panic.from(new Unimplemented())
+  writeOrThrow(cursor: Cursor): never {
+    throw new Unimplemented()
   }
 
-  static tryRead(cursor: Cursor): Result<RelayConnectedCell, BinaryReadError | UnknownAddressType> {
-    return Result.unthrowSync(t => {
-      const ipv4 = Address4.tryRead(cursor).throw(t)
+  static readOrThrow(cursor: Cursor) {
+    const ipv4 = Address4.readOrThrow(cursor)
 
-      if (ipv4.address !== "0.0.0.0") {
-        const ttlv = cursor.tryReadUint32().throw(t)
-        const ttl = Dates.fromSecondsDelay(ttlv)
+    if (ipv4.address !== "0.0.0.0") {
+      const ttlv = cursor.readUint32OrThrow()
+      const ttl = Dates.fromSecondsDelay(ttlv)
 
-        return new Ok(new RelayConnectedCell(ipv4, ttl))
-      } else {
-        const type = cursor.tryReadUint8().throw(t)
+      return new RelayConnectedCell(ipv4, ttl)
+    }
 
-        if (type !== 6)
-          return new Err(new UnknownAddressType(type))
+    const type = cursor.readUint8OrThrow()
 
-        const ipv6 = Address6.tryRead(cursor).throw(t)
+    if (type !== 6)
+      throw new UnknownAddressType(type)
 
-        const ttlv = cursor.tryReadUint32().throw(t)
-        const ttl = Dates.fromSecondsDelay(ttlv)
+    const ipv6 = Address6.readOrThrow(cursor)
 
-        return new Ok(new RelayConnectedCell(ipv6, ttl))
-      }
-    })
+    const ttlv = cursor.readUint32OrThrow()
+    const ttl = Dates.fromSecondsDelay(ttlv)
+
+    return new RelayConnectedCell(ipv6, ttl)
   }
 
 }

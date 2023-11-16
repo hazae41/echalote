@@ -1,5 +1,4 @@
 import { Cursor } from "@hazae41/cursor";
-import { Ok, Result } from "@hazae41/result";
 
 export class RelayBeginDirCell {
   readonly #class = RelayBeginDirCell
@@ -13,14 +12,12 @@ export class RelayBeginDirCell {
     return this.#class.rcommand
   }
 
-  trySize(): Result<number, never> {
-    return new Ok(0)
+  sizeOrThrow() {
+    return 0
   }
 
-  tryWrite(cursor: Cursor): Result<void, never> {
-    cursor.fill(0, cursor.remaining)
-
-    return Ok.void()
+  writeOrThrow(cursor: Cursor) {
+    cursor.fillOrThrow(0, cursor.remaining)
   }
 
 }

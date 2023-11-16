@@ -21,7 +21,7 @@ export namespace RelayExtend2Link {
 export class RelayExtend2LinkIPv4 {
   readonly #class = RelayExtend2LinkIPv4
 
-  static type = 0
+  static readonly type = 0
 
   constructor(
     readonly hostname: string,
@@ -60,7 +60,7 @@ export class RelayExtend2LinkIPv4 {
 export class RelayExtend2LinkIPv6 {
   readonly #class = RelayExtend2LinkIPv6
 
-  static type = 1
+  static readonly type = 1
 
   constructor(
     readonly hostname: string,
@@ -103,7 +103,7 @@ export class RelayExtend2LinkIPv6 {
 export class RelayExtend2LinkLegacyID {
   readonly #class = RelayExtend2LinkLegacyID
 
-  static type = 2
+  static readonly type = 2
 
   constructor(
     readonly fingerprint: Uint8Array
@@ -128,7 +128,7 @@ export class RelayExtend2LinkLegacyID {
 export class RelayExtend2LinkModernID {
   readonly #class = RelayExtend2LinkModernID
 
-  static type = 3
+  static readonly type = 3
 
   constructor(
     readonly fingerprint: Uint8Array
