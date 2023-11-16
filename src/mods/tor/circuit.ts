@@ -202,7 +202,6 @@ export class SecretCircuit {
     Console.debug(`${this.#class.name}.onReadError`, { reason })
 
     this.#destroy(reason)
-
     await this.events.emit("error", [reason])
 
     return new None()
@@ -215,7 +214,6 @@ export class SecretCircuit {
     Console.debug(`${this.#class.name}.onDestroyCell`, cell)
 
     this.#destroy(cell)
-
     await this.events.emit("error", [cell])
 
     return new None()
