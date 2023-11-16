@@ -1,8 +1,7 @@
-import { Bytes } from "@hazae41/bytes";
 import { Cursor } from "@hazae41/cursor";
 
 export interface CreateFastCellInit {
-  readonly material: Bytes<20>
+  readonly material: Uint8Array<20>
 }
 
 export class CreateFastCell {
@@ -17,7 +16,7 @@ export class CreateFastCell {
    * @param material Key material (X) [20]
    */
   constructor(
-    readonly material: Bytes<20>
+    readonly material: Uint8Array<20>
   ) { }
 
   get old(): false {

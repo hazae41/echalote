@@ -1,4 +1,3 @@
-import { Bytes } from "@hazae41/bytes";
 import { Cursor } from "@hazae41/cursor";
 import { Ed25519 } from "@hazae41/ed25519";
 import { SignedWithEd25519Key } from "mods/tor/binary/certs/ed25519/extensions/signer.js";
@@ -38,10 +37,10 @@ export class Ed25519Cert {
     readonly certType: number,
     readonly expiration: Date,
     readonly certKeyType: number,
-    readonly certKey: Bytes<32>,
+    readonly certKey: Uint8Array<32>,
     readonly extensions: Extensions,
     readonly payload: Uint8Array,
-    readonly signature: Bytes<64>
+    readonly signature: Uint8Array<64>
   ) { }
 
   async verifyOrThrow() {

@@ -1,4 +1,3 @@
-import { Bytes } from "@hazae41/bytes"
 import { Cursor } from "@hazae41/cursor"
 import { Unimplemented } from "@hazae41/result"
 
@@ -10,7 +9,7 @@ export class AuthChallengeCell {
   static readonly command = 130
 
   constructor(
-    readonly challenge: Bytes<32>,
+    readonly challenge: Uint8Array<32>,
     readonly methods: number[]
   ) { }
 

@@ -15,11 +15,11 @@ export class InvalidKdfKeyHashError extends Error {
 }
 
 export interface KDFTorResult {
-  keyHash: Bytes<HASH_LEN>,
-  forwardDigest: Bytes<HASH_LEN>,
-  backwardDigest: Bytes<HASH_LEN>,
-  forwardKey: Bytes<KEY_LEN>,
-  backwardKey: Bytes<KEY_LEN>
+  keyHash: Uint8Array<HASH_LEN>,
+  forwardDigest: Uint8Array<HASH_LEN>,
+  backwardDigest: Uint8Array<HASH_LEN>,
+  forwardKey: Uint8Array<KEY_LEN>,
+  backwardKey: Uint8Array<KEY_LEN>
 }
 
 export namespace KDFTorResult {

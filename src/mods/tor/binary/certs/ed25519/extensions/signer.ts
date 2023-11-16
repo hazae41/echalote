@@ -1,4 +1,3 @@
-import { Bytes } from "@hazae41/bytes";
 import { Cursor } from "@hazae41/cursor";
 
 export class SignedWithEd25519Key {
@@ -7,7 +6,7 @@ export class SignedWithEd25519Key {
   static readonly type = 4
 
   constructor(
-    readonly key: Bytes<32>
+    readonly key: Uint8Array<32>
   ) { }
 
   get type(): 4 {

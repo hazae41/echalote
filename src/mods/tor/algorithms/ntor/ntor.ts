@@ -17,8 +17,8 @@ export class InvalidNtorAuthError extends Error {
 export class NtorResponse {
 
   constructor(
-    readonly public_y: Bytes<32>,
-    readonly auth: Bytes<32>
+    readonly public_y: Uint8Array<32>,
+    readonly auth: Uint8Array<32>
   ) { }
 
   static tryRead(cursor: Cursor): Result<NtorResponse, BinaryReadError> {
@@ -35,9 +35,9 @@ export class NtorResponse {
 export class NtorRequest {
 
   constructor(
-    readonly public_x: Bytes<32>,
-    readonly relayid_rsa: Bytes<20>,
-    readonly ntor_onion_key: Bytes<32>
+    readonly public_x: Uint8Array<32>,
+    readonly relayid_rsa: Uint8Array<20>,
+    readonly ntor_onion_key: Uint8Array<32>
   ) { }
 
   trySize(): Result<number, never> {
@@ -60,23 +60,23 @@ export class NtorRequest {
 }
 
 export interface NtorResult {
-  auth: Bytes<32>,
-  nonce: Bytes<HASH_LEN>,
-  forwardDigest: Bytes<HASH_LEN>,
-  backwardDigest: Bytes<HASH_LEN>,
-  forwardKey: Bytes<KEY_LEN>,
-  backwardKey: Bytes<KEY_LEN>
+  auth: Uint8Array<32>,
+  nonce: Uint8Array<HASH_LEN>,
+  forwardDigest: Uint8Array<HASH_LEN>,
+  backwardDigest: Uint8Array<HASH_LEN>,
+  forwardKey: Uint8Array<KEY_LEN>,
+  backwardKey: Uint8Array<KEY_LEN>
 }
 
 export namespace NtorResult {
 
   export async function tryFinalize(
-    shared_xy: Bytes<32>,
-    shared_xb: Bytes<32>,
-    relayid_rsa: Bytes<20>,
-    public_b: Bytes<32>,
-    public_x: Bytes<32>,
-    public_y: Bytes<32>
+    shared_xy: Uint8Array<32>,
+    shared_xb: Uint8Array<32>,
+    relayid_rsa: Uint8Array<20>,
+    public_b: Uint8Array<32>,
+    public_x: Uint8Array<32>,
+    public_y: Uint8Array<32>
   ): Promise<Result<NtorResult, BinaryError>> {
     return await Result.unthrow(async t => {
       const protoid = "ntor-curve25519-sha256-1"

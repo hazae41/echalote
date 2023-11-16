@@ -1,5 +1,4 @@
 import { BinaryReadError, BinaryWriteError, Opaque, Writable } from "@hazae41/binary";
-import { Bytes } from "@hazae41/bytes";
 import { Cursor } from "@hazae41/cursor";
 import { Ok, Result } from "@hazae41/result";
 
@@ -102,7 +101,7 @@ export class RelaySendmeStreamCell {
 export class RelaySendmeDigest {
 
   constructor(
-    readonly digest: Bytes<20>
+    readonly digest: Uint8Array<20>
   ) { }
 
   trySize(): Result<number, never> {

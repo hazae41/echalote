@@ -1,4 +1,3 @@
-import { Bytes } from "@hazae41/bytes"
 import { Cursor } from "@hazae41/cursor"
 import { Unimplemented } from "@hazae41/result"
 import { ExpiredCertError } from "mods/tor/certs/certs.js"
@@ -12,7 +11,7 @@ export class CrossCert {
 
   constructor(
     readonly type: number,
-    readonly key: Bytes<32>,
+    readonly key: Uint8Array<32>,
     readonly expiration: Date,
     readonly payload: Uint8Array,
     readonly signature: Uint8Array

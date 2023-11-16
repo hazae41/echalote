@@ -50,7 +50,7 @@ export namespace RelayCell {
       readonly stream: number,
       readonly rcommand: number,
       readonly fragment: Fragment,
-      readonly digest20?: Bytes<20>
+      readonly digest20?: Uint8Array<20>
     ) { }
 
     unpackOrThrow(): RelayCell<Fragment> {
@@ -161,7 +161,7 @@ export namespace RelayCell {
       readonly stream: SecretTorStreamDuplex,
       readonly rcommand: number,
       readonly fragment: Fragment,
-      readonly digest20?: Bytes<20>
+      readonly digest20?: Uint8Array<20>
     ) {
       this.#raw = new Raw(circuit, stream.id, rcommand, fragment)
     }
@@ -193,7 +193,7 @@ export namespace RelayCell {
       readonly stream: undefined,
       readonly rcommand: number,
       readonly fragment: Fragment,
-      readonly digest20?: Bytes<20>
+      readonly digest20?: Uint8Array<20>
     ) {
       this.#raw = new Raw(circuit, 0, rcommand, fragment)
     }
