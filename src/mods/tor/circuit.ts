@@ -8,8 +8,9 @@ import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
 import { tryFetch } from "@hazae41/fleche";
 import { Future } from "@hazae41/future";
 import { None, Option, Some } from "@hazae41/option";
-import { CloseEvents, ClosedError, ErrorEvents, ErroredError, EventError, Plume, SuperEventTarget } from "@hazae41/plume";
-import { Ok, Result } from "@hazae41/result";
+import { TooManyRetriesError } from "@hazae41/piscine";
+import { AbortedError, CloseEvents, ClosedError, ErrorEvents, ErroredError, EventError, Plume, SuperEventTarget } from "@hazae41/plume";
+import { Err, Ok, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
@@ -102,6 +103,10 @@ export class Circuit {
 
   async tryExtend(exit: boolean, signal: AbortSignal) {
     return await this.#secret.tryExtend(exit, signal)
+  }
+
+  async tryExtendLoop(exit: boolean, signal?: AbortSignal) {
+    return await this.#secret.tryExtendLoop(exit, signal)
   }
 
   async tryOpen(hostname: string, port: number, params?: CircuitOpenParams) {
@@ -402,6 +407,42 @@ export class SecretCircuit {
     return await Result.runAndWrap(async () => {
       return await this.extendOrThrow(exit, signal)
     }).then(r => r.mapErrSync(cause => new Error(`Could not extend`, { cause })))
+  }
+
+  async tryExtendLoop(exit: boolean, signal?: AbortSignal): Promise<Result<void, Error>> {
+    for (let i = 0; !this.destroyed && !signal?.aborted && i < 3; i++) {
+      const result = await this.tryExtend(exit, signal)
+
+      if (result.isOk())
+        return result
+
+      if (this.destroyed)
+        return result
+      if (signal?.aborted)
+        return result
+
+      if (result.inner.name === AbortedError.name) {
+        Console.debug("Extend aborted", { error: result.get() })
+        await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
+        continue
+      }
+
+      if (result.inner.name === InvalidNtorAuthError.name) {
+        Console.debug("Extend failed", { error: result.get() })
+        await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
+        continue
+      }
+
+      return result
+    }
+
+    if (this.destroyed?.reason != null)
+      return new Err(ErroredError.from(this.destroyed.reason))
+    if (this.destroyed != null)
+      return new Err(ClosedError.from(this.destroyed.reason))
+    if (signal?.aborted)
+      return new Err(AbortedError.from(signal.reason))
+    return new Err(new TooManyRetriesError())
   }
 
   async truncateOrThrow(reason = RelayTruncateCell.reasons.NONE, signal?: AbortSignal) {

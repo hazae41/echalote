@@ -1,21 +1,18 @@
-import { Base16 } from "@hazae41/base16";
-import { Base64 } from "@hazae41/base64";
-import { BinaryError, BinaryReadError, Opaque, Readable, Writable } from "@hazae41/binary";
+import { Opaque, Readable, Writable } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
-import { Bytes, BytesCastError } from "@hazae41/bytes";
+import { Bytes } from "@hazae41/bytes";
 import { TlsClientDuplex } from "@hazae41/cadenas";
-import { SuperTransformStream } from "@hazae41/cascade";
+import { SuperReadableStream, SuperWritableStream } from "@hazae41/cascade";
 import { Cursor } from "@hazae41/cursor";
 import { Future } from "@hazae41/future";
 import { Mutex } from "@hazae41/mutex";
-import { None } from "@hazae41/option";
+import { None, Some } from "@hazae41/option";
 import { Paimon } from "@hazae41/paimon";
 import { TooManyRetriesError } from "@hazae41/piscine";
-import { AbortedError, CloseEvents, ClosedError, ErrorEvents, ErroredError, EventError, Plume, SuperEventTarget } from "@hazae41/plume";
+import { AbortedError, CloseEvents, ClosedError, ErrorEvents, ErroredError, Plume, SuperEventTarget } from "@hazae41/plume";
 import { Catched, Err, Ok, Panic, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
-import { CryptoError } from "libs/crypto/crypto.js";
 import { AbortSignals } from "libs/signals/signals.js";
 import { Console } from "mods/console/index.js";
 import { TypedAddress } from "mods/tor/binary/address.js";
@@ -38,12 +35,11 @@ import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { RelayExtended2Cell } from "mods/tor/binary/cells/relayed/relay_extended2/cell.js";
 import { RelayTruncatedCell } from "mods/tor/binary/cells/relayed/relay_truncated/cell.js";
 import { TorCiphers } from "mods/tor/ciphers.js";
-import { Circuit, EmptyFallbacksError, SecretCircuit } from "mods/tor/circuit.js";
+import { Circuit, SecretCircuit } from "mods/tor/circuit.js";
 import { Authority } from "mods/tor/consensus/authorities.js";
 import { Target } from "mods/tor/target.js";
 import { InvalidKdfKeyHashError, KDFTorResult } from "./algorithms/kdftor.js";
-import { InvalidNtorAuthError } from "./algorithms/ntor/ntor.js";
-import { CellError, InvalidCellError, InvalidRelayCellDigestError, InvalidRelaySendmeCellDigestError, RelayCellError } from "./binary/cells/errors.js";
+import { InvalidCellError, InvalidRelayCellDigestError, InvalidRelaySendmeCellDigestError } from "./binary/cells/errors.js";
 import { OldCell } from "./binary/cells/old.js";
 import { RelaySendmeCircuitCell, RelaySendmeDigest, RelaySendmeStreamCell } from "./binary/cells/relayed/relay_sendme/cell.js";
 import { Certs } from "./certs/certs.js";
@@ -73,10 +69,9 @@ export class TorClientDuplex {
   readonly #secret: SecretTorClientDuplex
 
   constructor(
-    readonly tcp: ReadableWritablePair<Opaque, Writable>,
     readonly params: TorClientParams
   ) {
-    this.#secret = new SecretTorClientDuplex(tcp, params)
+    this.#secret = new SecretTorClientDuplex(params)
   }
 
   get events() {
@@ -131,8 +126,10 @@ export class SecretTorClientDuplex {
 
   readonly events = new SuperEventTarget<SecretTorEvents>()
 
-  readonly input: SuperTransformStream<Opaque, Opaque>
-  readonly output: SuperTransformStream<Writable, Writable>
+  readonly input: SuperWritableStream<Opaque>
+  readonly output: SuperReadableStream<Writable>
+
+  readonly inner: ReadableWritablePair<Writable, Opaque>
 
   readonly authorities = new Array<Authority>()
   readonly circuits = new Mutex(new Map<number, SecretCircuit>())
@@ -149,46 +146,43 @@ export class SecretTorClientDuplex {
    * @param params Tor params
    */
   constructor(
-    readonly tcp: ReadableWritablePair<Opaque, Writable>,
     readonly params: TorClientParams
   ) {
     this.#controller = new AbortController()
 
-    const signal = AbortSignals.merge(this.#controller.signal, params.signal)
-
     // this.authorities = parseAuthorities()
 
     const ciphers = Object.values(TorCiphers)
-    const tls = new TlsClientDuplex(tcp, { signal, ciphers })
+    const tls = new TlsClientDuplex({ ciphers })
 
-    this.input = new SuperTransformStream({
-      transform: this.#onRead.bind(this)
+    tls.events.input.on("certificates", (certs) => {
+      console.log(certs)
+      return new Some(Ok.void())
     })
 
-    this.output = new SuperTransformStream({
-      start: this.#onWriteStart.bind(this)
+    this.inner = tls.inner
+
+    this.input = new SuperWritableStream({
+      write: this.#onInputWrite.bind(this)
     })
 
-    const read = this.input.start()
-    const write = this.output.start()
+    this.output = new SuperReadableStream({
+      start: this.#onOutputStart.bind(this)
+    })
 
-    tls.readable
-      .pipeTo(read.writable, { signal })
-      .then(this.#onReadClose.bind(this))
-      .catch(this.#onReadError.bind(this))
-      .then(r => r.ignore())
-      .catch(console.error)
+    const inputer = this.input.start()
+    const outputer = this.output.start()
 
-    write.readable
-      .pipeTo(tls.writable, { signal })
-      .then(this.#onWriteClose.bind(this))
-      .catch(this.#onWriteError.bind(this))
-      .then(r => r.ignore())
-      .catch(console.error)
+    tls.outer.readable
+      .pipeTo(inputer)
+      .then(() => this.#onReadClose())
+      .catch(e => this.#onReadError(e))
+      .catch(() => { })
 
-    read.readable
-      .pipeTo(new WritableStream())
-      .then(() => { })
+    outputer
+      .pipeTo(tls.outer.writable)
+      .then(() => this.#onWriteClose())
+      .catch(e => this.#onWriteError(e))
       .catch(() => { })
   }
 
@@ -247,7 +241,7 @@ export class SecretTorClientDuplex {
     return Catched.throwOrErr(reason)
   }
 
-  async #onWriteStart(): Promise<Result<void, ErroredError | ClosedError>> {
+  async #onOutputStart(): Promise<Result<void, ErroredError | ClosedError>> {
     await this.#init()
 
     const version = new VersionsCell([5])
@@ -259,7 +253,7 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async #onRead(chunk: Opaque) {
+  async #onInputWrite(chunk: Opaque) {
     // Console.debug(this.#class.name, "<-", chunk)
 
     if (this.#buffer.offset)
@@ -337,7 +331,7 @@ export class SecretTorClientDuplex {
     throw new Panic(`Unknown state`)
   }
 
-  async #onNoneStateCell(cell: Cell<Opaque> | OldCell<Opaque>, state: TorNoneState): Promise<Result<void, InvalidTorVersionError | BinaryReadError | CellError>> {
+  async #onNoneStateCell(cell: Cell<Opaque> | OldCell<Opaque>, state: TorNoneState): Promise<Result<void, Error>> {
     if (cell instanceof Cell.Circuitful)
       return new Err(new InvalidCellError())
     if (cell instanceof Cell.Circuitless)
@@ -380,7 +374,7 @@ export class SecretTorClientDuplex {
     return Ok.void()
   }
 
-  async #onVersionsCell(cell: OldCell<Opaque>, state: TorNoneState): Promise<Result<void, InvalidTorVersionError | BinaryReadError | CellError>> {
+  async #onVersionsCell(cell: OldCell<Opaque>, state: TorNoneState): Promise<Result<void, Error>> {
     return await Result.unthrow(async t => {
       const cell2 = OldCell.Circuitless.intoOrThrow(cell, VersionsCell)
 
@@ -570,7 +564,7 @@ export class SecretTorClientDuplex {
     console.warn(`Unknown RELAY_SENDME circuit cell version ${cell2.fragment.version}`)
   }
 
-  async #onRelaySendmeStreamCell(cell: RelayCell<Opaque>): Promise<Result<void, BinaryError | RelayCellError | EventError>> {
+  async #onRelaySendmeStreamCell(cell: RelayCell<Opaque>): Promise<Result<void, Error>> {
     return await Result.unthrow(async t => {
       const cell2 = RelayCell.Streamful.intoOrThrow(cell, RelaySendmeStreamCell)
 
@@ -615,7 +609,7 @@ export class SecretTorClientDuplex {
     }, AbortSignals.timeout(5_000, signal))
   }
 
-  async tryCreateAndExtendLoop(signal?: AbortSignal): Promise<Result<Circuit, CryptoError | TooManyRetriesError | InvalidTorStateError | ErroredError | ClosedError | BinaryError | AbortedError | EmptyFallbacksError | InvalidNtorAuthError | InvalidKdfKeyHashError | BytesCastError | EventError | Sha1.AnyError | Base16.AnyError | Base64.AnyError>> {
+  async tryCreateAndExtendLoop(signal?: AbortSignal): Promise<Result<Circuit, Error>> {
     return await Result.unthrow(async t => {
 
       for (let i = 0; !this.closed && !signal?.aborted && i < 3; i++) {
@@ -659,83 +653,86 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async tryCreateLoop(signal?: AbortSignal): Promise<Result<Circuit, TooManyRetriesError | InvalidKdfKeyHashError | InvalidTorStateError | BinaryError | AbortedError | ErroredError | ClosedError | Sha1.AnyError>> {
-    return await Result.unthrow(async t => {
-      for (let i = 0; !this.closed && !signal?.aborted && i < 3; i++) {
-        const result = await this.tryCreate(signal)
+  async tryCreateLoop(signal?: AbortSignal): Promise<Result<Circuit, Error>> {
+    for (let i = 0; !this.closed && !signal?.aborted && i < 3; i++) {
+      const result = await this.tryCreate(signal)
 
-        if (result.isOk())
-          return result
-
-        if (this.closed)
-          return result
-        if (signal?.aborted)
-          return result
-
-        if (result.inner.name === AbortedError.name) {
-          Console.debug("Create aborted", { error: result.get() })
-          await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
-          continue
-        }
-
-        if (result.inner.name === InvalidKdfKeyHashError.name) {
-          Console.debug("Create failed", { error: result.get() })
-          await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
-          continue
-        }
-
+      if (result.isOk())
         return result
+
+      if (this.closed)
+        return result
+      if (signal?.aborted)
+        return result
+
+      if (result.inner.name === AbortedError.name) {
+        Console.debug("Create aborted", { error: result.get() })
+        await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
+        continue
       }
 
-      if (this.closed?.reason != null)
-        return new Err(ErroredError.from(this.closed.reason))
-      if (this.closed != null)
-        return new Err(ClosedError.from(this.closed.reason))
-      if (signal?.aborted)
-        return new Err(AbortedError.from(signal.reason))
-      return new Err(new TooManyRetriesError())
-    })
+      if (result.inner.name === InvalidKdfKeyHashError.name) {
+        Console.debug("Create failed", { error: result.get() })
+        await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
+        continue
+      }
+
+      return result
+    }
+
+    if (this.closed?.reason != null)
+      return new Err(ErroredError.from(this.closed.reason))
+    if (this.closed != null)
+      return new Err(ClosedError.from(this.closed.reason))
+    if (signal?.aborted)
+      return new Err(AbortedError.from(signal.reason))
+    return new Err(new TooManyRetriesError())
   }
 
-  async tryCreate(signal?: AbortSignal): Promise<Result<Circuit, InvalidKdfKeyHashError | InvalidTorStateError | BinaryError | AbortedError | ErroredError | ClosedError | Sha1.AnyError>> {
-    return await Result.unthrow(async t => {
-      if (this.#state.type !== "handshaked")
-        return new Err(new InvalidTorStateError())
+  async createOrThrow(signal?: AbortSignal) {
+    if (this.#state.type !== "handshaked")
+      throw new InvalidTorStateError()
 
-      const circuit = await this.#createCircuitOrThrow().then(r => r.throw(t))
-      const material = Bytes.random(20)
+    const circuit = await this.#createCircuitOrThrow()
+    const material = Bytes.random(20)
 
-      const create_fast = new CreateFastCell(material)
-      this.output.enqueue(Cell.Circuitful.from(circuit, create_fast))
+    const create_fast = new CreateFastCell(material)
+    this.output.enqueue(Cell.Circuitful.from(circuit, create_fast))
 
-      const created_fast = await this.#tryWaitCreatedFast(circuit, signal).then(r => r.throw(t))
+    const created_fast = await this.#tryWaitCreatedFast(circuit, signal).then(r => r.unwrap())
 
-      const k0 = Bytes.concat([material, created_fast.fragment.material])
-      const result = await KDFTorResult.tryCompute(k0).then(r => r.throw(t))
+    const k0 = Bytes.concat([material, created_fast.fragment.material])
+    const result = await KDFTorResult.computeOrThrow(k0)
 
-      if (!Bytes.equals(result.keyHash, created_fast.fragment.derivative))
-        return new Err(new InvalidKdfKeyHashError())
+    if (!Bytes.equals(result.keyHash, created_fast.fragment.derivative))
+      throw new InvalidKdfKeyHashError()
 
-      const forwardDigest = Sha1.get().Hasher.tryNew().throw(t)
-      const backwardDigest = Sha1.get().Hasher.tryNew().throw(t)
+    const forwardDigest = Sha1.get().Hasher.createOrThrow()
+    const backwardDigest = Sha1.get().Hasher.createOrThrow()
 
-      forwardDigest.tryUpdate(result.forwardDigest).throw(t)
-      backwardDigest.tryUpdate(result.backwardDigest).throw(t)
+    forwardDigest.updateOrThrow(result.forwardDigest)
+    backwardDigest.updateOrThrow(result.backwardDigest)
 
-      using forwardKeyMemory = new Zepar.Memory(result.forwardKey)
-      using forwardIvMemory = new Zepar.Memory(Bytes.tryAlloc(16).throw(t))
+    using forwardKeyMemory = new Zepar.Memory(result.forwardKey)
+    using forwardIvMemory = new Zepar.Memory(new Uint8Array(16))
 
-      using backwardKeyMemory = new Zepar.Memory(result.backwardKey)
-      using backwardIvMemory = new Zepar.Memory(Bytes.tryAlloc(16).throw(t))
+    using backwardKeyMemory = new Zepar.Memory(result.backwardKey)
+    using backwardIvMemory = new Zepar.Memory(new Uint8Array(16))
 
-      const forwardKey = new Aes128Ctr128BEKey(forwardKeyMemory, forwardIvMemory)
-      const backwardKey = new Aes128Ctr128BEKey(backwardKeyMemory, backwardIvMemory)
+    const forwardKey = new Aes128Ctr128BEKey(forwardKeyMemory, forwardIvMemory)
+    const backwardKey = new Aes128Ctr128BEKey(backwardKeyMemory, backwardIvMemory)
 
-      const target = new Target(this.#state.guard.idh, circuit, forwardDigest, backwardDigest, forwardKey, backwardKey)
+    const target = new Target(this.#state.guard.idh, circuit, forwardDigest, backwardDigest, forwardKey, backwardKey)
 
-      circuit.targets.push(target)
+    circuit.targets.push(target)
 
-      return new Ok(new Circuit(circuit))
-    })
+    return new Circuit(circuit)
   }
+
+  async tryCreate(signal?: AbortSignal) {
+    return await Result.runAndWrap(async () => {
+      return await this.createOrThrow(signal)
+    }).then(r => r.mapErrSync(cause => new Error(`Could not create`, { cause })))
+  }
+
 }
