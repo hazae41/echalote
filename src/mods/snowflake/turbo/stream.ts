@@ -1,6 +1,5 @@
 import { Opaque, Writable } from "@hazae41/binary"
 import { Bytes } from "@hazae41/bytes"
-import { Catched, Ok } from "@hazae41/result"
 import { Console } from "mods/console/index.js"
 import { SecretTurboReader } from "./reader.js"
 import { SecretTurboWriter } from "./writer.js"
@@ -20,12 +19,12 @@ export class TurboDuplex {
     this.#secret = new SecretTurboDuplex(stream, params)
   }
 
-  get readable() {
-    return this.#secret.readable
+  get inner() {
+    return this.#secret.inner
   }
 
-  get writable() {
-    return this.#secret.writable
+  get outer() {
+    return this.#secret.outer
   }
 
 }
@@ -38,8 +37,8 @@ export class SecretTurboDuplex {
   readonly reader: SecretTurboReader
   readonly writer: SecretTurboWriter
 
-  readonly readable: ReadableStream<Opaque>
-  readonly writable: WritableStream<Writable>
+  readonly inner: ReadableWritablePair<Writable, Opaque>
+  readonly outer: ReadableWritablePair<Opaque, Writable>
 
   readonly clientID: Uint8Array
 
@@ -47,79 +46,85 @@ export class SecretTurboDuplex {
     readonly stream: ReadableWritablePair<Opaque, Writable>,
     readonly params: TurboDuplexParams = {}
   ) {
-    const { clientID } = params
+    const { clientID = Bytes.random(8) } = params
 
-    this.clientID = clientID ?? Bytes.tryRandom(8).unwrap()
+    this.clientID = clientID
 
     this.reader = new SecretTurboReader(this)
     this.writer = new SecretTurboWriter(this)
 
-    const read = this.reader.stream.start()
-    const write = this.writer.stream.start()
+    const preInputer = this.reader.stream.start()
+    const preOutputer = this.writer.stream.start()
 
-    this.readable = read.readable
-    this.writable = write.writable
+    const postInputer = new TransformStream<Opaque, Opaque>({})
+    const postOutputer = new TransformStream<Writable, Writable>({})
 
-    stream.readable
-      .pipeTo(read.writable)
-      .then(this.#onReadClose.bind(this))
-      .catch(this.#onReadError.bind(this))
-      .then(r => r.ignore())
-      .catch(console.error)
+    /**
+     * Inner protocol (UDP?)
+     */
+    this.inner = {
+      readable: postOutputer.readable,
+      writable: preInputer.writable
+    }
 
-    write.readable
-      .pipeTo(stream.writable)
-      .then(this.#onWriteClose.bind(this))
-      .catch(this.#onWriteError.bind(this))
-      .then(r => r.ignore())
-      .catch(console.error)
+    /**
+     * Outer protocol (SMUX?)
+     */
+    this.outer = {
+      readable: postInputer.readable,
+      writable: preOutputer.writable
+    }
+
+    preInputer.readable
+      .pipeTo(postInputer.writable)
+      .then(() => this.#onInputClose())
+      .catch(e => this.#onInputError(e))
+      .catch(() => { })
+
+    preOutputer.readable
+      .pipeTo(postOutputer.writable)
+      .then(() => this.#onOutputClose())
+      .catch(e => this.#onOutputError(e))
+      .catch(() => { })
   }
 
   get class() {
     return this.#class
   }
 
-  async #onReadClose() {
+  async #onInputClose() {
     Console.debug(`${this.#class.name}.onReadClose`)
 
     this.reader.stream.closed = {}
 
     await this.reader.events.emit("close", [undefined])
-
-    return Ok.void()
   }
 
 
-  async #onWriteClose() {
+  async #onOutputClose() {
     Console.debug(`${this.#class.name}.onWriteClose`)
 
     this.writer.stream.closed = {}
 
     await this.writer.events.emit("close", [undefined])
-
-    return Ok.void()
   }
 
-  async #onReadError(reason?: unknown) {
+  async #onInputError(reason?: unknown) {
     Console.debug(`${this.#class.name}.onReadError`, { reason })
 
     this.reader.stream.closed = { reason }
     this.writer.stream.error(reason)
 
     await this.reader.events.emit("error", [reason])
-
-    return Catched.throwOrErr(reason)
   }
 
-  async #onWriteError(reason?: unknown) {
+  async #onOutputError(reason?: unknown) {
     Console.debug(`${this.#class.name}.onWriteError`, { reason })
 
     this.writer.stream.closed = { reason }
     this.reader.stream.error(reason)
 
     await this.writer.events.emit("error", [reason])
-
-    return Catched.throwOrErr(reason)
   }
 
 }

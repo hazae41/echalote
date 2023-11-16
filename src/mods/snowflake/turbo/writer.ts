@@ -31,9 +31,8 @@ export class SecretTurboWriter {
   }
 
   #onWrite(fragment: Writable) {
-    return TurboFrame
-      .tryNew({ padding: false, fragment })
-      .andThenSync(frame => this.stream.tryEnqueue(frame))
+    this.stream.enqueue(TurboFrame.createOrThrow({ padding: false, fragment }))
+    return Ok.void()
   }
 
 }
