@@ -1,12 +1,10 @@
-import { Arrays } from "@hazae41/arrays";
-import { ASN1Error, DERReadError } from "@hazae41/asn1";
 import { Base16 } from "@hazae41/base16";
 import { Base64 } from "@hazae41/base64";
 import { BinaryError, BinaryReadError, Opaque, Readable, Writable } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Bytes, BytesCastError } from "@hazae41/bytes";
 import { TlsClientDuplex } from "@hazae41/cadenas";
-import { ControllerError, SuperTransformStream } from "@hazae41/cascade";
+import { SuperTransformStream } from "@hazae41/cascade";
 import { Cursor } from "@hazae41/cursor";
 import { Future } from "@hazae41/future";
 import { Mutex } from "@hazae41/mutex";
@@ -45,10 +43,10 @@ import { Authority } from "mods/tor/consensus/authorities.js";
 import { Target } from "mods/tor/target.js";
 import { InvalidKdfKeyHashError, KDFTorResult } from "./algorithms/kdftor.js";
 import { InvalidNtorAuthError } from "./algorithms/ntor/ntor.js";
-import { CellError, ExpectedCircuitError, InvalidCellError, InvalidRelayCellDigestError, InvalidRelaySendmeCellDigestError, RelayCellError } from "./binary/cells/errors.js";
+import { CellError, InvalidCellError, InvalidRelayCellDigestError, InvalidRelaySendmeCellDigestError, RelayCellError } from "./binary/cells/errors.js";
 import { OldCell } from "./binary/cells/old.js";
 import { RelaySendmeCircuitCell, RelaySendmeDigest, RelaySendmeStreamCell } from "./binary/cells/relayed/relay_sendme/cell.js";
-import { CertError, Certs } from "./certs/certs.js";
+import { Certs } from "./certs/certs.js";
 import { InvalidTorStateError, InvalidTorVersionError } from "./errors.js";
 import { TorHandshakingState, TorNoneState, TorState, TorVersionedState } from "./state.js";
 
@@ -133,8 +131,8 @@ export class SecretTorClientDuplex {
 
   readonly events = new SuperEventTarget<SecretTorEvents>()
 
-  readonly reader: SuperTransformStream<Opaque, Opaque>
-  readonly writer: SuperTransformStream<Writable, Writable>
+  readonly input: SuperTransformStream<Opaque, Opaque>
+  readonly output: SuperTransformStream<Writable, Writable>
 
   readonly authorities = new Array<Authority>()
   readonly circuits = new Mutex(new Map<number, SecretCircuit>())
@@ -163,16 +161,16 @@ export class SecretTorClientDuplex {
     const ciphers = Object.values(TorCiphers)
     const tls = new TlsClientDuplex(tcp, { signal, ciphers })
 
-    this.reader = new SuperTransformStream({
+    this.input = new SuperTransformStream({
       transform: this.#onRead.bind(this)
     })
 
-    this.writer = new SuperTransformStream({
+    this.output = new SuperTransformStream({
       start: this.#onWriteStart.bind(this)
     })
 
-    const read = this.reader.start()
-    const write = this.writer.start()
+    const read = this.input.start()
+    const write = this.output.start()
 
     tls.readable
       .pipeTo(read.writable, { signal })
@@ -204,7 +202,7 @@ export class SecretTorClientDuplex {
   }
 
   get closed() {
-    return this.reader.closed
+    return this.input.closed
   }
 
   close(reason?: unknown) {
@@ -214,7 +212,7 @@ export class SecretTorClientDuplex {
   async #onReadClose() {
     Console.debug(`${this.#class.name}.onReadClose`)
 
-    this.reader.closed = {}
+    this.input.closed = {}
 
     await this.events.emit("close", [undefined])
 
@@ -224,7 +222,7 @@ export class SecretTorClientDuplex {
   async #onWriteClose() {
     Console.debug(`${this.#class.name}.onWriteClose`)
 
-    this.writer.closed = {}
+    this.output.closed = {}
 
     return Ok.void()
   }
@@ -232,8 +230,8 @@ export class SecretTorClientDuplex {
   async #onReadError(reason?: unknown) {
     Console.debug(`${this.#class.name}.onReadError`, { reason })
 
-    this.reader.closed = { reason }
-    this.writer.error(reason)
+    this.input.closed = { reason }
+    this.output.error(reason)
 
     await this.events.emit("error", [reason])
 
@@ -243,8 +241,8 @@ export class SecretTorClientDuplex {
   async #onWriteError(reason?: unknown) {
     Console.debug(`${this.#class.name}.onWriteError`, { reason })
 
-    this.writer.closed = { reason }
-    this.reader.error(reason)
+    this.output.closed = { reason }
+    this.input.error(reason)
 
     return Catched.throwOrErr(reason)
   }
@@ -253,7 +251,7 @@ export class SecretTorClientDuplex {
     await this.#init()
 
     const version = new VersionsCell([5])
-    this.writer.enqueue(OldCell.Circuitless.from(undefined, version))
+    this.output.enqueue(OldCell.Circuitless.from(undefined, version))
 
     return await Plume.tryWaitOrCloseOrError(this.events, "handshaked", (future: Future<Ok<void>>) => {
       future.resolve(Ok.void())
@@ -261,13 +259,15 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async #onRead(chunk: Opaque): Promise<Result<void, CryptoError | InvalidTorVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError | ControllerError | Sha1.AnyError>> {
+  async #onRead(chunk: Opaque) {
     // Console.debug(this.#class.name, "<-", chunk)
 
     if (this.#buffer.offset)
-      return await this.#onReadBuffered(chunk.bytes)
+      await this.#onReadBuffered(chunk.bytes)
     else
-      return await this.#onReadDirect(chunk.bytes)
+      await this.#onReadDirect(chunk.bytes)
+
+    return Ok.void()
   }
 
   /**
@@ -275,14 +275,12 @@ export class SecretTorClientDuplex {
    * @param chunk 
    * @returns 
    */
-  async #onReadBuffered(chunk: Uint8Array): Promise<Result<void, CryptoError | InvalidTorVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError | ControllerError | Sha1.AnyError>> {
-    return await Result.unthrow(async t => {
-      this.#buffer.tryWrite(chunk).throw(t)
-      const full = new Uint8Array(this.#buffer.before)
+  async #onReadBuffered(chunk: Uint8Array) {
+    this.#buffer.writeOrThrow(chunk)
+    const full = new Uint8Array(this.#buffer.before)
 
-      this.#buffer.offset = 0
-      return await this.#onReadDirect(full)
-    })
+    this.#buffer.offset = 0
+    await this.#onReadDirect(full)
   }
 
   /**
@@ -290,33 +288,36 @@ export class SecretTorClientDuplex {
    * @param chunk 
    * @returns 
    */
-  async #onReadDirect(chunk: Uint8Array): Promise<Result<void, CryptoError | InvalidTorVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError | ControllerError | Sha1.AnyError>> {
-    return await Result.unthrow(async t => {
-      const cursor = new Cursor(chunk)
+  async #onReadDirect(chunk: Uint8Array) {
+    const cursor = new Cursor(chunk)
 
-      while (cursor.remaining) {
-        const raw = this.#state.type === "none"
-          ? Readable.tryReadOrRollback(OldCell.Raw, cursor).ignore()
-          : Readable.tryReadOrRollback(Cell.Raw, cursor).ignore()
+    while (cursor.remaining) {
+      const raw = this.#state.type === "none"
+        ? Readable.tryReadOrRollback(OldCell.Raw, cursor).ignore()
+        : Readable.tryReadOrRollback(Cell.Raw, cursor).ignore()
 
-        if (raw.isErr()) {
-          this.#buffer.tryWrite(cursor.after).throw(t)
-          break
-        }
-
-        const cell = raw.get().unpackOrThrow(this)
-        await this.#onCell(cell, this.#state).then(r => r.throw(t))
+      if (raw.isErr()) {
+        this.#buffer.writeOrThrow(cursor.after)
+        break
       }
 
-      return Ok.void()
-    })
+      const cell = raw.get().unpackOrThrow(this)
+      await this.#onCell(cell, this.#state)
+    }
+
+    return
   }
 
-  async #onCell(cell: Cell<Opaque> | OldCell<Opaque>, state: TorState): Promise<Result<void, CryptoError | InvalidTorVersionError | BinaryError | CellError | RelayCellError | DERReadError | ASN1Error | CertError | EventError | ControllerError | Sha1.AnyError>> {
-    if (cell.command === PaddingCell.command)
-      return new Ok(Console.debug(cell))
-    if (cell.command === VariablePaddingCell.command)
-      return new Ok(Console.debug(cell))
+  async #onCell(cell: Cell<Opaque> | OldCell<Opaque>, state: TorState) {
+    if (cell.command === PaddingCell.command) {
+      Console.debug(cell)
+      return
+    }
+
+    if (cell.command === VariablePaddingCell.command) {
+      Console.debug(cell)
+      return
+    }
 
     if (state.type === "none")
       return await this.#onNoneStateCell(cell, state)
@@ -333,7 +334,7 @@ export class SecretTorClientDuplex {
     if (state.type === "handshaked")
       return await this.#onHandshakedStateCell(cell)
 
-    throw new Panic()
+    throw new Panic(`Unknown state`)
   }
 
   async #onNoneStateCell(cell: Cell<Opaque> | OldCell<Opaque>, state: TorNoneState): Promise<Result<void, InvalidTorVersionError | BinaryReadError | CellError>> {
@@ -349,7 +350,7 @@ export class SecretTorClientDuplex {
     return Ok.void()
   }
 
-  async #onVersionedStateCell(cell: Cell<Opaque>, state: TorVersionedState): Promise<Result<void, CryptoError | BinaryError | CellError | DERReadError | ASN1Error | CertError>> {
+  async #onVersionedStateCell(cell: Cell<Opaque>, state: TorVersionedState) {
     if (cell.command === CertsCell.command)
       return await this.#onCertsCell(cell, state)
 
@@ -357,7 +358,7 @@ export class SecretTorClientDuplex {
     return Ok.void()
   }
 
-  async #onHandshakingStateCell(cell: Cell<Opaque>, state: TorHandshakingState): Promise<Result<void, BinaryReadError | CellError | EventError>> {
+  async #onHandshakingStateCell(cell: Cell<Opaque>, state: TorHandshakingState) {
     if (cell.command === AuthChallengeCell.command)
       return await this.#onAuthChallengeCell(cell, state)
     if (cell.command === NetinfoCell.command)
@@ -367,7 +368,7 @@ export class SecretTorClientDuplex {
     return Ok.void()
   }
 
-  async #onHandshakedStateCell(cell: Cell<Opaque>): Promise<Result<void, BinaryError | CellError | RelayCellError | EventError | ControllerError | Sha1.AnyError>> {
+  async #onHandshakedStateCell(cell: Cell<Opaque>) {
     if (cell.command === CreatedFastCell.command)
       return await this.#onCreatedFastCell(cell)
     if (cell.command === DestroyCell.command)
@@ -381,7 +382,9 @@ export class SecretTorClientDuplex {
 
   async #onVersionsCell(cell: OldCell<Opaque>, state: TorNoneState): Promise<Result<void, InvalidTorVersionError | BinaryReadError | CellError>> {
     return await Result.unthrow(async t => {
-      const cell2 = OldCell.Circuitless.tryInto(cell, VersionsCell).inspectSync(Console.debug).throw(t)
+      const cell2 = OldCell.Circuitless.intoOrThrow(cell, VersionsCell)
+
+      Console.debug(cell2)
 
       if (!cell2.fragment.versions.includes(5))
         return new Err(new InvalidTorVersionError())
@@ -392,237 +395,196 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async #onCertsCell(cell: Cell<Opaque>, state: TorVersionedState): Promise<Result<void, CryptoError | BinaryError | CellError | DERReadError | ASN1Error | CertError>> {
-    return await Result.unthrow(async t => {
-      const cell2 = Cell.Circuitless.tryInto(cell, CertsCell).inspectSync(Console.debug).throw(t)
+  async #onCertsCell(cell: Cell<Opaque>, state: TorVersionedState) {
+    const cell2 = Cell.Circuitless.intoOrThrow(cell, CertsCell)
 
-      const certs = await Certs.tryVerify(cell2.fragment.certs).then(r => r.throw(t))
+    Console.debug(cell2)
 
-      const idh = await certs.rsa_self.tryHash().then(r => r.throw(t))
-      const guard = { certs, idh }
+    const certs = await Certs.verifyOrThrow(cell2.fragment.certs)
 
-      this.#state = { ...state, type: "handshaking", guard }
+    const idh = await certs.rsa_self.sha1OrThrow()
+    const guard = { certs, idh }
 
-      return Ok.void()
-    })
+    this.#state = { ...state, type: "handshaking", guard }
   }
 
-  async #onAuthChallengeCell(cell: Cell<Opaque>, state: TorHandshakingState): Promise<Result<void, BinaryReadError | CellError | ExpectedCircuitError>> {
-    return Cell.Circuitless.tryInto(cell, AuthChallengeCell).inspectSync(Console.debug).clear()
+  async #onAuthChallengeCell(cell: Cell<Opaque>, state: TorHandshakingState) {
+    Console.debug(Cell.Circuitless.intoOrThrow(cell, AuthChallengeCell))
   }
 
-  async #onNetinfoCell(cell: Cell<Opaque>, state: TorHandshakingState): Promise<Result<void, BinaryReadError | CellError | EventError>> {
-    return await Result.unthrow(async t => {
-      Cell.Circuitless.tryInto(cell, NetinfoCell).inspectSync(Console.debug).throw(t)
+  async #onNetinfoCell(cell: Cell<Opaque>, state: TorHandshakingState) {
+    const cell2 = Cell.Circuitless.intoOrThrow(cell, NetinfoCell)
 
-      const address = new TypedAddress(4, new Uint8Array([127, 0, 0, 1]))
-      const netinfo = new NetinfoCell(0, address, [])
-      this.writer.enqueue(Cell.Circuitless.from(undefined, netinfo))
+    Console.debug(cell2)
 
-      const pversion = PaddingNegociateCell.versions.ZERO
-      const pcommand = PaddingNegociateCell.commands.STOP
-      const padding_negociate = new PaddingNegociateCell(pversion, pcommand, 0, 0)
-      this.writer.enqueue(Cell.Circuitless.from(undefined, padding_negociate))
+    const address = new TypedAddress(4, new Uint8Array([127, 0, 0, 1]))
+    const netinfo = new NetinfoCell(0, address, [])
+    this.output.enqueue(Cell.Circuitless.from(undefined, netinfo))
 
-      this.#state = { ...state, type: "handshaked" }
+    const pversion = PaddingNegociateCell.versions.ZERO
+    const pcommand = PaddingNegociateCell.commands.STOP
+    const padding_negociate = new PaddingNegociateCell(pversion, pcommand, 0, 0)
+    this.output.enqueue(Cell.Circuitless.from(undefined, padding_negociate))
 
-      await this.events.emit("handshaked", [])
+    this.#state = { ...state, type: "handshaked" }
 
-      return Ok.void()
-    })
+    await this.events.emit("handshaked", [])
   }
 
-  async #onCreatedFastCell(cell: Cell<Opaque>): Promise<Result<void, BinaryReadError | CellError | EventError>> {
-    return await Result.unthrow(async t => {
-      const cell2 = Cell.Circuitful.tryInto(cell, CreatedFastCell).inspectSync(Console.debug).throw(t)
+  async #onCreatedFastCell(cell: Cell<Opaque>) {
+    const cell2 = Cell.Circuitful.intoOrThrow(cell, CreatedFastCell)
 
-      const returned = await this.events.emit("CREATED_FAST", [cell2])
+    Console.debug(cell2)
 
-      if (returned.isSome() && returned.inner.isErr())
-        return returned.inner.mapErrSync(EventError.new)
-
-      return Ok.void()
-    })
+    await this.events.emit("CREATED_FAST", [cell2])
   }
 
-  async #onDestroyCell(cell: Cell<Opaque>): Promise<Result<void, BinaryReadError | CellError | EventError>> {
-    return await Result.unthrow(async t => {
-      const cell2 = Cell.Circuitful.tryInto(cell, DestroyCell).inspectSync(Console.debug).throw(t)
+  async #onDestroyCell(cell: Cell<Opaque>) {
+    const cell2 = Cell.Circuitful.intoOrThrow(cell, DestroyCell)
 
-      this.circuits.inner.delete(cell2.circuit.id)
+    Console.debug(cell2)
 
-      const returned = await this.events.emit("DESTROY", [cell2])
+    this.circuits.inner.delete(cell2.circuit.id)
 
-      if (returned.isSome() && returned.inner.isErr())
-        return returned.inner.mapErrSync(EventError.new)
-
-      return Ok.void()
-    })
+    await this.events.emit("DESTROY", [cell2])
   }
 
-  async #onRelayCell(parent: Cell<Opaque>): Promise<Result<void, BinaryError | CellError | RelayCellError | EventError | ControllerError | Sha1.AnyError>> {
-    return await Result.unthrow(async t => {
-      const raw = RelayCell.Raw.tryUncell(parent).throw(t)
-      const cell = raw.tryUnpack().throw(t)
+  async #onRelayCell(parent: Cell<Opaque>) {
+    const raw = RelayCell.Raw.uncellOrThrow(parent)
+    const cell = raw.unpackOrThrow()
 
-      if (cell.rcommand === RelayExtended2Cell.rcommand)
-        return await this.#onRelayExtended2Cell(cell)
-      if (cell.rcommand === RelayConnectedCell.rcommand)
-        return await this.#onRelayConnectedCell(cell)
-      if (cell.rcommand === RelayDataCell.rcommand)
-        return await this.#onRelayDataCell(cell)
-      if (cell.rcommand === RelayEndCell.rcommand)
-        return await this.#onRelayEndCell(cell)
-      if (cell.rcommand === RelayDropCell.rcommand)
-        return await this.#onRelayDropCell(cell)
-      if (cell.rcommand === RelayTruncatedCell.rcommand)
-        return await this.#onRelayTruncatedCell(cell)
-      if (cell.rcommand === RelaySendmeCircuitCell.rcommand && cell.stream == null)
-        return await this.#onRelaySendmeCircuitCell(cell)
-      if (cell.rcommand === RelaySendmeStreamCell.rcommand && cell.stream != null)
-        return await this.#onRelaySendmeStreamCell(cell)
+    if (cell.rcommand === RelayExtended2Cell.rcommand)
+      return await this.#onRelayExtended2Cell(cell)
+    if (cell.rcommand === RelayConnectedCell.rcommand)
+      return await this.#onRelayConnectedCell(cell)
+    if (cell.rcommand === RelayDataCell.rcommand)
+      return await this.#onRelayDataCell(cell)
+    if (cell.rcommand === RelayEndCell.rcommand)
+      return await this.#onRelayEndCell(cell)
+    if (cell.rcommand === RelayDropCell.rcommand)
+      return await this.#onRelayDropCell(cell)
+    if (cell.rcommand === RelayTruncatedCell.rcommand)
+      return await this.#onRelayTruncatedCell(cell)
+    if (cell.rcommand === RelaySendmeCircuitCell.rcommand && cell.stream == null)
+      return await this.#onRelaySendmeCircuitCell(cell)
+    if (cell.rcommand === RelaySendmeStreamCell.rcommand && cell.stream != null)
+      return await this.#onRelaySendmeStreamCell(cell)
 
-      console.warn(`Unknown relay cell ${cell.rcommand}`)
-      return Ok.void()
-    })
+    console.warn(`Unknown relay cell ${cell.rcommand}`)
   }
 
-  async #onRelayExtended2Cell(cell: RelayCell<Opaque>): Promise<Result<void, BinaryError | RelayCellError | EventError>> {
-    return await Result.unthrow(async t => {
-      const cell2 = RelayCell.Streamless.tryInto(cell, RelayExtended2Cell).inspectSync(Console.debug).throw(t)
+  async #onRelayExtended2Cell(cell: RelayCell<Opaque>) {
+    const cell2 = RelayCell.Streamless.intoOrThrow(cell, RelayExtended2Cell)
 
-      const returned = await this.events.emit("RELAY_EXTENDED2", [cell2])
+    Console.debug(cell2)
 
-      if (returned.isSome() && returned.inner.isErr())
-        return returned.inner.mapErrSync(EventError.new)
-
-      return Ok.void()
-    })
+    await this.events.emit("RELAY_EXTENDED2", [cell2])
   }
 
-  async #onRelayConnectedCell(cell: RelayCell<Opaque>): Promise<Result<void, BinaryError | RelayCellError | EventError>> {
-    return await Result.unthrow(async t => {
-      const cell2 = RelayCell.Streamful.intoOrThrow(cell, RelayConnectedCell).inspectSync(Console.debug).throw(t)
+  async #onRelayConnectedCell(cell: RelayCell<Opaque>) {
+    const cell2 = RelayCell.Streamful.intoOrThrow(cell, RelayConnectedCell)
 
-      const returned = await this.events.emit("RELAY_CONNECTED", [cell2])
+    Console.debug(cell2)
 
-      if (returned.isSome() && returned.inner.isErr())
-        return returned.inner.mapErrSync(EventError.new)
-
-      return Ok.void()
-    })
+    await this.events.emit("RELAY_CONNECTED", [cell2])
   }
 
-  async #onRelayDataCell(cell: RelayCell<Opaque>): Promise<Result<void, BinaryError | RelayCellError | EventError | ControllerError | Sha1.AnyError>> {
-    return await Result.unthrow(async t => {
-      const cell2 = RelayCell.Streamful.intoOrThrow(cell, RelayDataCell).inspectSync(Console.debug).throw(t)
+  async #onRelayDataCell(cell: RelayCell<Opaque>) {
+    const cell2 = RelayCell.Streamful.intoOrThrow(cell, RelayDataCell)
 
-      const exit = Arrays.last(cell2.circuit.targets)!
+    Console.debug(cell2)
 
-      exit.delivery--
+    const exit = cell2.circuit.targets[cell2.circuit.targets.length - 1]
 
-      if (exit.delivery === 900) {
-        exit.delivery = 1000
+    exit.delivery--
 
-        if (cell2.digest20 == null)
-          throw Panic.from(new InvalidRelayCellDigestError())
+    if (exit.delivery === 900) {
+      exit.delivery = 1000
 
-        const digest = new RelaySendmeDigest(cell2.digest20)
-        const sendme = new RelaySendmeCircuitCell(1, digest)
+      if (cell2.digest20 == null)
+        throw new InvalidRelayCellDigestError()
 
-        const sendme_cell = RelayCell.Streamless.from(cell2.circuit, undefined, sendme)
-        this.writer.tryEnqueue(sendme_cell.tryCell().throw(t)).throw(t)
-      }
+      const digest = new RelaySendmeDigest(cell2.digest20)
+      const sendme = new RelaySendmeCircuitCell(1, digest)
 
-      const returned = await this.events.emit("RELAY_DATA", [cell2])
+      const sendme_cell = RelayCell.Streamless.from(cell2.circuit, undefined, sendme)
+      this.output.enqueue(sendme_cell.cellOrThrow())
+    }
 
-      if (returned.isSome() && returned.inner.isErr())
-        return returned.inner.mapErrSync(EventError.new)
-
-      return Ok.void()
-    })
+    await this.events.emit("RELAY_DATA", [cell2])
   }
 
-  async #onRelayEndCell(cell: RelayCell<Opaque>): Promise<Result<void, BinaryError | RelayCellError | EventError>> {
-    return await Result.unthrow(async t => {
-      const cell2 = RelayCell.Streamful.intoOrThrow(cell, RelayEndCell).inspectSync(Console.debug).throw(t)
+  async #onRelayEndCell(cell: RelayCell<Opaque>) {
+    const cell2 = RelayCell.Streamful.intoOrThrow(cell, RelayEndCell)
 
-      const returned = await this.events.emit("RELAY_END", [cell2])
+    Console.debug(cell2)
 
-      if (returned.isSome() && returned.inner.isErr())
-        return returned.inner.mapErrSync(EventError.new)
-
-      return Ok.void()
-    })
+    await this.events.emit("RELAY_END", [cell2])
   }
 
-  async #onRelayDropCell(cell: RelayCell<Opaque>): Promise<Result<void, BinaryError | RelayCellError>> {
-    return RelayCell.Streamful.intoOrThrow(cell, RelayDropCell).inspectSync(Console.debug).clear()
+  async #onRelayDropCell(cell: RelayCell<Opaque>) {
+    Console.debug(RelayCell.Streamful.intoOrThrow(cell, RelayDropCell))
   }
 
-  async #onRelayTruncatedCell(cell: RelayCell<Opaque>): Promise<Result<void, BinaryError | RelayCellError | EventError>> {
-    return await Result.unthrow(async t => {
-      const cell2 = RelayCell.Streamless.tryInto(cell, RelayTruncatedCell).inspectSync(Console.debug).throw(t)
+  async #onRelayTruncatedCell(cell: RelayCell<Opaque>) {
+    const cell2 = RelayCell.Streamless.intoOrThrow(cell, RelayTruncatedCell)
 
-      cell2.circuit.targets.pop()
+    Console.debug(cell2)
 
-      const returned = await this.events.emit("RELAY_TRUNCATED", [cell2])
+    cell2.circuit.targets.pop()
 
-      if (returned.isSome() && returned.inner.isErr())
-        return returned.inner.mapErrSync(EventError.new)
-
-      return Ok.void()
-    })
+    await this.events.emit("RELAY_TRUNCATED", [cell2])
   }
 
-  async #onRelaySendmeCircuitCell(cell: RelayCell<Opaque>): Promise<Result<void, BinaryError | RelayCellError | EventError>> {
-    return await Result.unthrow(async t => {
-      const cell2 = RelayCell.Streamless.tryInto(cell, RelaySendmeCircuitCell).inspectSync(Console.debug).throw(t)
+  async #onRelaySendmeCircuitCell(cell: RelayCell<Opaque>) {
+    const cell2 = RelayCell.Streamless.intoOrThrow(cell, RelaySendmeCircuitCell)
 
-      if (cell2.fragment.version === 0) {
-        const exit = Arrays.last(cell2.circuit.targets)!
+    Console.debug(cell2)
 
-        exit.package += 100
-        return Ok.void()
-      }
+    if (cell2.fragment.version === 0) {
+      const exit = cell2.circuit.targets[cell2.circuit.targets.length - 1]
 
-      if (cell2.fragment.version === 1) {
-        const digest = cell2.fragment.fragment.tryReadInto(RelaySendmeDigest).inspectSync(Console.debug).throw(t)
+      exit.package += 100
 
-        const exit = Arrays.last(cell2.circuit.targets)!
-        const digest2 = exit.digests.shift()
+      return
+    }
 
-        if (digest2 == null)
-          return new Err(new InvalidRelaySendmeCellDigestError())
-        if (!Bytes.equals(digest.digest, digest2))
-          return new Err(new InvalidRelaySendmeCellDigestError())
+    if (cell2.fragment.version === 1) {
+      const digest = cell2.fragment.fragment.readIntoOrThrow(RelaySendmeDigest)
 
-        exit.package += 100
-        return Ok.void()
-      }
+      Console.debug(digest)
 
-      console.warn(`Unknown RELAY_SENDME circuit cell version ${cell2.fragment.version}`)
-      return Ok.void()
-    })
+      const exit = cell2.circuit.targets[cell2.circuit.targets.length - 1]
+      const digest2 = exit.digests.shift()
+
+      if (digest2 == null)
+        throw new InvalidRelaySendmeCellDigestError()
+      if (!Bytes.equals(digest.digest, digest2))
+        throw new InvalidRelaySendmeCellDigestError()
+
+      exit.package += 100
+
+      return
+    }
+
+    console.warn(`Unknown RELAY_SENDME circuit cell version ${cell2.fragment.version}`)
   }
 
   async #onRelaySendmeStreamCell(cell: RelayCell<Opaque>): Promise<Result<void, BinaryError | RelayCellError | EventError>> {
     return await Result.unthrow(async t => {
-      const cell2 = RelayCell.Streamful.intoOrThrow(cell, RelaySendmeStreamCell).inspectSync(Console.debug).throw(t)
+      const cell2 = RelayCell.Streamful.intoOrThrow(cell, RelaySendmeStreamCell)
+
+      Console.debug(cell2)
 
       cell2.stream.package += 50
       return Ok.void()
     })
   }
 
-  async #tryCreateCircuit(): Promise<Result<SecretCircuit, BinaryError>> {
-    return await this.circuits.lock(this.#tryCreateCircuitLocked.bind(this))
-  }
-
-  async #tryCreateCircuitLocked(circuits: Map<number, SecretCircuit>): Promise<Result<SecretCircuit, BinaryError>> {
-    return Result.unthrowSync(t => {
+  async #createCircuitOrThrow() {
+    return await this.circuits.lock(async (circuits) => {
       while (true) {
-        const rawCircuitId = new Cursor(Bytes.tryRandom(4).throw(t)).tryGetUint32().throw(t)
+        const rawCircuitId = new Cursor(Bytes.random(4)).getUint32OrThrow()
 
         if (rawCircuitId === 0)
           continue
@@ -639,7 +601,7 @@ export class SecretTorClientDuplex {
 
         circuits.set(circuitId, circuit)
 
-        return new Ok(circuit)
+        return circuit
       }
     })
   }
@@ -740,11 +702,11 @@ export class SecretTorClientDuplex {
       if (this.#state.type !== "handshaked")
         return new Err(new InvalidTorStateError())
 
-      const circuit = await this.#tryCreateCircuit().then(r => r.throw(t))
+      const circuit = await this.#createCircuitOrThrow().then(r => r.throw(t))
       const material = Bytes.random(20)
 
       const create_fast = new CreateFastCell(material)
-      this.writer.enqueue(Cell.Circuitful.from(circuit, create_fast))
+      this.output.enqueue(Cell.Circuitful.from(circuit, create_fast))
 
       const created_fast = await this.#tryWaitCreatedFast(circuit, signal).then(r => r.throw(t))
 

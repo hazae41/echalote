@@ -1,6 +1,7 @@
 import { Readable } from "@hazae41/binary"
 import { Cursor } from "@hazae41/cursor"
-import { Err, Unimplemented } from "@hazae41/result"
+import { Unimplemented } from "@hazae41/result"
+import { Mutable } from "libs/typescript/typescript.js"
 import { CrossCert } from "mods/tor/binary/certs/cross/cert.js"
 import { Ed25519Cert } from "mods/tor/binary/certs/ed25519/cert.js"
 import { RsaCert } from "mods/tor/binary/certs/rsa/cert.js"
@@ -34,7 +35,7 @@ export class CertsCell {
   }
 
   static readOrThrow(cursor: Cursor) {
-    const certs: Partial<Certs> = {}
+    const certs: Partial<Mutable<Certs>> = {}
 
     const count = cursor.readUint8OrThrow()
 
@@ -66,7 +67,7 @@ export class CertsCell {
 
       if (type === RsaCert.types.RSA_TO_TLS) {
         if (certs.rsa_to_tls != null)
-          return new Err(new DuplicatedCertError())
+          throw new DuplicatedCertError()
 
         certs.rsa_to_tls = Readable.readFromBytesOrThrow(RsaCert, bytes)
         continue
@@ -74,7 +75,7 @@ export class CertsCell {
 
       if (type === CrossCert.types.RSA_TO_ED) {
         if (certs.rsa_to_ed != null)
-          return new Err(new DuplicatedCertError())
+          throw new DuplicatedCertError()
 
         certs.rsa_to_ed = Readable.readFromBytesOrThrow(CrossCert, bytes)
         continue
@@ -82,7 +83,7 @@ export class CertsCell {
 
       if (type === Ed25519Cert.types.ED_TO_SIGN) {
         if (certs.ed_to_sign != null)
-          return new Err(new DuplicatedCertError())
+          throw new DuplicatedCertError()
 
         certs.ed_to_sign = Readable.readFromBytesOrThrow(Ed25519Cert, bytes)
         continue
@@ -90,7 +91,7 @@ export class CertsCell {
 
       if (type === Ed25519Cert.types.SIGN_TO_TLS) {
         if (certs.sign_to_tls != null)
-          return new Err(new DuplicatedCertError())
+          throw new DuplicatedCertError()
 
         certs.sign_to_tls = Readable.readFromBytesOrThrow(Ed25519Cert, bytes)
         continue
@@ -98,7 +99,7 @@ export class CertsCell {
 
       if (type === Ed25519Cert.types.SIGN_TO_AUTH) {
         if (certs.sign_to_auth != null)
-          return new Err(new DuplicatedCertError())
+          throw new DuplicatedCertError()
 
         certs.sign_to_auth = Readable.readFromBytesOrThrow(Ed25519Cert, bytes)
         continue

@@ -110,7 +110,7 @@ export class SecretTorStreamDuplex {
         const sendme = new RelaySendmeStreamCell()
 
         const sendme_cell = RelayCell.Streamful.from(this.circuit, this, sendme)
-        this.circuit.tor.writer.tryEnqueue(sendme_cell.cellOrThrow()).throw(t)
+        this.circuit.tor.output.tryEnqueue(sendme_cell.cellOrThrow()).throw(t)
       }
 
       this.#reader.tryEnqueue(cell.fragment.fragment).inspectErrSync(e => Console.debug({ e })).ignore()
@@ -147,7 +147,7 @@ export class SecretTorStreamDuplex {
     const relay_data_cell = new RelayDataCell(writable)
     const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_data_cell)
     const cell = relay_cell.cellOrThrow()
-    this.circuit.tor.writer.enqueue(cell)
+    this.circuit.tor.output.enqueue(cell)
 
     this.package--
   }

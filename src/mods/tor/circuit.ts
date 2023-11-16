@@ -350,7 +350,7 @@ export class SecretCircuit {
 
     const ntor_request = new Ntor.NtorRequest(public_x, relayid_rsa, public_b)
     const relay_extend2 = new RelayExtend2Cell(RelayExtend2Cell.types.NTOR, links, ntor_request)
-    this.tor.writer.enqueue(RelayEarlyCell.Streamless.from(this, undefined, relay_extend2).cellOrThrow())
+    this.tor.output.enqueue(RelayEarlyCell.Streamless.from(this, undefined, relay_extend2).cellOrThrow())
 
     const msg_extended2 = await Plume.tryWaitOrCloseOrErrorOrSignal(this.events, "RELAY_EXTENDED2", (future: Future<Ok<RelayCell.Streamless<RelayExtended2Cell<Opaque>>>>, e) => {
       future.resolve(new Ok(e))
@@ -409,7 +409,7 @@ export class SecretCircuit {
 
     const relay_truncate = new RelayTruncateCell(reason)
     const relay_truncate_cell = RelayCell.Streamless.from(this, undefined, relay_truncate)
-    this.tor.writer.enqueue(relay_truncate_cell.cellOrThrow())
+    this.tor.output.enqueue(relay_truncate_cell.cellOrThrow())
 
     await Plume.tryWaitOrCloseOrErrorOrSignal(this.events, "RELAY_TRUNCATED", (future: Future<Ok<RelayCell.Streamless<RelayTruncatedCell>>>, e) => {
       future.resolve(new Ok(e))
@@ -444,7 +444,7 @@ export class SecretCircuit {
 
     const begin = RelayBeginCell.create(`${hostname}:${port}`, flags)
     const begin_cell = RelayCell.Streamful.from(this, stream, begin)
-    this.tor.writer.enqueue(begin_cell.cellOrThrow())
+    this.tor.output.enqueue(begin_cell.cellOrThrow())
 
     return new TorStreamDuplex(stream)
   }

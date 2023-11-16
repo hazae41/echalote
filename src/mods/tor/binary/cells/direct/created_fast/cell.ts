@@ -1,3 +1,4 @@
+import { Uint8Array } from "@hazae41/bytes";
 import { Cursor } from "@hazae41/cursor";
 
 export class CreatedFastCell {
@@ -25,7 +26,7 @@ export class CreatedFastCell {
     cursor.writeOrThrow(this.derivative)
   }
 
-  static tryRead(cursor: Cursor) {
+  static readOrThrow(cursor: Cursor) {
     const material = cursor.readAndCopyOrThrow(20)
     const derivative = cursor.readAndCopyOrThrow(20)
 
