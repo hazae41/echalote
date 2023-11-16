@@ -5,12 +5,11 @@ import { Opaque } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Bytes } from "@hazae41/bytes";
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
-import { ControllerError } from "@hazae41/cascade";
-import { PipeError, tryFetch } from "@hazae41/fleche";
+import { tryFetch } from "@hazae41/fleche";
 import { Future } from "@hazae41/future";
 import { None, Option, Some } from "@hazae41/option";
-import { AbortedError, CloseEvents, ClosedError, ErrorEvents, ErroredError, EventError, Plume, SuperEventTarget } from "@hazae41/plume";
-import { Err, Ok, Result } from "@hazae41/result";
+import { CloseEvents, ClosedError, ErrorEvents, ErroredError, EventError, Plume, SuperEventTarget } from "@hazae41/plume";
+import { Ok, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
@@ -109,7 +108,7 @@ export class Circuit {
     return await this.#secret.tryOpen(hostname, port, params)
   }
 
-  async tryFetch(input: RequestInfo | URL, init: RequestInit & CircuitOpenParams = {}) {
+  async tryFetch(input: RequestInfo | URL, init: RequestInit & CircuitOpenParams & StreamPipeOptions = {}) {
     return await this.#secret.tryFetch(input, init)
   }
 
@@ -323,12 +322,6 @@ export class SecretCircuit {
     return await this.extendToOrThrow(fallback, signal)
   }
 
-  async tryExtend(exit: boolean, signal?: AbortSignal) {
-    return await Result.runAndWrap(async () => {
-      return await this.extendOrThrow(exit, signal)
-    }).then(r => r.mapErrSync(cause => new Error(`Could not extend`, { cause })))
-  }
-
   async extendToOrThrow(fallback: Fallback, signal?: AbortSignal) {
     if (this.destroyed?.reason != null)
       throw ErroredError.from(this.destroyed.reason)
@@ -407,49 +400,61 @@ export class SecretCircuit {
     this.targets.push(target)
   }
 
-  async tryTruncate(reason = RelayTruncateCell.reasons.NONE, signal?: AbortSignal): Promise<Result<void, BinaryError | ClosedError | AbortedError | ErroredError | Sha1.AnyError>> {
-    return await Result.unthrow(async t => {
-      const signal2 = AbortSignals.timeout(5_000, signal)
-
-      const relay_truncate = new RelayTruncateCell(reason)
-      const relay_truncate_cell = RelayCell.Streamless.from(this, undefined, relay_truncate)
-      this.tor.writer.enqueue(relay_truncate_cell.tryCell().throw(t))
-
-      await Plume.tryWaitOrCloseOrErrorOrSignal(this.events, "RELAY_TRUNCATED", (future: Future<Ok<RelayCell.Streamless<RelayTruncatedCell>>>, e) => {
-        future.resolve(new Ok(e))
-        return new None()
-      }, signal2).then(r => r.throw(t))
-
-      return Ok.void()
-    })
+  async tryExtend(exit: boolean, signal?: AbortSignal) {
+    return await Result.runAndWrap(async () => {
+      return await this.extendOrThrow(exit, signal)
+    }).then(r => r.mapErrSync(cause => new Error(`Could not extend`, { cause })))
   }
 
-  async tryOpen(hostname: string, port: number, params: CircuitOpenParams = {}): Promise<Result<TorStreamDuplex, BinaryError | ErroredError | ClosedError | ControllerError | Sha1.AnyError>> {
-    return await Result.unthrow(async t => {
-      if (this.destroyed?.reason != null)
-        return new Err(ErroredError.from(this.destroyed.reason))
-      if (this.destroyed != null)
-        return new Err(ClosedError.from(this.destroyed.reason))
+  async truncateOrThrow(reason = RelayTruncateCell.reasons.NONE, signal?: AbortSignal) {
+    const signal2 = AbortSignals.timeout(5_000, signal)
 
-      const { ipv6 = "preferred" } = params
+    const relay_truncate = new RelayTruncateCell(reason)
+    const relay_truncate_cell = RelayCell.Streamless.from(this, undefined, relay_truncate)
+    this.tor.writer.enqueue(relay_truncate_cell.cellOrThrow())
 
-      const stream = new SecretTorStreamDuplex(this.#streamId++, this)
+    await Plume.tryWaitOrCloseOrErrorOrSignal(this.events, "RELAY_TRUNCATED", (future: Future<Ok<RelayCell.Streamless<RelayTruncatedCell>>>, e) => {
+      future.resolve(new Ok(e))
+      return new None()
+    }, signal2).then(r => r.unwrap())
+  }
 
-      this.streams.set(stream.id, stream)
+  async tryTruncate(reason = RelayTruncateCell.reasons.NONE, signal?: AbortSignal) {
+    return await Result.runAndWrap(async () => {
+      return await this.truncateOrThrow(reason, signal)
+    }).then(r => r.mapErrSync(cause => new Error(`Could not truncate`, { cause })))
+  }
 
-      const flags = new Bitset(0, 32)
-        .setLE(RelayBeginCell.flags.IPV6_OK, IPv6[ipv6] !== IPv6.never)
-        .setLE(RelayBeginCell.flags.IPV4_NOT_OK, IPv6[ipv6] === IPv6.always)
-        .setLE(RelayBeginCell.flags.IPV6_PREFER, IPv6[ipv6] > IPv6.avoided)
-        .unsign()
-        .value
+  async openOrThrow(hostname: string, port: number, params: CircuitOpenParams = {}) {
+    if (this.destroyed?.reason != null)
+      throw ErroredError.from(this.destroyed.reason)
+    if (this.destroyed != null)
+      throw ClosedError.from(this.destroyed.reason)
 
-      const begin = new RelayBeginCell(`${hostname}:${port}`, flags)
-      const begin_cell = RelayCell.Streamful.from(this, stream, begin)
-      this.tor.writer.tryEnqueue(begin_cell.tryCell().throw(t)).throw(t)
+    const { ipv6 = "preferred" } = params
 
-      return new Ok(new TorStreamDuplex(stream))
-    })
+    const stream = new SecretTorStreamDuplex(this.#streamId++, this)
+
+    this.streams.set(stream.id, stream)
+
+    const flags = new Bitset(0, 32)
+      .setLE(RelayBeginCell.flags.IPV6_OK, IPv6[ipv6] !== IPv6.never)
+      .setLE(RelayBeginCell.flags.IPV4_NOT_OK, IPv6[ipv6] === IPv6.always)
+      .setLE(RelayBeginCell.flags.IPV6_PREFER, IPv6[ipv6] > IPv6.avoided)
+      .unsign()
+      .value
+
+    const begin = RelayBeginCell.create(`${hostname}:${port}`, flags)
+    const begin_cell = RelayCell.Streamful.from(this, stream, begin)
+    this.tor.writer.enqueue(begin_cell.cellOrThrow())
+
+    return new TorStreamDuplex(stream)
+  }
+
+  async tryOpen(hostname: string, port: number, params: CircuitOpenParams = {}) {
+    return await Result.runAndWrap(async () => {
+      return await this.openOrThrow(hostname, port, params)
+    }).then(r => r.mapErrSync(cause => new Error(`Could not open`, { cause })))
   }
 
   /**
@@ -458,38 +463,45 @@ export class SecretCircuit {
    * @param init Fetch init
    * @returns Response promise
    */
-  async tryFetch(input: RequestInfo | URL, init: RequestInit & CircuitOpenParams): Promise<Result<Response, UnknownProtocolError | BinaryError | AbortedError | ErroredError | ClosedError | PipeError | ControllerError | Sha1.AnyError>> {
-    return await Result.unthrow(async t => {
-      if (this.destroyed?.reason != null)
-        return new Err(ErroredError.from(this.destroyed.reason))
-      if (this.destroyed != null)
-        return new Err(ClosedError.from(this.destroyed.reason))
+  async fetchOrThrow(input: RequestInfo | URL, init: RequestInit & CircuitOpenParams & StreamPipeOptions = {}) {
+    if (this.destroyed?.reason != null)
+      throw ErroredError.from(this.destroyed.reason)
+    if (this.destroyed != null)
+      throw ClosedError.from(this.destroyed.reason)
 
-      const req = new Request(input, init)
+    const req = new Request(input, init)
 
-      const url = new URL(req.url)
+    const url = new URL(req.url)
 
-      if (url.protocol === "http:") {
-        const port = Number(url.port) || 80
+    if (url.protocol === "http:") {
+      const port = Number(url.port) || 80
 
-        const tcp = await this.tryOpen(url.hostname, port, init).then(r => r.throw(t))
+      const tcp = await this.openOrThrow(url.hostname, port, init)
 
-        return tryFetch(input, { ...init, stream: tcp })
-      }
+      return tryFetch(input, { ...init, stream: tcp }).then(r => r.unwrap())
+    }
 
-      if (url.protocol === "https:") {
-        const port = Number(url.port) || 443
+    if (url.protocol === "https:") {
+      const port = Number(url.port) || 443
 
-        const tcp = await this.tryOpen(url.hostname, port, init).then(r => r.throw(t))
+      const tcp = await this.openOrThrow(url.hostname, port, init)
 
-        const ciphers = [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
-        const tls = new TlsClientDuplex(tcp, { host_name: url.hostname, ciphers })
+      const ciphers = [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
+      const tls = new TlsClientDuplex({ host_name: url.hostname, ciphers })
 
-        return tryFetch(input, { ...init, stream: tls })
-      }
+      tcp.readable.pipeTo(tls.inner.writable).catch(() => { })
+      tls.inner.readable.pipeTo(tcp.writable).catch(() => { })
 
-      return new Err(new UnknownProtocolError(url.protocol))
-    })
+      return tryFetch(input, { ...init, stream: tls.outer }).then(r => r.unwrap())
+    }
+
+    throw new UnknownProtocolError(url.protocol)
+  }
+
+  async tryFetch(input: RequestInfo | URL, init: RequestInit & CircuitOpenParams & StreamPipeOptions = {}) {
+    return await Result.runAndWrap(async () => {
+      return await this.fetchOrThrow(input, init)
+    }).then(r => r.mapErrSync(cause => new Error(`Could not fetch`, { cause })))
   }
 
 }
