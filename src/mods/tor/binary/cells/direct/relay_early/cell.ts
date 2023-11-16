@@ -8,23 +8,23 @@ import { SecretTorStreamDuplex } from "mods/tor/stream.js";
 import { ExpectedCircuitError, ExpectedStreamError, InvalidRelayCellDigestError, InvalidRelayCommandError, UnexpectedStreamError, UnknownStreamError, UnrecognisedRelayCellError } from "../../errors.js";
 
 export interface RelayEarlyCellable {
-  rcommand: number,
-  early: true
-  stream: boolean
+  readonly rcommand: number,
+  readonly early: true
+  readonly stream: boolean
 }
 
 export namespace RelayEarlyCellable {
 
   export interface Streamful {
-    rcommand: number,
-    early: true
-    stream: true
+    readonly rcommand: number,
+    readonly early: true
+    readonly stream: true
   }
 
   export interface Streamless {
-    rcommand: number,
-    early: true
-    stream: false
+    readonly rcommand: number,
+    readonly early: true
+    readonly stream: false
   }
 
 }

@@ -1,6 +1,4 @@
-import { BinaryReadError, BinaryWriteError } from "@hazae41/binary"
 import { Cursor } from "@hazae41/cursor"
-import { Ok, Result } from "@hazae41/result"
 
 export class VersionsCell {
   readonly #class = VersionsCell
@@ -25,29 +23,24 @@ export class VersionsCell {
     return this.#class.command
   }
 
-  trySize(): Result<number, never> {
-    return new Ok(2 * this.versions.length)
+  sizeOrThrow() {
+    return 2 * this.versions.length
   }
 
-  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
-    return Result.unthrowSync(t => {
+  writeOrThrow(cursor: Cursor) {
+    for (const version of this.versions)
+      cursor.writeUint16OrThrow(version)
 
-      for (const version of this.versions)
-        cursor.tryWriteUint16(version).throw(t)
-
-      return Ok.void()
-    })
+    return
   }
 
-  static tryRead(cursor: Cursor): Result<VersionsCell, BinaryReadError> {
-    return Result.unthrowSync(t => {
-      const versions = new Array<number>(cursor.remaining / 2)
+  static readOrThrow(cursor: Cursor) {
+    const versions = new Array<number>(cursor.remaining / 2)
 
-      for (let i = 0; i < versions.length; i++)
-        versions[i] = cursor.tryReadUint16().throw(t)
+    for (let i = 0; i < versions.length; i++)
+      versions[i] = cursor.readUint16OrThrow()
 
-      return new Ok(new VersionsCell(versions))
-    })
+    return new VersionsCell(versions)
   }
 
 }
