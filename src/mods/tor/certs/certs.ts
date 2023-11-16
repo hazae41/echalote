@@ -1,10 +1,8 @@
-import { BinaryWriteError } from "@hazae41/binary";
 import { Bytes } from "@hazae41/bytes";
 import { Ed25519 } from "@hazae41/ed25519";
 import { Paimon, RsaPublicKey } from "@hazae41/paimon";
-import { Err, Ok, Result } from "@hazae41/result";
+import { Panic } from "@hazae41/result";
 import { X509 } from "@hazae41/x509";
-import { CryptoError } from "libs/crypto/crypto.js";
 import { CrossCert, Ed25519Cert, RsaCert, UnknownCertExtensionError } from "../index.js";
 
 export type CertError =
@@ -77,153 +75,141 @@ export class InvalidSignatureError extends Error {
 }
 
 export interface Certs {
-  rsa_self: RsaCert,
-  rsa_to_tls: RsaCert,
-  rsa_to_auth?: RsaCert,
-  rsa_to_ed: CrossCert,
-  ed_to_sign: Ed25519Cert,
-  sign_to_tls: Ed25519Cert,
-  sign_to_auth?: Ed25519Cert,
+  readonly rsa_self: RsaCert,
+  readonly rsa_to_tls: RsaCert,
+  readonly rsa_to_auth?: RsaCert,
+  readonly rsa_to_ed: CrossCert,
+  readonly ed_to_sign: Ed25519Cert,
+  readonly sign_to_tls: Ed25519Cert,
+  readonly sign_to_auth?: Ed25519Cert,
 }
 
 export namespace Certs {
 
-  export async function tryVerify(certs: Partial<Certs>): Promise<Result<Certs, CryptoError | ExpectedCertError | BinaryWriteError | InvalidSignatureError | ExpiredCertError | PrematureCertError>> {
+  export async function verifyOrThrow(certs: Partial<Certs>): Promise<Certs> {
     const { rsa_self, rsa_to_tls, rsa_to_ed, ed_to_sign, sign_to_tls } = certs
 
-    if (!rsa_self)
-      return new Err(new ExpectedCertError())
-    if (!rsa_to_tls)
-      return new Err(new ExpectedCertError())
-    if (!rsa_to_ed)
-      return new Err(new ExpectedCertError())
-    if (!ed_to_sign)
-      return new Err(new ExpectedCertError())
-    if (!sign_to_tls)
-      return new Err(new ExpectedCertError())
+    if (rsa_self == null)
+      throw new ExpectedCertError()
+    if (rsa_to_tls == null)
+      throw new ExpectedCertError()
+    if (rsa_to_ed == null)
+      throw new ExpectedCertError()
+    if (ed_to_sign == null)
+      throw new ExpectedCertError()
+    if (sign_to_tls == null)
+      throw new ExpectedCertError()
 
     const certs2 = { rsa_self, rsa_to_tls, rsa_to_ed, ed_to_sign, sign_to_tls }
 
-    return Result.all(await Promise.all([
-      tryVerifyRsaSelf(certs2),
-      tryVerifyRsaToTls(certs2),
-      tryVerifyRsaToEd(certs2),
-      tryVerifyEdToSigning(certs2),
-      tryVerifySigningToTls(certs2),
-    ])).mapSync(() => certs2)
+    const result = await Promise.all([
+      verifyRsaSelfOrThrow(certs2),
+      verifyRsaToTlsOrThrow(certs2),
+      verifyRsaToEdOrThrow(certs2),
+      verifyEdToSigningOrThrow(certs2),
+      verifySigningToTlsOrThrow(certs2),
+    ]).then(all => all.every(x => x === true))
+
+    if (result !== true)
+      throw new Error(`Could not verify certs`)
+
+    return certs2
   }
 
-  async function tryVerifyRsaSelf(certs: Certs): Promise<Result<void, CryptoError | ExpiredCertError | PrematureCertError | BinaryWriteError | InvalidSignatureError>> {
-    return await Result.unthrow(async t => {
-      if (!certs.rsa_self.verifyOrThrow())
-        throw new Error("Could not verify RSA_SELF cert")
+  async function verifyRsaSelfOrThrow(certs: Certs): Promise<true> {
+    if (certs.rsa_self.verifyOrThrow() !== true)
+      throw new Panic(`Could not verify ID_SELF cert`)
 
-      const signed = X509.tryWriteToBytes(certs.rsa_self.x509.tbsCertificate).throw(t)
-      const publicKey = X509.tryWriteToBytes(certs.rsa_self.x509.tbsCertificate.subjectPublicKeyInfo).throw(t)
+    const signed = X509.writeToBytesOrThrow(certs.rsa_self.x509.tbsCertificate)
+    const publicKey = X509.writeToBytesOrThrow(certs.rsa_self.x509.tbsCertificate.subjectPublicKeyInfo)
 
-      const signatureAlgorithm = { name: "RSASSA-PKCS1-v1_5", hash: { name: "SHA-256" } }
-      const signature = certs.rsa_self.x509.signatureValue.bytes
+    const signatureAlgorithm = { name: "RSASSA-PKCS1-v1_5", hash: { name: "SHA-256" } }
+    const signature = certs.rsa_self.x509.signatureValue.bytes
 
-      const key = await crypto.subtle.importKey("spki", publicKey, signatureAlgorithm, true, ["verify"]);
-      const verified = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, signature, signed)
+    const key = await crypto.subtle.importKey("spki", publicKey, signatureAlgorithm, true, ["verify"]);
+    const verified = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, signature, signed)
 
-      if (!verified)
-        return new Err(new InvalidSignatureError())
+    if (verified !== true)
+      throw new InvalidSignatureError()
 
-      return Ok.void()
-    })
+    return true
   }
 
-  async function tryVerifyRsaToTls(certs: Certs): Promise<Result<void, CryptoError | ExpiredCertError | PrematureCertError | BinaryWriteError | InvalidSignatureError>> {
-    return await Result.unthrow(async t => {
-      certs.rsa_to_tls.tryVerify().throw(t)
+  async function verifyRsaToTlsOrThrow(certs: Certs): Promise<true> {
+    if (certs.rsa_to_tls.verifyOrThrow() !== true)
+      throw new Panic(`Could not verify ID_TO_TLS cert`)
 
-      const signed = X509.tryWriteToBytes(certs.rsa_to_tls.x509.tbsCertificate).throw(t)
-      const publicKey = X509.tryWriteToBytes(certs.rsa_self.x509.tbsCertificate.subjectPublicKeyInfo).throw(t)
+    const signed = X509.writeToBytesOrThrow(certs.rsa_to_tls.x509.tbsCertificate)
+    const publicKey = X509.writeToBytesOrThrow(certs.rsa_self.x509.tbsCertificate.subjectPublicKeyInfo)
 
-      const signatureAlgorithm = { name: "RSASSA-PKCS1-v1_5", hash: { name: "SHA-256" } }
-      const signature = certs.rsa_to_tls.x509.signatureValue.bytes
+    const signatureAlgorithm = { name: "RSASSA-PKCS1-v1_5", hash: { name: "SHA-256" } }
+    const signature = certs.rsa_to_tls.x509.signatureValue.bytes
 
-      const key = await crypto.subtle.importKey("spki", publicKey, signatureAlgorithm, true, ["verify"])
-      const verified = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, signature, signed)
+    const key = await crypto.subtle.importKey("spki", publicKey, signatureAlgorithm, true, ["verify"])
+    const verified = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, signature, signed)
 
-      if (!verified)
-        return new Err(new InvalidSignatureError())
+    if (verified !== true)
+      throw new InvalidSignatureError()
 
-      console.warn("Could not verify ID_TO_TLS cert key")
-      return Ok.void()
-    })
+    console.warn("Could not verify ID_TO_TLS cert key")
+
+    return true
   }
 
-  async function tryVerifyRsaToEd(certs: Certs): Promise<Result<void, CryptoError | ExpiredCertError | BinaryWriteError | InvalidSignatureError>> {
-    return await Result.unthrow(async t => {
-      certs.rsa_to_ed.tryVerify().throw(t)
+  async function verifyRsaToEdOrThrow(certs: Certs): Promise<true> {
+    if (certs.rsa_to_ed.verifyOrThrow() !== true)
+      throw new Panic(`Could not verify ID_TO_ED cert`)
 
-      const publicKeyBytes = X509.tryWriteToBytes(certs.rsa_self.x509.tbsCertificate.subjectPublicKeyInfo).throw(t)
-      using publicKeyMemory = new Paimon.Memory(publicKeyBytes)
-      using publicKeyPointer = RsaPublicKey.from_public_key_der(publicKeyMemory)
+    const publicKeyBytes = X509.writeToBytesOrThrow(certs.rsa_self.x509.tbsCertificate.subjectPublicKeyInfo)
 
-      const prefix = Bytes.fromUtf8("Tor TLS RSA/Ed25519 cross-certificate")
-      const prefixed = Bytes.concat([prefix, certs.rsa_to_ed.payload])
-      const hashed = new Uint8Array(await crypto.subtle.digest("SHA-256", prefixed))
+    using publicKeyMemory = new Paimon.Memory(publicKeyBytes)
+    using publicKeyPointer = RsaPublicKey.from_public_key_der(publicKeyMemory)
 
-      using hashedMemory = new Paimon.Memory(hashed)
-      using signatureMemory = new Paimon.Memory(certs.rsa_to_ed.signature)
+    const prefix = Bytes.fromUtf8("Tor TLS RSA/Ed25519 cross-certificate")
+    const prefixed = Bytes.concat([prefix, certs.rsa_to_ed.payload])
+    const hashed = new Uint8Array(await crypto.subtle.digest("SHA-256", prefixed))
 
-      const verified = publicKeyPointer.verify_pkcs1v15_unprefixed(hashedMemory, signatureMemory)
+    using hashedMemory = new Paimon.Memory(hashed)
+    using signatureMemory = new Paimon.Memory(certs.rsa_to_ed.signature)
 
-      if (!verified)
-        return new Err(new InvalidSignatureError())
+    const verified = publicKeyPointer.verify_pkcs1v15_unprefixed(hashedMemory, signatureMemory)
 
-      return Ok.void()
-    })
+    if (verified !== true)
+      throw new InvalidSignatureError()
+
+    return true
   }
 
-  async function tryVerifyEdToSigning(certs: Certs): Promise<Result<void, CryptoError | ExpiredCertError | BinaryWriteError | InvalidSignatureError>> {
-    return Result.unthrow(async t => {
-      await certs.ed_to_sign.tryVerify().then(r => r.throw(t))
+  async function verifyEdToSigningOrThrow(certs: Certs): Promise<true> {
+    if (await certs.ed_to_sign.verifyOrThrow() !== true)
+      throw new Panic(`Could not verify ED_TO_SIGN cert`)
 
-      using identity = await Ed25519.get().PublicKey
-        .tryImport(certs.rsa_to_ed.key)
-        .then(r => r.mapErrSync(CryptoError.from).throw(t))
+    using identity = await Ed25519.get().PublicKey.importOrThrow(certs.rsa_to_ed.key)
+    using signature = Ed25519.get().Signature.importOrThrow(certs.ed_to_sign.signature)
 
-      using signature = Ed25519.get().Signature
-        .tryImport(certs.ed_to_sign.signature)
-        .mapErrSync(CryptoError.from).throw(t)
+    const verified = await identity.verifyOrThrow(certs.ed_to_sign.payload, signature)
 
-      const verified = await identity
-        .tryVerify(certs.ed_to_sign.payload, signature)
-        .then(r => r.mapErrSync(CryptoError.from).throw(t))
+    if (verified !== true)
+      throw new InvalidSignatureError()
 
-      if (verified !== true)
-        return new Err(new InvalidSignatureError())
-
-      return Ok.void()
-    })
+    return true
   }
 
-  async function tryVerifySigningToTls(certs: Certs): Promise<Result<void, CryptoError | ExpiredCertError | BinaryWriteError | InvalidSignatureError>> {
-    return Result.unthrow(async t => {
-      await certs.sign_to_tls.tryVerify().then(r => r.throw(t))
+  async function verifySigningToTlsOrThrow(certs: Certs): Promise<true> {
+    if (await certs.sign_to_tls.verifyOrThrow() !== true)
+      throw new Error(`Could not verify SIGNING_TO_TLS cert`)
 
-      using identity = await Ed25519.get().PublicKey
-        .tryImport(certs.ed_to_sign.certKey)
-        .then(r => r.mapErrSync(CryptoError.from).throw(t))
+    using identity = await Ed25519.get().PublicKey.importOrThrow(certs.ed_to_sign.certKey)
+    using signature = Ed25519.get().Signature.importOrThrow(certs.sign_to_tls.signature)
 
-      using signature = Ed25519.get().Signature
-        .tryImport(certs.sign_to_tls.signature)
-        .mapErrSync(CryptoError.from).throw(t)
+    const verified = await identity.verifyOrThrow(certs.sign_to_tls.payload, signature)
 
-      const verified = await identity
-        .tryVerify(certs.sign_to_tls.payload, signature)
-        .then(r => r.mapErrSync(CryptoError.from).throw(t))
+    if (verified !== true)
+      throw new InvalidSignatureError()
 
-      if (verified !== true)
-        return new Err(new InvalidSignatureError())
+    console.warn("Could not verify SIGNING_TO_TLS cert key")
 
-      console.warn("Could not verify SIGNING_TO_TLS cert key")
-      return Ok.void()
-    })
+    return true
   }
 
 }

@@ -29,7 +29,7 @@ export class RelayExtended2Cell<T extends Writable> {
     throw new Unimplemented()
   }
 
-  tryWrite(cursor: Cursor): never {
+  writeOrThrow(cursor: Cursor): never {
     throw new Unimplemented()
   }
 

@@ -1,15 +1,14 @@
 import { Arrays } from "@hazae41/arrays";
 import { Base16 } from "@hazae41/base16";
 import { Base64 } from "@hazae41/base64";
-import { BinaryError, Opaque } from "@hazae41/binary";
+import { Opaque } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
-import { Bytes, BytesCastError } from "@hazae41/bytes";
+import { Bytes } from "@hazae41/bytes";
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
 import { ControllerError } from "@hazae41/cascade";
 import { PipeError, tryFetch } from "@hazae41/fleche";
 import { Future } from "@hazae41/future";
 import { None, Option, Some } from "@hazae41/option";
-import { TooManyRetriesError } from "@hazae41/piscine";
 import { AbortedError, CloseEvents, ClosedError, ErrorEvents, ErroredError, EventError, Plume, SuperEventTarget } from "@hazae41/plume";
 import { Err, Ok, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
@@ -107,10 +106,6 @@ export class Circuit {
     return await this.#secret.tryExtend(exit, signal)
   }
 
-  async tryExtendLoop(exit: boolean, signal?: AbortSignal) {
-    return await this.#secret.tryExtendLoop(exit, signal)
-  }
-
   async tryOpen(hostname: string, port: number, params?: CircuitOpenParams) {
     return await this.#secret.tryOpen(hostname, port, params)
   }
@@ -185,7 +180,8 @@ export class SecretCircuit {
   }
 
   #destroy(reason?: unknown) {
-    if (this.#destroyed) return
+    if (this.#destroyed)
+      return
     this.#destroyed = { reason }
     this[Symbol.dispose]()
   }
@@ -310,47 +306,11 @@ export class SecretCircuit {
   //   }, signal)
   // }
 
-  async tryExtendLoop(exit: boolean, signal?: AbortSignal): Promise<Result<void, CryptoError | TooManyRetriesError | EmptyFallbacksError | InvalidNtorAuthError | ClosedError | BinaryError | AbortedError | ErroredError | Base16.AnyError | Base64.AnyError | Sha1.AnyError>> {
-    for (let i = 0; !this.destroyed && !signal?.aborted && i < 3; i++) {
-      const result = await this.tryExtend(exit, signal)
-
-      if (result.isOk())
-        return result
-
-      if (this.destroyed)
-        return result
-      if (signal?.aborted)
-        return result
-
-      if (result.inner.name === AbortedError.name) {
-        Console.debug("Extend aborted", { error: result.get() })
-        await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
-        continue
-      }
-
-      if (result.inner.name === InvalidNtorAuthError.name) {
-        Console.debug("Extend failed", { error: result.get() })
-        await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
-        continue
-      }
-
-      return result
-    }
-
+  async extendOrThrow(exit: boolean, signal?: AbortSignal) {
     if (this.destroyed?.reason != null)
-      return new Err(ErroredError.from(this.destroyed.reason))
+      throw ErroredError.from(this.destroyed.reason)
     if (this.destroyed != null)
-      return new Err(ClosedError.from(this.destroyed.reason))
-    if (signal?.aborted)
-      return new Err(AbortedError.from(signal.reason))
-    return new Err(new TooManyRetriesError())
-  }
-
-  async tryExtend(exit: boolean, signal?: AbortSignal): Promise<Result<void, CryptoError | EmptyFallbacksError | InvalidNtorAuthError | ClosedError | BinaryError | AbortedError | ErroredError | Base16.AnyError | Base64.AnyError | Sha1.AnyError>> {
-    if (this.destroyed?.reason != null)
-      return new Err(ErroredError.from(this.destroyed.reason))
-    if (this.destroyed != null)
-      return new Err(ClosedError.from(this.destroyed.reason))
+      throw ClosedError.from(this.destroyed.reason)
 
     const fallbacks = exit
       ? this.tor.params.fallbacks.filter(it => it.exit)
@@ -359,91 +319,87 @@ export class SecretCircuit {
     const fallback = Arrays.cryptoRandom(fallbacks)
 
     if (fallback == null)
-      return new Err(new EmptyFallbacksError())
+      throw new EmptyFallbacksError()
 
-    return await this.tryExtendTo(fallback, signal)
+    return await this.extendToOrThrow(fallback, signal)
   }
 
-  async tryExtendTo(fallback: Fallback, signal?: AbortSignal): Promise<Result<void, CryptoError | BytesCastError | InvalidNtorAuthError | BinaryError | AbortedError | ErroredError | ClosedError | Base16.AnyError | Base64.AnyError | Sha1.AnyError>> {
-    return await Result.unthrow(async t => {
-      if (this.destroyed?.reason != null)
-        return new Err(ErroredError.from(this.destroyed.reason))
-      if (this.destroyed != null)
-        return new Err(ClosedError.from(this.destroyed.reason))
+  async extendToOrThrow(fallback: Fallback, signal?: AbortSignal) {
+    if (this.destroyed?.reason != null)
+      throw ErroredError.from(this.destroyed.reason)
+    if (this.destroyed != null)
+      throw ClosedError.from(this.destroyed.reason)
 
-      const signal2 = AbortSignals.timeout(5_000, signal)
+    const signal2 = AbortSignals.timeout(5_000, signal)
 
-      const relayid_rsax = Base16.get().tryPadStartAndDecode(fallback.id).throw(t).copyAndDispose()
-      const relayid_rsa = Bytes.tryCast(relayid_rsax, HASH_LEN).throw(t)
+    const relayid_rsax = Base16.get().padStartAndDecodeOrThrow(fallback.id).copyAndDispose()
+    const relayid_rsa = Bytes.castOrThrow(relayid_rsax, HASH_LEN)
 
-      const relayid_ed = Option.wrap(fallback.eid).mapSync(Base64.get().tryDecodeUnpadded).get()?.throw(t).copyAndDispose()
+    const relayid_ed = Option.wrap(fallback.eid).mapSync(Base64.get().tryDecodeUnpadded).get()?.unwrap()?.copyAndDispose()
 
-      const links: RelayExtend2Link[] = fallback.hosts.map(RelayExtend2Link.fromAddressString)
+    const links: RelayExtend2Link[] = fallback.hosts.map(RelayExtend2Link.fromAddressString)
 
-      links.push(new RelayExtend2LinkLegacyID(relayid_rsa))
+    links.push(new RelayExtend2LinkLegacyID(relayid_rsa))
 
-      if (relayid_ed)
-        links.push(new RelayExtend2LinkModernID(relayid_ed))
+    if (relayid_ed)
+      links.push(new RelayExtend2LinkModernID(relayid_ed))
 
-      using wasm_secret_x = await X25519.get().PrivateKey.tryRandom().then(r => r.mapErrSync(CryptoError.from).throw(t))
-      using wasm_public_x = wasm_secret_x.tryGetPublicKey().mapErrSync(CryptoError.from).throw(t)
+    using wasm_secret_x = await X25519.get().PrivateKey.tryRandom().then(r => r.mapErrSync(CryptoError.from).throw(t))
+    using wasm_public_x = wasm_secret_x.tryGetPublicKey().mapErrSync(CryptoError.from).throw(t)
 
-      const unsized_public_x_bytes = await wasm_public_x.tryExport().then(r => r.mapErrSync(CryptoError.from).throw(t).copyAndDispose())
+    const unsized_public_x_bytes = await wasm_public_x.tryExport().then(r => r.mapErrSync(CryptoError.from).throw(t).copyAndDispose())
 
-      const public_x = Bytes.tryCast(unsized_public_x_bytes, 32).throw(t)
-      const public_b = Bytes.tryCastFrom(fallback.onion, 32).throw(t)
+    const public_x = Bytes.tryCast(unsized_public_x_bytes, 32).throw(t)
+    const public_b = Bytes.tryCastFrom(fallback.onion, 32).throw(t)
 
-      const ntor_request = new Ntor.NtorRequest(public_x, relayid_rsa, public_b)
-      const relay_extend2 = new RelayExtend2Cell(RelayExtend2Cell.types.NTOR, links, ntor_request)
-      this.tor.writer.enqueue(RelayEarlyCell.Streamless.from(this, undefined, relay_extend2).tryCell().throw(t))
+    const ntor_request = new Ntor.NtorRequest(public_x, relayid_rsa, public_b)
+    const relay_extend2 = new RelayExtend2Cell(RelayExtend2Cell.types.NTOR, links, ntor_request)
+    this.tor.writer.enqueue(RelayEarlyCell.Streamless.from(this, undefined, relay_extend2).tryCell().throw(t))
 
-      const msg_extended2 = await Plume.tryWaitOrCloseOrErrorOrSignal(this.events, "RELAY_EXTENDED2", (future: Future<Ok<RelayCell.Streamless<RelayExtended2Cell<Opaque>>>>, e) => {
-        future.resolve(new Ok(e))
-        return new None()
-      }, signal2).then(r => r.throw(t))
+    const msg_extended2 = await Plume.tryWaitOrCloseOrErrorOrSignal(this.events, "RELAY_EXTENDED2", (future: Future<Ok<RelayCell.Streamless<RelayExtended2Cell<Opaque>>>>, e) => {
+      future.resolve(new Ok(e))
+      return new None()
+    }, signal2).then(r => r.throw(t))
 
-      const response = msg_extended2.fragment.fragment.tryReadInto(Ntor.NtorResponse).throw(t)
+    const response = msg_extended2.fragment.fragment.tryReadInto(Ntor.NtorResponse).throw(t)
 
-      const { public_y } = response
+    const { public_y } = response
 
-      using wasm_public_y = await X25519.get().PublicKey.tryImport(public_y).then(r => r.mapErrSync(CryptoError.from).throw(t))
-      using wasm_public_b = await X25519.get().PublicKey.tryImport(public_b).then(r => r.mapErrSync(CryptoError.from).throw(t))
+    using wasm_public_y = await X25519.get().PublicKey.tryImport(public_y).then(r => r.mapErrSync(CryptoError.from).throw(t))
+    using wasm_public_b = await X25519.get().PublicKey.tryImport(public_b).then(r => r.mapErrSync(CryptoError.from).throw(t))
 
-      using wasm_shared_xy = await wasm_secret_x.tryCompute(wasm_public_y).then(r => r.mapErrSync(CryptoError.from).throw(t))
-      using wasm_shared_xb = await wasm_secret_x.tryCompute(wasm_public_b).then(r => r.mapErrSync(CryptoError.from).throw(t))
+    using wasm_shared_xy = await wasm_secret_x.tryCompute(wasm_public_y).then(r => r.mapErrSync(CryptoError.from).throw(t))
+    using wasm_shared_xb = await wasm_secret_x.tryCompute(wasm_public_b).then(r => r.mapErrSync(CryptoError.from).throw(t))
 
-      const unsized_shared_xy_bytes = wasm_shared_xy.tryExport().mapErrSync(CryptoError.from).throw(t).copyAndDispose()
-      const unsized_shared_xb_bytes = wasm_shared_xb.tryExport().mapErrSync(CryptoError.from).throw(t).copyAndDispose()
+    const unsized_shared_xy_bytes = wasm_shared_xy.tryExport().mapErrSync(CryptoError.from).throw(t).copyAndDispose()
+    const unsized_shared_xb_bytes = wasm_shared_xb.tryExport().mapErrSync(CryptoError.from).throw(t).copyAndDispose()
 
-      const shared_xy = Bytes.tryCast(unsized_shared_xy_bytes, 32).throw(t)
-      const shared_xb = Bytes.tryCast(unsized_shared_xb_bytes, 32).throw(t)
+    const shared_xy = Bytes.tryCast(unsized_shared_xy_bytes, 32).throw(t)
+    const shared_xb = Bytes.tryCast(unsized_shared_xb_bytes, 32).throw(t)
 
-      const result = await NtorResult.tryFinalize(shared_xy, shared_xb, relayid_rsa, public_b, public_x, public_y).then(r => r.throw(t))
+    const result = await NtorResult.tryFinalize(shared_xy, shared_xb, relayid_rsa, public_b, public_x, public_y).then(r => r.throw(t))
 
-      if (!Bytes.equals2(response.auth, result.auth))
-        return new Err(new InvalidNtorAuthError())
+    if (!Bytes.equals2(response.auth, result.auth))
+      return new Err(new InvalidNtorAuthError())
 
-      const forward_digest = Sha1.get().Hasher.tryNew().throw(t)
-      const backward_digest = Sha1.get().Hasher.tryNew().throw(t)
+    const forward_digest = Sha1.get().Hasher.tryNew().throw(t)
+    const backward_digest = Sha1.get().Hasher.tryNew().throw(t)
 
-      forward_digest.tryUpdate(result.forwardDigest).throw(t)
-      backward_digest.tryUpdate(result.backwardDigest).throw(t)
+    forward_digest.tryUpdate(result.forwardDigest).throw(t)
+    backward_digest.tryUpdate(result.backwardDigest).throw(t)
 
-      using forwardKeyMemory = new Zepar.Memory(result.forwardKey)
-      using forwardIvMemory = new Zepar.Memory(Bytes.tryAlloc(16).throw(t))
+    using forwardKeyMemory = new Zepar.Memory(result.forwardKey)
+    using forwardIvMemory = new Zepar.Memory(Bytes.tryAlloc(16).throw(t))
 
-      using backwardKeyMemory = new Zepar.Memory(result.backwardKey)
-      using backwardIvMemory = new Zepar.Memory(Bytes.tryAlloc(16).throw(t))
+    using backwardKeyMemory = new Zepar.Memory(result.backwardKey)
+    using backwardIvMemory = new Zepar.Memory(Bytes.tryAlloc(16).throw(t))
 
-      const forwardKey = new Aes128Ctr128BEKey(forwardKeyMemory, forwardIvMemory)
-      const backwardKey = new Aes128Ctr128BEKey(backwardKeyMemory, backwardIvMemory)
+    const forwardKey = new Aes128Ctr128BEKey(forwardKeyMemory, forwardIvMemory)
+    const backwardKey = new Aes128Ctr128BEKey(backwardKeyMemory, backwardIvMemory)
 
-      const target = new Target(relayid_rsa, this, forward_digest, backward_digest, forwardKey, backwardKey)
+    const target = new Target(relayid_rsa, this, forward_digest, backward_digest, forwardKey, backwardKey)
 
-      this.targets.push(target)
-
-      return Ok.void()
-    })
+    this.targets.push(target)
   }
 
   async tryTruncate(reason = RelayTruncateCell.reasons.NONE, signal?: AbortSignal): Promise<Result<void, BinaryError | ClosedError | AbortedError | ErroredError | Sha1.AnyError>> {
