@@ -27,7 +27,7 @@
     "@hazae41/arrays": "^1.1.5",
     "@hazae41/asn1": "^1.3.25",
     "@hazae41/base16": "^1.0.16",
-    "@hazae41/base64": "^1.0.9",
+    "@hazae41/base64": "^1.0.10",
     "@hazae41/binary": "^1.3.4",
     "@hazae41/bitset": "^1.0.1",
     "@hazae41/box": "^1.0.11",

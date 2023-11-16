@@ -14,7 +14,6 @@ import { Err, Ok, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
-import { CryptoError } from "libs/crypto/crypto.js";
 import { AbortSignals } from "libs/signals/signals.js";
 import { Console } from "mods/console/index.js";
 import { Ntor } from "mods/tor/algorithms/ntor/index.js";
@@ -324,6 +323,12 @@ export class SecretCircuit {
     return await this.extendToOrThrow(fallback, signal)
   }
 
+  async tryExtend(exit: boolean, signal?: AbortSignal) {
+    return await Result.runAndWrap(async () => {
+      return await this.extendOrThrow(exit, signal)
+    }).then(r => r.mapErrSync(cause => new Error(`Could not extend`, { cause })))
+  }
+
   async extendToOrThrow(fallback: Fallback, signal?: AbortSignal) {
     if (this.destroyed?.reason != null)
       throw ErroredError.from(this.destroyed.reason)
@@ -335,64 +340,64 @@ export class SecretCircuit {
     const relayid_rsax = Base16.get().padStartAndDecodeOrThrow(fallback.id).copyAndDispose()
     const relayid_rsa = Bytes.castOrThrow(relayid_rsax, HASH_LEN)
 
-    const relayid_ed = Option.wrap(fallback.eid).mapSync(Base64.get().tryDecodeUnpadded).get()?.unwrap()?.copyAndDispose()
+    const relayid_ed = Option.mapSync(fallback.eid, Base64.get().decodeUnpaddedOrThrow)?.copyAndDispose()
 
     const links: RelayExtend2Link[] = fallback.hosts.map(RelayExtend2Link.fromAddressString)
 
     links.push(new RelayExtend2LinkLegacyID(relayid_rsa))
 
-    if (relayid_ed)
+    if (relayid_ed != null)
       links.push(new RelayExtend2LinkModernID(relayid_ed))
 
-    using wasm_secret_x = await X25519.get().PrivateKey.tryRandom().then(r => r.mapErrSync(CryptoError.from).throw(t))
-    using wasm_public_x = wasm_secret_x.tryGetPublicKey().mapErrSync(CryptoError.from).throw(t)
+    using wasm_secret_x = await X25519.get().PrivateKey.tryRandom().then(r => r.unwrap())
+    using wasm_public_x = wasm_secret_x.tryGetPublicKey().unwrap()
 
-    const unsized_public_x_bytes = await wasm_public_x.tryExport().then(r => r.mapErrSync(CryptoError.from).throw(t).copyAndDispose())
+    const unsized_public_x_bytes = await wasm_public_x.tryExport().then(r => r.unwrap().copyAndDispose())
 
-    const public_x = Bytes.tryCast(unsized_public_x_bytes, 32).throw(t)
-    const public_b = Bytes.tryCastFrom(fallback.onion, 32).throw(t)
+    const public_x = Bytes.castOrThrow(unsized_public_x_bytes, 32)
+    const public_b = Bytes.fromAndCastOrThrow(fallback.onion, 32)
 
     const ntor_request = new Ntor.NtorRequest(public_x, relayid_rsa, public_b)
     const relay_extend2 = new RelayExtend2Cell(RelayExtend2Cell.types.NTOR, links, ntor_request)
-    this.tor.writer.enqueue(RelayEarlyCell.Streamless.from(this, undefined, relay_extend2).tryCell().throw(t))
+    this.tor.writer.enqueue(RelayEarlyCell.Streamless.from(this, undefined, relay_extend2).cellOrThrow())
 
     const msg_extended2 = await Plume.tryWaitOrCloseOrErrorOrSignal(this.events, "RELAY_EXTENDED2", (future: Future<Ok<RelayCell.Streamless<RelayExtended2Cell<Opaque>>>>, e) => {
       future.resolve(new Ok(e))
       return new None()
-    }, signal2).then(r => r.throw(t))
+    }, signal2).then(r => r.unwrap())
 
-    const response = msg_extended2.fragment.fragment.tryReadInto(Ntor.NtorResponse).throw(t)
+    const response = msg_extended2.fragment.fragment.readIntoOrThrow(Ntor.NtorResponse)
 
     const { public_y } = response
 
-    using wasm_public_y = await X25519.get().PublicKey.tryImport(public_y).then(r => r.mapErrSync(CryptoError.from).throw(t))
-    using wasm_public_b = await X25519.get().PublicKey.tryImport(public_b).then(r => r.mapErrSync(CryptoError.from).throw(t))
+    using wasm_public_y = await X25519.get().PublicKey.tryImport(public_y).then(r => r.unwrap())
+    using wasm_public_b = await X25519.get().PublicKey.tryImport(public_b).then(r => r.unwrap())
 
-    using wasm_shared_xy = await wasm_secret_x.tryCompute(wasm_public_y).then(r => r.mapErrSync(CryptoError.from).throw(t))
-    using wasm_shared_xb = await wasm_secret_x.tryCompute(wasm_public_b).then(r => r.mapErrSync(CryptoError.from).throw(t))
+    using wasm_shared_xy = await wasm_secret_x.tryCompute(wasm_public_y).then(r => r.unwrap())
+    using wasm_shared_xb = await wasm_secret_x.tryCompute(wasm_public_b).then(r => r.unwrap())
 
-    const unsized_shared_xy_bytes = wasm_shared_xy.tryExport().mapErrSync(CryptoError.from).throw(t).copyAndDispose()
-    const unsized_shared_xb_bytes = wasm_shared_xb.tryExport().mapErrSync(CryptoError.from).throw(t).copyAndDispose()
+    const unsized_shared_xy_bytes = wasm_shared_xy.tryExport().unwrap().copyAndDispose()
+    const unsized_shared_xb_bytes = wasm_shared_xb.tryExport().unwrap().copyAndDispose()
 
-    const shared_xy = Bytes.tryCast(unsized_shared_xy_bytes, 32).throw(t)
-    const shared_xb = Bytes.tryCast(unsized_shared_xb_bytes, 32).throw(t)
+    const shared_xy = Bytes.castOrThrow(unsized_shared_xy_bytes, 32)
+    const shared_xb = Bytes.castOrThrow(unsized_shared_xb_bytes, 32)
 
-    const result = await NtorResult.tryFinalize(shared_xy, shared_xb, relayid_rsa, public_b, public_x, public_y).then(r => r.throw(t))
+    const result = await NtorResult.finalizeOrThrow(shared_xy, shared_xb, relayid_rsa, public_b, public_x, public_y)
 
-    if (!Bytes.equals2(response.auth, result.auth))
-      return new Err(new InvalidNtorAuthError())
+    if (!Bytes.equals(response.auth, result.auth))
+      throw new InvalidNtorAuthError()
 
-    const forward_digest = Sha1.get().Hasher.tryNew().throw(t)
-    const backward_digest = Sha1.get().Hasher.tryNew().throw(t)
+    const forward_digest = Sha1.get().Hasher.createOrThrow()
+    const backward_digest = Sha1.get().Hasher.createOrThrow()
 
-    forward_digest.tryUpdate(result.forwardDigest).throw(t)
-    backward_digest.tryUpdate(result.backwardDigest).throw(t)
+    forward_digest.updateOrThrow(result.forwardDigest)
+    backward_digest.updateOrThrow(result.backwardDigest)
 
     using forwardKeyMemory = new Zepar.Memory(result.forwardKey)
-    using forwardIvMemory = new Zepar.Memory(Bytes.tryAlloc(16).throw(t))
+    using forwardIvMemory = new Zepar.Memory(new Uint8Array(16))
 
     using backwardKeyMemory = new Zepar.Memory(result.backwardKey)
-    using backwardIvMemory = new Zepar.Memory(Bytes.tryAlloc(16).throw(t))
+    using backwardIvMemory = new Zepar.Memory(new Uint8Array(16))
 
     const forwardKey = new Aes128Ctr128BEKey(forwardKeyMemory, forwardIvMemory)
     const backwardKey = new Aes128Ctr128BEKey(backwardKeyMemory, backwardIvMemory)
