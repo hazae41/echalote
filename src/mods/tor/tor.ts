@@ -141,7 +141,7 @@ export class SecretTorClientDuplex {
 
   readonly #controller: AbortController
 
-  readonly #buffer = new Cursor(Bytes.tryAllocUnsafe(65535).unwrap())
+  readonly #buffer = new Cursor(new Uint8Array(65535))
 
   #state: TorState = { type: "none" }
 
@@ -304,7 +304,7 @@ export class SecretTorClientDuplex {
           break
         }
 
-        const cell = raw.get().tryUnpack(this).throw(t)
+        const cell = raw.get().unpackOrThrow(this)
         await this.#onCell(cell, this.#state).then(r => r.throw(t))
       }
 

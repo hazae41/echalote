@@ -1,9 +1,8 @@
-import { BinaryError, Opaque, Writable } from "@hazae41/binary";
-import { ControllerError, SuperReadableStream, SuperWritableStream } from "@hazae41/cascade";
+import { Opaque, Writable } from "@hazae41/binary";
+import { SuperReadableStream, SuperWritableStream } from "@hazae41/cascade";
 import { Cursor } from "@hazae41/cursor";
 import { None, Some } from "@hazae41/option";
 import { Ok, Result } from "@hazae41/result";
-import { Sha1 } from "@hazae41/sha1";
 import { Console } from "mods/console/index.js";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
@@ -68,22 +67,20 @@ export class SecretTorStreamDuplex {
     this.writable = this.#writer.start()
   }
 
-  #tryClose(reason?: unknown): Result<void, ControllerError> {
-    return Result.unthrowSync(t => {
-      this.#reader.tryClose().throw(t)
-      this.#writer.tryError(reason).throw(t)
+  #closeOrThrow(reason?: unknown) {
+    this.#reader.close()
+    this.#writer.error(reason)
 
-      this.#reader.closed = { reason }
-      this.#writer.closed = { reason }
-
-      return Ok.void()
-    })
+    this.#reader.closed = { reason }
+    this.#writer.closed = { reason }
   }
 
   async #onCircuitClose() {
     Console.debug(`${this.#class.name}.onCircuitClose`)
 
-    this.#tryClose().inspectErrSync(e => Console.debug({ e })).ignore()
+    try {
+      this.#closeOrThrow()
+    } catch (e: unknown) { }
 
     return new None()
   }
@@ -91,7 +88,9 @@ export class SecretTorStreamDuplex {
   async #onCircuitError(reason?: unknown) {
     Console.debug(`${this.#class.name}.onCircuitError`, { reason })
 
-    this.#tryClose(reason).inspectErrSync(e => Console.debug({ e })).ignore()
+    try {
+      this.#closeOrThrow(reason)
+    } catch (e: unknown) { }
 
     return new None()
   }
@@ -111,7 +110,7 @@ export class SecretTorStreamDuplex {
         const sendme = new RelaySendmeStreamCell()
 
         const sendme_cell = RelayCell.Streamful.from(this.circuit, this, sendme)
-        this.circuit.tor.writer.tryEnqueue(sendme_cell.tryCell().throw(t)).throw(t)
+        this.circuit.tor.writer.tryEnqueue(sendme_cell.cellOrThrow()).throw(t)
       }
 
       this.#reader.tryEnqueue(cell.fragment.fragment).inspectErrSync(e => Console.debug({ e })).ignore()
@@ -131,46 +130,35 @@ export class SecretTorStreamDuplex {
 
     Console.debug(`${this.#class.name}.onRelayEndCell`, cell)
 
-    this.#tryClose(cell.fragment.reason).inspectErrSync(e => Console.debug({ e })).ignore()
+    try {
+      this.#closeOrThrow(cell.fragment.reason)
+    } catch (e: unknown) { }
 
     return new None()
   }
 
-  #onWrite<T extends Writable.Infer<T>>(writable: T): Result<void, BinaryError | Writable.SizeError<T> | Writable.WriteError<T> | Sha1.AnyError> {
-    return Result.unthrowSync(t => {
-      if (writable.trySize().throw(t) <= RelayCell.DATA_LEN)
-        return this.#onWriteDirect(writable)
-      else
-        return this.#onWriteChunked(writable)
-    })
+  #onWrite(writable: Writable) {
+    if (writable.sizeOrThrow() > RelayCell.DATA_LEN)
+      return this.#onWriteChunked(writable)
+    return this.#onWriteDirect(writable)
   }
 
-  #onWriteDirect<T extends Writable.Infer<T>>(writable: T): Result<void, BinaryError | Writable.SizeError<T> | Writable.WriteError<T> | Sha1.AnyError> {
-    return Result.unthrowSync(t => {
-      const relay_data_cell = new RelayDataCell(writable)
-      const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_data_cell)
-      const cell = relay_cell.tryCell().throw(t)
-      this.circuit.tor.writer.enqueue(cell)
+  #onWriteDirect(writable: Writable) {
+    const relay_data_cell = new RelayDataCell(writable)
+    const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_data_cell)
+    const cell = relay_cell.cellOrThrow()
+    this.circuit.tor.writer.enqueue(cell)
 
-      this.package--
-
-      return Ok.void()
-    })
+    this.package--
   }
 
-  #onWriteChunked<T extends Writable.Infer<T>>(writable: T): Result<void, BinaryError | Writable.SizeError<T> | Writable.WriteError<T> | Sha1.AnyError> {
-    return Result.unthrowSync(t => {
-      const bytes = Writable.tryWriteToBytes(writable).throw(t)
-      const cursor = new Cursor(bytes)
+  #onWriteChunked(writable: Writable) {
+    const bytes = Writable.writeToBytesOrThrow(writable)
+    const cursor = new Cursor(bytes)
 
-      const iterator = cursor.trySplit(RelayCell.DATA_LEN)
+    for (const chunk of cursor.splitOrThrow(RelayCell.DATA_LEN))
+      this.#onWriteDirect(new Opaque(chunk))
 
-      let next = iterator.next()
-
-      for (; !next.done; next = iterator.next())
-        this.#onWriteDirect(new Opaque(next.value)).throw(t)
-
-      return next.value
-    })
+    return
   }
 }
