@@ -1,6 +1,4 @@
-import { BinaryReadError, BinaryWriteError } from "@hazae41/binary";
 import { Cursor } from "@hazae41/cursor";
-import { Ok, Result } from "@hazae41/result";
 import { RelayEndReason, RelayEndReasonExitPolicy, RelayEndReasonOther } from "mods/tor/binary/cells/relayed/relay_end/reason.js";
 
 export class RelayEndCell {
@@ -44,29 +42,23 @@ export class RelayEndCell {
     return this.#class.rcommand
   }
 
-  trySize(): Result<number, never> {
-    return new Ok(1 + this.reason.trySize().get())
+  sizeOrThrow() {
+    return 1 + this.reason.sizeOrThrow()
   }
 
-  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
-    return Result.unthrowSync(t => {
-      cursor.tryWriteUint8(this.reason.id).throw(t)
-      this.reason.tryWrite(cursor).throw(t)
-
-      return Ok.void()
-    })
+  writeOrThrow(cursor: Cursor) {
+    cursor.writeUint8OrThrow(this.reason.id)
+    this.reason.writeOrThrow(cursor)
   }
 
-  static tryRead(cursor: Cursor): Result<RelayEndCell, BinaryReadError> {
-    return Result.unthrowSync(t => {
-      const reasonId = cursor.tryReadUint8().throw(t)
+  static readOrThrow(cursor: Cursor) {
+    const reasonId = cursor.readUint8OrThrow()
 
-      const reason = reasonId === this.reasons.REASON_EXITPOLICY
-        ? RelayEndReasonExitPolicy.tryRead(cursor).throw(t)
-        : new RelayEndReasonOther(reasonId)
+    const reason = reasonId === this.reasons.REASON_EXITPOLICY
+      ? RelayEndReasonExitPolicy.readOrThrow(cursor)
+      : new RelayEndReasonOther(reasonId)
 
-      return new Ok(new RelayEndCell(reason))
-    })
+    return new RelayEndCell(reason)
   }
 
 }

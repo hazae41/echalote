@@ -1,6 +1,4 @@
-import { BinaryReadError, BinaryWriteError } from "@hazae41/binary";
 import { Cursor } from "@hazae41/cursor";
-import { Ok, Result } from "@hazae41/result";
 import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
 
 export class RelayTruncatedCell {
@@ -28,16 +26,16 @@ export class RelayTruncatedCell {
     return this.#class.rcommand
   }
 
-  trySize(): Result<number, never> {
-    return new Ok(1)
+  sizeOrThrow() {
+    return 1
   }
 
-  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
-    return cursor.tryWriteUint8(this.reason)
+  writeOrThrow(cursor: Cursor) {
+    cursor.writeUint8OrThrow(this.reason)
   }
 
-  static tryRead(cursor: Cursor): Result<RelayTruncatedCell, BinaryReadError> {
-    return cursor.tryReadUint8().mapSync(x => new RelayTruncatedCell(x))
+  static readOrThrow(cursor: Cursor) {
+    return new RelayTruncatedCell(cursor.readUint8OrThrow())
   }
 
 }

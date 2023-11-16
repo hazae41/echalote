@@ -1,6 +1,4 @@
-import { BinaryWriteError } from "@hazae41/binary"
 import { Cursor } from "@hazae41/cursor"
-import { Ok, Result } from "@hazae41/result"
 
 export type RelayExtend2Link =
   | RelayExtend2LinkIPv4
@@ -34,25 +32,21 @@ export class RelayExtend2LinkIPv4 {
     return new RelayExtend2LinkIPv4(hostname, Number(port))
   }
 
-  trySize(): Result<number, never> {
-    return new Ok(1 + 1 + (4 * 1) + 2)
+  sizeOrThrow() {
+    return 1 + 1 + (4 * 1) + 2
   }
 
-  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
-    return Result.unthrowSync(t => {
-      cursor.tryWriteUint8(this.#class.type).throw(t)
-      cursor.tryWriteUint8(4 + 2).throw(t)
+  writeOrThrow(cursor: Cursor) {
+    cursor.writeUint8OrThrow(this.#class.type)
+    cursor.writeUint8OrThrow(4 + 2)
 
-      const [a, b, c, d] = this.hostname.split(".")
-      cursor.tryWriteUint8(Number(a)).throw(t)
-      cursor.tryWriteUint8(Number(b)).throw(t)
-      cursor.tryWriteUint8(Number(c)).throw(t)
-      cursor.tryWriteUint8(Number(d)).throw(t)
+    const [a, b, c, d] = this.hostname.split(".")
+    cursor.writeUint8OrThrow(Number(a))
+    cursor.writeUint8OrThrow(Number(b))
+    cursor.writeUint8OrThrow(Number(c))
+    cursor.writeUint8OrThrow(Number(d))
 
-      cursor.tryWriteUint16(this.port).throw(t)
-
-      return Ok.void()
-    })
+    cursor.writeUint16OrThrow(this.port)
   }
 
 }
@@ -73,29 +67,25 @@ export class RelayExtend2LinkIPv6 {
     return new RelayExtend2LinkIPv6(hostname.slice(1, -1), Number(port))
   }
 
-  trySize(): Result<number, never> {
-    return new Ok(1 + 1 + (8 * 2) + 2)
+  sizeOrThrow() {
+    return 1 + 1 + (8 * 2) + 2
   }
 
-  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
-    return Result.unthrowSync(t => {
-      cursor.tryWriteUint8(this.#class.type).throw(t)
-      cursor.tryWriteUint8(16 + 2).throw(t)
+  writeOrThrow(cursor: Cursor) {
+    cursor.writeUint8OrThrow(this.#class.type)
+    cursor.writeUint8OrThrow(16 + 2)
 
-      const [a, b, c, d, e, f, g, h] = this.hostname.split(":")
-      cursor.tryWriteUint16(Number(`0x${a}`) || 0).throw(t)
-      cursor.tryWriteUint16(Number(`0x${b}`) || 0).throw(t)
-      cursor.tryWriteUint16(Number(`0x${c}`) || 0).throw(t)
-      cursor.tryWriteUint16(Number(`0x${d}`) || 0).throw(t)
-      cursor.tryWriteUint16(Number(`0x${e}`) || 0).throw(t)
-      cursor.tryWriteUint16(Number(`0x${f}`) || 0).throw(t)
-      cursor.tryWriteUint16(Number(`0x${g}`) || 0).throw(t)
-      cursor.tryWriteUint16(Number(`0x${h}`) || 0).throw(t)
+    const [a, b, c, d, e, f, g, h] = this.hostname.split(":")
+    cursor.writeUint16OrThrow(Number(`0x${a}`) || 0)
+    cursor.writeUint16OrThrow(Number(`0x${b}`) || 0)
+    cursor.writeUint16OrThrow(Number(`0x${c}`) || 0)
+    cursor.writeUint16OrThrow(Number(`0x${d}`) || 0)
+    cursor.writeUint16OrThrow(Number(`0x${e}`) || 0)
+    cursor.writeUint16OrThrow(Number(`0x${f}`) || 0)
+    cursor.writeUint16OrThrow(Number(`0x${g}`) || 0)
+    cursor.writeUint16OrThrow(Number(`0x${h}`) || 0)
 
-      cursor.tryWriteUint16(this.port).throw(t)
-
-      return Ok.void()
-    })
+    cursor.writeUint16OrThrow(this.port)
   }
 
 }
@@ -109,18 +99,14 @@ export class RelayExtend2LinkLegacyID {
     readonly fingerprint: Uint8Array
   ) { }
 
-  trySize(): Result<number, never> {
-    return new Ok(1 + 1 + this.fingerprint.length)
+  sizeOrThrow() {
+    return 1 + 1 + this.fingerprint.length
   }
 
-  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
-    return Result.unthrowSync(t => {
-      cursor.tryWriteUint8(this.#class.type).throw(t)
-      cursor.tryWriteUint8(20).throw(t)
-      cursor.tryWrite(this.fingerprint).throw(t)
-
-      return Ok.void()
-    })
+  writeOrThrow(cursor: Cursor) {
+    cursor.writeUint8OrThrow(this.#class.type)
+    cursor.writeUint8OrThrow(20)
+    cursor.writeOrThrow(this.fingerprint)
   }
 
 }
@@ -134,18 +120,14 @@ export class RelayExtend2LinkModernID {
     readonly fingerprint: Uint8Array
   ) { }
 
-  trySize(): Result<number, never> {
-    return new Ok(1 + 1 + this.fingerprint.length)
+  sizeOrThrow() {
+    return 1 + 1 + this.fingerprint.length
   }
 
-  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
-    return Result.unthrowSync(t => {
-      cursor.tryWriteUint8(this.#class.type).throw(t)
-      cursor.tryWriteUint8(32).throw(t)
-      cursor.tryWrite(this.fingerprint).throw(t)
-
-      return Ok.void()
-    })
+  writeOrThrow(cursor: Cursor) {
+    cursor.writeUint8OrThrow(this.#class.type)
+    cursor.writeUint8OrThrow(32)
+    cursor.writeOrThrow(this.fingerprint)
   }
 
 }

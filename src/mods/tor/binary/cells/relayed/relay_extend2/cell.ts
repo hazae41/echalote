@@ -1,9 +1,8 @@
-import { BinaryWriteError, Writable } from "@hazae41/binary"
+import { Writable } from "@hazae41/binary"
 import { Cursor } from "@hazae41/cursor"
-import { Ok, Result } from "@hazae41/result"
 import { RelayExtend2Link } from "mods/tor/binary/cells/relayed/relay_extend2/link.js"
 
-export class RelayExtend2Cell<T extends Writable.Infer<T>> {
+export class RelayExtend2Cell<T extends Writable> {
   readonly #class = RelayExtend2Cell
 
   static readonly early = true
@@ -40,31 +39,27 @@ export class RelayExtend2Cell<T extends Writable.Infer<T>> {
     return this.#class.rcommand
   }
 
-  trySize(): Result<number, Writable.SizeError<T>> {
-    return this.data.trySize().mapSync(x => 0
+  sizeOrThrow() {
+    return 0
       + 1
-      + this.links.reduce((p, c) => p + c.trySize().get(), 0)
+      + this.links.reduce((p, c) => p + c.sizeOrThrow(), 0)
       + 2
       + 2
-      + x)
+      + this.data.sizeOrThrow()
   }
 
-  tryWrite(cursor: Cursor): Result<void, BinaryWriteError | Writable.SizeError<T> | Writable.WriteError<T>> {
-    return Result.unthrowSync(t => {
-      cursor.tryWriteUint8(this.links.length).throw(t)
+  writeOrThrow(cursor: Cursor) {
+    cursor.writeUint8OrThrow(this.links.length)
 
-      for (const link of this.links)
-        link.tryWrite(cursor).throw(t)
+    for (const link of this.links)
+      link.writeOrThrow(cursor)
 
-      cursor.tryWriteUint16(this.type).throw(t)
+    cursor.writeUint16OrThrow(this.type)
 
-      const size = this.data.trySize().throw(t)
-      cursor.tryWriteUint16(size).throw(t)
+    const size = this.data.sizeOrThrow()
+    cursor.writeUint16OrThrow(size)
 
-      this.data.tryWrite(cursor).throw(t)
-
-      return Ok.void()
-    })
+    this.data.writeOrThrow(cursor)
   }
 
 }

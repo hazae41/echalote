@@ -1,7 +1,7 @@
 import { Opaque, Writable } from "@hazae41/binary";
 import { Cursor } from "@hazae41/cursor";
 
-export class RelayDataCell<Fragment extends Writable> {
+export class RelayDataCell<T extends Writable> {
   readonly #class = RelayDataCell
 
   static readonly early = false
@@ -9,7 +9,7 @@ export class RelayDataCell<Fragment extends Writable> {
   static readonly rcommand = 2
 
   constructor(
-    readonly fragment: Fragment
+    readonly fragment: T
   ) { }
 
   get early(): false {

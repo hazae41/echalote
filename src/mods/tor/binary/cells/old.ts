@@ -1,6 +1,5 @@
-import { BinaryError, BinaryReadError, Opaque, Readable, Writable } from "@hazae41/binary";
+import { Opaque, Readable, Writable } from "@hazae41/binary";
 import { Cursor } from "@hazae41/cursor";
-import { Err, Ok, Result } from "@hazae41/result";
 import { SecretCircuit } from "mods/tor/circuit.js";
 import { SecretTorClientDuplex } from "mods/tor/tor.js";
 import { ExpectedCircuitError, InvalidCommandError, UnexpectedCircuitError, UnknownCircuitError } from "./errors.js";
@@ -27,7 +26,7 @@ export namespace OldCellable {
 
 }
 
-export type OldCell<T extends Writable.Infer<T>> =
+export type OldCell<T extends Writable> =
   | OldCell.Circuitful<T>
   | OldCell.Circuitless<T>
 
@@ -36,146 +35,144 @@ export namespace OldCell {
   export type PAYLOAD_LEN = 509
   export const PAYLOAD_LEN = 509
 
-  export class Raw<Fragment extends Writable.Infer<Fragment>> {
+  export class Raw<T extends Writable> {
 
     constructor(
       readonly circuit: number,
       readonly command: number,
-      readonly fragment: Fragment
+      readonly fragment: T
     ) { }
 
-    tryUnpack(tor: SecretTorClientDuplex): Result<OldCell<Fragment>, UnknownCircuitError> {
+    unpackOrThrow(tor: SecretTorClientDuplex) {
       if (this.circuit === 0)
-        return new Ok(new Circuitless(undefined, this.command, this.fragment))
+        return new Circuitless(undefined, this.command, this.fragment)
 
       const circuit = tor.circuits.inner.get(this.circuit)
 
       if (circuit == null)
-        return new Err(new UnknownCircuitError())
+        throw new UnknownCircuitError()
 
-      return new Ok(new Circuitful(circuit, this.command, this.fragment))
+      return new Circuitful(circuit, this.command, this.fragment)
     }
 
-    trySize(): Result<number, Writable.SizeError<Fragment>> {
-      if (this.command === 7)
-        return this.fragment.trySize().mapSync(x => 2 + 1 + 2 + x)
-      else
-        return new Ok(2 + 1 + PAYLOAD_LEN)
+    sizeOrThrow() {
+      return this.command === 7
+        ? 2 + 1 + 2 + this.fragment.sizeOrThrow()
+        : 2 + 1 + PAYLOAD_LEN;
     }
 
-    tryWrite(cursor: Cursor): Result<void, BinaryError | Writable.SizeError<Fragment> | Writable.WriteError<Fragment>> {
-      return Result.unthrowSync(t => {
-        if (this.command === 7) {
-          cursor.tryWriteUint16(this.circuit).throw(t)
-          cursor.tryWriteUint8(this.command).throw(t)
+    writeOrThrow(cursor: Cursor) {
+      if (this.command === 7) {
+        cursor.writeUint16OrThrow(this.circuit)
+        cursor.writeUint8OrThrow(this.command)
 
-          const size = this.fragment.trySize().throw(t)
-          cursor.tryWriteUint16(size).throw(t)
+        const size = this.fragment.sizeOrThrow()
+        cursor.writeUint16OrThrow(size)
 
-          this.fragment.tryWrite(cursor).throw(t)
+        this.fragment.writeOrThrow(cursor)
 
-          return Ok.void()
-        } else {
-          cursor.tryWriteUint16(this.circuit).throw(t)
-          cursor.tryWriteUint8(this.command).throw(t)
+        return
+      }
 
-          const payload = cursor.tryRead(PAYLOAD_LEN).throw(t)
+      cursor.writeUint16OrThrow(this.circuit)
+      cursor.writeUint8OrThrow(this.command)
 
-          const subcursor = new Cursor(payload)
-          this.fragment.tryWrite(subcursor).throw(t)
-          subcursor.fill(0, subcursor.remaining)
+      const payload = cursor.readOrThrow(PAYLOAD_LEN)
+      const subcursor = new Cursor(payload)
 
-          return Ok.void()
-        }
-      })
+      this.fragment.writeOrThrow(subcursor)
+
+      subcursor.fillOrThrow(0, subcursor.remaining)
     }
 
-    static tryRead(cursor: Cursor): Result<Raw<Opaque>, BinaryReadError> {
-      return Result.unthrowSync(t => {
-        const circuit = cursor.tryReadUint16().throw(t)
-        const command = cursor.tryReadUint8().throw(t)
+    static readOrThrow(cursor: Cursor) {
+      const circuit = cursor.readUint16OrThrow()
+      const command = cursor.readUint8OrThrow()
 
-        if (command === 7) {
-          const length = cursor.tryReadUint16().throw(t)
-          const bytes = cursor.tryRead(length).throw(t)
-          const payload = new Opaque(bytes)
+      if (command === 7) {
+        const length = cursor.readUint16OrThrow()
+        const bytes = cursor.readAndCopyOrThrow(length)
+        const payload = new Opaque(bytes)
 
-          return new Ok(new Raw(circuit, command, payload))
-        } else {
-          const bytes = cursor.tryRead(PAYLOAD_LEN).throw(t)
-          const payload = new Opaque(bytes)
+        return new Raw(circuit, command, payload)
+      }
 
-          return new Ok(new Raw(circuit, command, payload))
-        }
-      })
+      const bytes = cursor.readAndCopyOrThrow(PAYLOAD_LEN)
+      const payload = new Opaque(bytes)
+
+      return new Raw(circuit, command, payload)
     }
 
   }
 
-  export class Circuitful<Fragment extends Writable.Infer<Fragment>> {
-    readonly #raw: Raw<Fragment>
+  export class Circuitful<T extends Writable> {
+    readonly #raw: Raw<T>
 
     constructor(
       readonly circuit: SecretCircuit,
       readonly command: number,
-      readonly fragment: Fragment
+      readonly fragment: T
     ) {
-      this.#raw = new Raw<Fragment>(circuit.id, command, fragment)
+      this.#raw = new Raw<T>(circuit.id, command, fragment)
     }
 
-    static from<T extends OldCellable.Circuitful & Writable.Infer<T>>(circuit: SecretCircuit, cellable: T) {
+    static from<T extends OldCellable.Circuitful & Writable>(circuit: SecretCircuit, cellable: T) {
       return new Circuitful(circuit, cellable.command, cellable)
     }
 
-    trySize(): Result<number, Writable.SizeError<Fragment>> {
-      return this.#raw.trySize()
+    sizeOrThrow() {
+      return this.#raw.sizeOrThrow()
     }
 
-    tryWrite(cursor: Cursor): Result<void, BinaryError | Writable.SizeError<Fragment> | Writable.WriteError<Fragment>> {
-      return this.#raw.tryWrite(cursor)
+    writeOrThrow(cursor: Cursor) {
+      this.#raw.writeOrThrow(cursor)
     }
 
-    static tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: OldCell<Opaque>, readable: OldCellable.Circuitful & Readable<ReadOutput, ReadError>): Result<Circuitful<ReadOutput>, ReadError | BinaryReadError | InvalidCommandError | ExpectedCircuitError> {
+    static intoOrThrow<T extends Writable>(cell: OldCell<Opaque>, readable: OldCellable.Circuitful & Readable<T>) {
       if (cell.command !== readable.command)
-        return new Err(new InvalidCommandError())
+        throw new InvalidCommandError()
       if (cell.circuit == null)
-        return new Err(new ExpectedCircuitError())
+        throw new ExpectedCircuitError()
 
-      return cell.fragment.tryReadInto(readable).mapSync(fragment => new Circuitful(cell.circuit, readable.command, fragment))
+      const fragment = cell.fragment.readIntoOrThrow(readable)
+
+      return new Circuitful(cell.circuit, readable.command, fragment)
     }
 
   }
 
-  export class Circuitless<Fragment extends Writable.Infer<Fragment>> {
-    readonly #raw: Raw<Fragment>
+  export class Circuitless<T extends Writable> {
+    readonly #raw: Raw<T>
 
     constructor(
       readonly circuit: undefined,
       readonly command: number,
-      readonly fragment: Fragment
+      readonly fragment: T
     ) {
-      this.#raw = new Raw<Fragment>(0, command, fragment)
+      this.#raw = new Raw<T>(0, command, fragment)
     }
 
-    static from<T extends OldCellable.Circuitless & Writable.Infer<T>>(circuit: undefined, cellable: T) {
+    static from<T extends OldCellable.Circuitless & Writable>(circuit: undefined, cellable: T) {
       return new Circuitless(circuit, cellable.command, cellable)
     }
 
-    trySize(): Result<number, Writable.SizeError<Fragment>> {
-      return this.#raw.trySize()
+    sizeOrThrow() {
+      return this.#raw.sizeOrThrow()
     }
 
-    tryWrite(cursor: Cursor): Result<void, BinaryError | Writable.SizeError<Fragment> | Writable.WriteError<Fragment>> {
-      return this.#raw.tryWrite(cursor)
+    writeOrThrow(cursor: Cursor) {
+      this.#raw.writeOrThrow(cursor)
     }
 
-    static tryInto<ReadOutput extends Writable.Infer<ReadOutput>, ReadError>(cell: OldCell<Opaque>, readable: OldCellable.Circuitless & Readable<ReadOutput, ReadError>): Result<Circuitless<ReadOutput>, ReadError | BinaryReadError | InvalidCommandError | UnexpectedCircuitError> {
+    static intoOrThrow<T extends Writable>(cell: OldCell<Opaque>, readable: OldCellable.Circuitless & Readable<T>) {
       if (cell.command !== readable.command)
-        return new Err(new InvalidCommandError())
+        throw new InvalidCommandError()
       if (cell.circuit != null)
-        return new Err(new UnexpectedCircuitError())
+        throw new UnexpectedCircuitError()
 
-      return cell.fragment.tryReadInto(readable).mapSync(fragment => new Circuitless(cell.circuit, readable.command, fragment))
+      const fragment = cell.fragment.readIntoOrThrow(readable)
+
+      return new Circuitless(cell.circuit, readable.command, fragment)
     }
 
   }

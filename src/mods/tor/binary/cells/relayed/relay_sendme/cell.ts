@@ -1,8 +1,8 @@
-import { BinaryReadError, BinaryWriteError, Opaque, Writable } from "@hazae41/binary";
+import { Opaque, Writable } from "@hazae41/binary";
+import { Uint8Array } from "@hazae41/bytes";
 import { Cursor } from "@hazae41/cursor";
-import { Ok, Result } from "@hazae41/result";
 
-export class RelaySendmeCircuitCell<T extends Writable.Infer<T>> {
+export class RelaySendmeCircuitCell<T extends Writable> {
   readonly #class = RelaySendmeCircuitCell
 
   static readonly early = false
@@ -31,29 +31,26 @@ export class RelaySendmeCircuitCell<T extends Writable.Infer<T>> {
     return this.#class.rcommand
   }
 
-  trySize(): Result<number, Writable.SizeError<T>> {
-    return this.fragment.trySize().mapSync(x => 1 + 2 + x)
+  sizeOrThrow() {
+    return 1 + 2 + this.fragment.sizeOrThrow()
   }
 
-  tryWrite(cursor: Cursor): Result<void, BinaryWriteError | Writable.SizeError<T> | Writable.WriteError<T>> {
-    return Result.unthrowSync(t => {
-      cursor.tryWriteUint8(this.version).throw(t)
-      cursor.tryWriteUint16(this.fragment.trySize().throw(t))
-      this.fragment.tryWrite(cursor).throw(t)
+  writeOrThrow(cursor: Cursor) {
+    cursor.tryWriteUint8(this.version)
 
-      return Ok.void()
-    })
+    const size = this.fragment.sizeOrThrow()
+    cursor.tryWriteUint16(size)
+
+    this.fragment.writeOrThrow(cursor)
   }
 
-  static tryRead(cursor: Cursor): Result<RelaySendmeCircuitCell<Opaque>, BinaryReadError> {
-    return Result.unthrowSync(t => {
-      const version = cursor.tryReadUint8().throw(t)
-      const length = cursor.tryReadUint16().throw(t)
-      const bytes = cursor.tryRead(length).throw(t)
-      const data = new Opaque(bytes)
+  static readOrThrow(cursor: Cursor) {
+    const version = cursor.readUint8OrThrow()
+    const length = cursor.readUint16OrThrow()
+    const bytes = cursor.readAndCopyOrThrow(length)
+    const data = new Opaque(bytes)
 
-      return new Ok(new RelaySendmeCircuitCell(version, data))
-    })
+    return new RelaySendmeCircuitCell(version, data)
   }
 
 }
@@ -84,16 +81,16 @@ export class RelaySendmeStreamCell {
     return this.#class.rcommand
   }
 
-  trySize(): Result<number, never> {
-    return new Ok(0)
+  sizeOrThrow() {
+    return 0
   }
 
-  tryWrite(cursor: Cursor): Result<void, never> {
-    return Ok.void()
+  writeOrThrow(cursor: Cursor) {
+    return
   }
 
-  static tryRead(cursor: Cursor): Result<RelaySendmeStreamCell, BinaryReadError> {
-    return new Ok(new RelaySendmeStreamCell())
+  static readOrThrow(cursor: Cursor) {
+    return new RelaySendmeStreamCell()
   }
 
 }
@@ -104,23 +101,16 @@ export class RelaySendmeDigest {
     readonly digest: Uint8Array<20>
   ) { }
 
-  trySize(): Result<number, never> {
-    return new Ok(this.digest.length)
+  sizeOrThrow() {
+    return this.digest.length
   }
 
-  tryWrite(cursor: Cursor): Result<void, BinaryWriteError> {
-    return Result.unthrowSync(t => {
-      cursor.tryWrite(this.digest).throw(t)
-
-      return Ok.void()
-    })
+  writeOrThrow(cursor: Cursor) {
+    cursor.writeOrThrow(this.digest)
   }
 
-  static tryRead(cursor: Cursor): Result<RelaySendmeDigest, BinaryReadError> {
-    return Result.unthrowSync(t => {
-      const digest = cursor.tryRead(20).throw(t)
-
-      return new Ok(new RelaySendmeDigest(digest))
-    })
+  static readOrThrow(cursor: Cursor) {
+    return new RelaySendmeDigest(cursor.readAndCopyOrThrow(20))
   }
+
 }

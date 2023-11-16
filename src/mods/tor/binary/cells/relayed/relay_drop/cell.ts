@@ -1,8 +1,7 @@
-import { BinaryReadError, Opaque, Writable } from "@hazae41/binary";
+import { Opaque, Writable } from "@hazae41/binary";
 import { Cursor } from "@hazae41/cursor";
-import { Result } from "@hazae41/result";
 
-export class RelayDropCell<Fragment extends Writable.Infer<Fragment>> {
+export class RelayDropCell<T extends Writable> {
   readonly #class = RelayDropCell
 
   static readonly early = false
@@ -10,7 +9,7 @@ export class RelayDropCell<Fragment extends Writable.Infer<Fragment>> {
   static readonly rcommand = 10
 
   constructor(
-    readonly fragment: Fragment
+    readonly fragment: T
   ) { }
 
   get early(): false {
@@ -25,16 +24,16 @@ export class RelayDropCell<Fragment extends Writable.Infer<Fragment>> {
     return this.#class.rcommand
   }
 
-  trySize(): Result<number, Writable.SizeError<Fragment>> {
-    return this.fragment.trySize()
+  sizeOrThrow() {
+    return this.fragment.sizeOrThrow()
   }
 
-  tryWrite(cursor: Cursor): Result<void, Writable.WriteError<Fragment>> {
-    return this.fragment.tryWrite(cursor)
+  writeOrThrow(cursor: Cursor) {
+    this.fragment.writeOrThrow(cursor)
   }
 
-  static tryRead(cursor: Cursor): Result<RelayDropCell<Opaque>, BinaryReadError> {
-    return cursor.tryRead(cursor.remaining).mapSync(x => new RelayDropCell(new Opaque(x)))
+  static readOrThrow(cursor: Cursor) {
+    return new RelayDropCell(new Opaque(cursor.readAndCopyOrThrow(cursor.remaining)))
   }
 
 }
