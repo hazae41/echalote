@@ -11,6 +11,7 @@ import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { SecretCircuit } from "mods/tor/circuit.js";
 import { RelayEndReason } from "./binary/cells/relayed/relay_end/reason.js";
 import { RelaySendmeStreamCell } from "./binary/cells/relayed/relay_sendme/cell.js";
+import { RelayConnectedCell } from "./index.js";
 
 export class TorStreamDuplex {
 
@@ -38,12 +39,16 @@ export class RelayEndedError extends Error {
 
 }
 
+export type StreamEvents = CloseEvents & ErrorEvents & {
+  "open": () => void
+}
+
 export class SecretTorStreamDuplex {
   readonly #class = SecretTorStreamDuplex
 
   readonly events = {
-    input: new SuperEventTarget<CloseEvents & ErrorEvents>(),
-    output: new SuperEventTarget<CloseEvents & ErrorEvents>()
+    input: new SuperEventTarget<StreamEvents>(),
+    output: new SuperEventTarget<StreamEvents>()
   } as const
 
   readonly #input: SuperReadableStream<Opaque>
@@ -63,12 +68,14 @@ export class SecretTorStreamDuplex {
     const onClose = this.#onCircuitClose.bind(this)
     const onError = this.#onCircuitError.bind(this)
 
+    const onRelayConnectedCell = this.#onRelayConnectedCell.bind(this)
     const onRelayDataCell = this.#onRelayDataCell.bind(this)
     const onRelayEndCell = this.#onRelayEndCell.bind(this)
 
     this.circuit.events.on("close", onClose, { passive: true })
     this.circuit.events.on("error", onError, { passive: true })
 
+    this.circuit.events.on("RELAY_CONNECTED", onRelayConnectedCell, { passive: true })
     this.circuit.events.on("RELAY_DATA", onRelayDataCell, { passive: true })
     this.circuit.events.on("RELAY_END", onRelayEndCell, { passive: true })
 
@@ -76,6 +83,7 @@ export class SecretTorStreamDuplex {
       this.circuit.events.off("close", onClose)
       this.circuit.events.off("error", onError)
 
+      this.circuit.events.off("RELAY_CONNECTED", onRelayConnectedCell)
       this.circuit.events.off("RELAY_DATA", onRelayDataCell)
       this.circuit.events.off("RELAY_END", onRelayEndCell)
 
@@ -203,6 +211,18 @@ export class SecretTorStreamDuplex {
     Console.debug(`${this.#class.name}.onCircuitError`, { reason })
 
     this.#onError(reason)
+
+    return new None()
+  }
+
+  async #onRelayConnectedCell(cell: RelayCell.Streamful<RelayConnectedCell>) {
+    if (cell.stream !== this)
+      return new None()
+
+    Console.debug(`${this.#class.name}.onRelayConnectedCell`, cell)
+
+    await this.events.input.emit("open", [])
+    await this.events.output.emit("open", [])
 
     return new None()
   }

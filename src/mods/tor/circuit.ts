@@ -43,7 +43,15 @@ export const IPv6 = {
 } as const
 
 export interface CircuitOpenParams {
-  ipv6?: keyof typeof IPv6
+  /**
+   * Wait RELAY_CONNECTED
+   */
+  readonly wait?: boolean
+
+  /**
+   * IPv6 preference
+   */
+  readonly ipv6?: keyof typeof IPv6
 }
 
 export class EmptyFallbacksError extends Error {
@@ -140,14 +148,15 @@ export class Circuit {
 
 export type SecretCircuitEvents = CloseEvents & ErrorEvents & {
   /**
-   * Used by self
+   * Streamless
    */
   "RELAY_EXTENDED2": (cell: RelayCell.Streamless<RelayExtended2Cell<Opaque>>) => Result<void, Error>
   "RELAY_TRUNCATED": (cell: RelayCell.Streamless<RelayTruncatedCell>) => Result<void, Error>
 
   /**
-   * Used by streams
+   * Streamful
    */
+  "RELAY_CONNECTED": (cell: RelayCell.Streamful<RelayConnectedCell>) => Result<void, Error>
   "RELAY_DATA": (cell: RelayCell.Streamful<RelayDataCell<Opaque>>) => Result<void, Error>
   "RELAY_END": (cell: RelayCell.Streamful<RelayEndCell>) => Result<void, Error>
 }
@@ -317,6 +326,8 @@ export class SecretCircuit {
       return new None()
 
     Console.debug(`${this.#class.name}.onRelayConnectedCell`, cell)
+
+    await this.events.emit("RELAY_CONNECTED", [cell])
 
     return new None()
   }
@@ -537,6 +548,12 @@ export class SecretCircuit {
     const begin = RelayBeginCell.create(`${hostname}:${port}`, flags)
     const begin_cell = RelayCell.Streamful.from(this, stream, begin)
     this.tor.output.enqueue(begin_cell.cellOrThrow())
+
+    if (params.wait)
+      await Plume.tryWaitOrCloseOrError(stream.events.input, "open", (future: Future<Ok<void>>) => {
+        future.resolve(Ok.void())
+        return new None()
+      }).then(r => r.unwrap())
 
     return new TorStreamDuplex(stream)
   }

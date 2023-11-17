@@ -58,7 +58,7 @@ export function createStreamPool<TorPoolError>(circuits: Mutex<Pool<Disposer<Cir
       const { pool, index, signal } = params
 
       const circuit = await circuits.inner.tryGet(index % circuits.inner.capacity).then(r => r.throw(t).throw(t))
-      const stream = await circuit.inner.openAsOrThrow("https://eth.llamarpc.com")
+      const stream = await circuit.inner.openAsOrThrow("https://eth.llamarpc.com", { wait: true })
 
       const inputer = new TransformStream<Opaque, Opaque>({})
       const outputer = new TransformStream<Writable, Writable>({})
