@@ -13,7 +13,6 @@ import { createCircuitPool, createStreamPool, createTorPool, tryCreateTor } from
 import { DependencyList, useCallback, useEffect, useMemo, useState } from "react";
 
 async function superfetch(stream: ReadableWritablePair<Opaque<Uint8Array>, Writable>) {
-  console.log("superfetch")
   const start = Date.now()
 
   const body = JSON.stringify({ "jsonrpc": "2.0", "method": "eth_blockNumber", "params": [], "id": 67 })

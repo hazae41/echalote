@@ -41,14 +41,14 @@ export function createTorPool<CreateError extends Looped.Infer<CreateError>>(try
 
 export function createCircuitPool(tors: Mutex<Pool<Disposer<TorClientDuplex>, Error>>, params: PoolParams) {
   return new Mutex(new Pool<Disposer<Circuit>, Error>(async (params) => {
-    return await Result.unthrow(async t => {
+    return await Result.unthrow<Result<Disposer<Circuit>, Error>>(async t => {
       const { index, signal } = params
 
       const tor = await tors.inner.tryGet(index % tors.inner.capacity).then(r => r.throw(t).throw(t))
       const circuit = await tor.inner.tryCreateAndExtendLoop(signal).then(r => r.throw(t))
 
       return new Ok(createPooledCircuitDisposer(circuit, params))
-    })
+    }).then(r => r.inspectErrSync(e => console.error({ e })))
   }, params))
 }
 
