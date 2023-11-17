@@ -1,15 +1,14 @@
 import { Arrays } from "@hazae41/arrays";
 import { Base16 } from "@hazae41/base16";
 import { Base64 } from "@hazae41/base64";
-import { Opaque } from "@hazae41/binary";
+import { Opaque, Writable } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Bytes } from "@hazae41/bytes";
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
-import { tryFetch } from "@hazae41/fleche";
 import { Future } from "@hazae41/future";
-import { None, Option, Some } from "@hazae41/option";
+import { None, Option } from "@hazae41/option";
 import { TooManyRetriesError } from "@hazae41/piscine";
-import { AbortedError, CloseEvents, ClosedError, ErrorEvents, ErroredError, EventError, Plume, SuperEventTarget } from "@hazae41/plume";
+import { AbortedError, CloseEvents, ClosedError, ErrorEvents, ErroredError, Plume, SuperEventTarget } from "@hazae41/plume";
 import { Err, Ok, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
@@ -69,6 +68,18 @@ export class UnknownProtocolError extends Error {
 
 }
 
+export class DestroyedError extends Error {
+  readonly #class = DestroyedError
+  readonly name = this.#class.name
+
+  constructor(
+    readonly reason: number
+  ) {
+    super(`Circuit destroyed`, { cause: reason })
+  }
+
+}
+
 export class Circuit {
 
   readonly events = new SuperEventTarget<CloseEvents & ErrorEvents>()
@@ -89,8 +100,8 @@ export class Circuit {
     return this.#secret.id
   }
 
-  get destroyed() {
-    return Boolean(this.#secret.destroyed)
+  get closed() {
+    return Boolean(this.#secret.closed)
   }
 
   async #onClose() {
@@ -109,23 +120,34 @@ export class Circuit {
     return await this.#secret.tryExtendLoop(exit, signal)
   }
 
+  async openOrThrow(hostname: string, port: number, params?: CircuitOpenParams) {
+    return await this.#secret.openOrThrow(hostname, port, params)
+  }
+
   async tryOpen(hostname: string, port: number, params?: CircuitOpenParams) {
     return await this.#secret.tryOpen(hostname, port, params)
   }
 
-  async tryFetch(input: RequestInfo | URL, init: RequestInit & CircuitOpenParams & StreamPipeOptions = {}) {
-    return await this.#secret.tryFetch(input, init)
+  async openAsOrThrow(input: RequestInfo | URL, params?: CircuitOpenParams) {
+    return await this.#secret.openAsOrThrow(input, params)
   }
 
-  async destroy() {
-    return await this.#secret.destroy()
+  async close() {
+    return await this.#secret.close()
   }
 
 }
 
 export type SecretCircuitEvents = CloseEvents & ErrorEvents & {
+  /**
+   * Used by self
+   */
   "RELAY_EXTENDED2": (cell: RelayCell.Streamless<RelayExtended2Cell<Opaque>>) => Result<void, Error>
   "RELAY_TRUNCATED": (cell: RelayCell.Streamless<RelayTruncatedCell>) => Result<void, Error>
+
+  /**
+   * Used by streams
+   */
   "RELAY_DATA": (cell: RelayCell.Streamful<RelayDataCell<Opaque>>) => Result<void, Error>
   "RELAY_END": (cell: RelayCell.Streamful<RelayEndCell>) => Result<void, Error>
 }
@@ -140,7 +162,7 @@ export class SecretCircuit {
 
   #streamId = 1
 
-  #destroyed?: { reason?: unknown }
+  #closed?: { reason?: unknown }
 
   constructor(
     readonly id: number,
@@ -172,32 +194,39 @@ export class SecretCircuit {
   }
 
   [Symbol.dispose]() {
-    if (!this.#destroyed)
-      this.#destroyed = {}
+    if (!this.#closed)
+      this.#closed = {}
     for (const target of this.targets)
       target[Symbol.dispose]()
   }
 
-  get destroyed() {
-    return this.#destroyed
+  get closed() {
+    return this.#closed
   }
 
-  #destroy(reason?: unknown) {
-    if (this.#destroyed)
+  #onCloseOrError(reason?: unknown) {
+    if (this.#closed)
       return
-    this.#destroyed = { reason }
+    this.#closed = { reason }
     this[Symbol.dispose]()
   }
 
-  async destroy(reason?: unknown) {
-    this.#destroy()
-    await this.events.emit("error", [reason])
+  async close(reason: number = DestroyCell.reasons.NONE) {
+    const error = new DestroyedError(reason)
+
+    this.#onCloseOrError(error)
+
+    if (reason === DestroyCell.reasons.NONE)
+      await this.events.emit("close", [error])
+    else
+      await this.events.emit("error", [error])
   }
 
   async #onTorClose() {
     Console.debug(`${this.#class.name}.onTorClose`)
 
-    this.#destroy()
+    this.#onCloseOrError()
+
     await this.events.emit("close", [undefined])
 
     return new None()
@@ -206,7 +235,8 @@ export class SecretCircuit {
   async #onTorError(reason?: unknown) {
     Console.debug(`${this.#class.name}.onReadError`, { reason })
 
-    this.#destroy(reason)
+    this.#onCloseOrError(reason)
+
     await this.events.emit("error", [reason])
 
     return new None()
@@ -218,8 +248,14 @@ export class SecretCircuit {
 
     Console.debug(`${this.#class.name}.onDestroyCell`, cell)
 
-    this.#destroy(cell)
-    await this.events.emit("error", [cell])
+    const error = new DestroyedError(cell.fragment.reason)
+
+    this.#onCloseOrError(error)
+
+    if (cell.fragment.reason === DestroyCell.reasons.NONE)
+      await this.events.emit("close", [error])
+    else
+      await this.events.emit("error", [error])
 
     return new None()
   }
@@ -230,27 +266,27 @@ export class SecretCircuit {
 
     Console.debug(`${this.#class.name}.onRelayExtended2Cell`, cell)
 
-    const returned = await this.events.emit("RELAY_EXTENDED2", [cell])
-
-    if (returned.isSome() && returned.inner.isErr())
-      return new Some(returned.inner.mapErrSync(EventError.new))
+    await this.events.emit("RELAY_EXTENDED2", [cell])
 
     return new None()
   }
 
-  async #onRelayTruncatedCell(cell: RelayCell.Streamless<RelayTruncatedCell>): Promise<Option<Result<void, Error>>> {
+  async #onRelayTruncatedCell(cell: RelayCell.Streamless<RelayTruncatedCell>) {
     if (cell.circuit !== this)
       return new None()
 
     Console.debug(`${this.#class.name}.onRelayTruncatedCell`, cell)
 
-    this.#destroy()
-    await this.events.emit("error", [cell])
+    const error = new DestroyedError(cell.fragment.reason)
 
-    const returned = await this.events.emit("RELAY_TRUNCATED", [cell])
+    this.#onCloseOrError(error)
 
-    if (returned.isSome() && returned.inner.isErr())
-      return new Some(returned.inner.mapErrSync(EventError.new))
+    if (cell.fragment.reason === RelayTruncateCell.reasons.NONE)
+      await this.events.emit("close", [error])
+    else
+      await this.events.emit("error", [error])
+
+    await this.events.emit("RELAY_TRUNCATED", [cell])
 
     return new None()
   }
@@ -270,10 +306,7 @@ export class SecretCircuit {
 
     Console.debug(`${this.#class.name}.onRelayDataCell`, cell)
 
-    const returned = await this.events.emit("RELAY_DATA", [cell])
-
-    if (returned.isSome() && returned.inner.isErr())
-      return new Some(returned.inner.mapErrSync(EventError.new))
+    await this.events.emit("RELAY_DATA", [cell])
 
     return new None()
   }
@@ -286,10 +319,7 @@ export class SecretCircuit {
 
     this.streams.delete(cell.stream.id)
 
-    const returned = await this.events.emit("RELAY_END", [cell])
-
-    if (returned.isSome() && returned.inner.isErr())
-      return new Some(returned.inner.mapErrSync(EventError.new))
+    await this.events.emit("RELAY_END", [cell])
 
     return new None()
   }
@@ -308,10 +338,10 @@ export class SecretCircuit {
   // }
 
   async extendOrThrow(exit: boolean, signal?: AbortSignal) {
-    if (this.destroyed?.reason != null)
-      throw ErroredError.from(this.destroyed.reason)
-    if (this.destroyed != null)
-      throw ClosedError.from(this.destroyed.reason)
+    if (this.closed?.reason != null)
+      throw ErroredError.from(this.closed.reason)
+    if (this.closed != null)
+      throw ClosedError.from(this.closed.reason)
 
     const fallbacks = exit
       ? this.tor.params.fallbacks.filter(it => it.exit)
@@ -326,10 +356,10 @@ export class SecretCircuit {
   }
 
   async extendToOrThrow(fallback: Fallback, signal?: AbortSignal) {
-    if (this.destroyed?.reason != null)
-      throw ErroredError.from(this.destroyed.reason)
-    if (this.destroyed != null)
-      throw ClosedError.from(this.destroyed.reason)
+    if (this.closed?.reason != null)
+      throw ErroredError.from(this.closed.reason)
+    if (this.closed != null)
+      throw ClosedError.from(this.closed.reason)
 
     const signal2 = AbortSignals.timeout(5_000, signal)
 
@@ -410,13 +440,13 @@ export class SecretCircuit {
   }
 
   async tryExtendLoop(exit: boolean, signal?: AbortSignal): Promise<Result<void, Error>> {
-    for (let i = 0; !this.destroyed && !signal?.aborted && i < 3; i++) {
+    for (let i = 0; !this.closed && !signal?.aborted && i < 3; i++) {
       const result = await this.tryExtend(exit, signal)
 
       if (result.isOk())
         return result
 
-      if (this.destroyed)
+      if (this.closed)
         return result
       if (signal?.aborted)
         return result
@@ -436,10 +466,10 @@ export class SecretCircuit {
       return result
     }
 
-    if (this.destroyed?.reason != null)
-      return new Err(ErroredError.from(this.destroyed.reason))
-    if (this.destroyed != null)
-      return new Err(ClosedError.from(this.destroyed.reason))
+    if (this.closed?.reason != null)
+      return new Err(ErroredError.from(this.closed.reason))
+    if (this.closed != null)
+      return new Err(ClosedError.from(this.closed.reason))
     if (signal?.aborted)
       return new Err(AbortedError.from(signal.reason))
     return new Err(new TooManyRetriesError())
@@ -465,10 +495,10 @@ export class SecretCircuit {
   }
 
   async openOrThrow(hostname: string, port: number, params: CircuitOpenParams = {}) {
-    if (this.destroyed?.reason != null)
-      throw ErroredError.from(this.destroyed.reason)
-    if (this.destroyed != null)
-      throw ClosedError.from(this.destroyed.reason)
+    if (this.closed?.reason != null)
+      throw ErroredError.from(this.closed.reason)
+    if (this.closed != null)
+      throw ClosedError.from(this.closed.reason)
 
     const { ipv6 = "preferred" } = params
 
@@ -496,34 +526,20 @@ export class SecretCircuit {
     }).then(r => r.mapErrSync(cause => new Error(`Could not open`, { cause })))
   }
 
-  /**
-   * Fetch using HTTP
-   * @param input Fetch input
-   * @param init Fetch init
-   * @returns Response promise
-   */
-  async fetchOrThrow(input: RequestInfo | URL, init: RequestInit & CircuitOpenParams & StreamPipeOptions = {}) {
-    if (this.destroyed?.reason != null)
-      throw ErroredError.from(this.destroyed.reason)
-    if (this.destroyed != null)
-      throw ClosedError.from(this.destroyed.reason)
+  async openAsOrThrow(input: RequestInfo | URL, params: CircuitOpenParams = {}): Promise<ReadableWritablePair<Opaque, Writable>> {
+    if (this.closed?.reason != null)
+      throw ErroredError.from(this.closed.reason)
+    if (this.closed != null)
+      throw ClosedError.from(this.closed.reason)
 
-    const req = new Request(input, init)
-
+    const req = new Request(input)
     const url = new URL(req.url)
 
-    if (url.protocol === "http:") {
-      const port = Number(url.port) || 80
-
-      const tcp = await this.openOrThrow(url.hostname, port, init)
-
-      return tryFetch(input, { ...init, stream: tcp }).then(r => r.unwrap())
-    }
+    if (url.protocol === "http:")
+      return await this.openOrThrow(url.hostname, Number(url.port) || 80, params)
 
     if (url.protocol === "https:") {
-      const port = Number(url.port) || 443
-
-      const tcp = await this.openOrThrow(url.hostname, port, init)
+      const tcp = await this.openOrThrow(url.hostname, Number(url.port) || 443, params)
 
       const ciphers = [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
       const tls = new TlsClientDuplex({ host_name: url.hostname, ciphers })
@@ -531,16 +547,16 @@ export class SecretCircuit {
       tcp.readable.pipeTo(tls.inner.writable).catch(() => { })
       tls.inner.readable.pipeTo(tcp.writable).catch(() => { })
 
-      return tryFetch(input, { ...init, stream: tls.outer }).then(r => r.unwrap())
+      return tls.outer
     }
 
     throw new UnknownProtocolError(url.protocol)
   }
 
-  async tryFetch(input: RequestInfo | URL, init: RequestInit & CircuitOpenParams & StreamPipeOptions = {}) {
+  async tryOpenAs(input: RequestInfo | URL, params: CircuitOpenParams = {}): Promise<Result<ReadableWritablePair<Opaque, Writable>, Error>> {
     return await Result.runAndWrap(async () => {
-      return await this.fetchOrThrow(input, init)
-    }).then(r => r.mapErrSync(cause => new Error(`Could not fetch`, { cause })))
+      return await this.openAsOrThrow(input, params)
+    }).then(r => r.mapErrSync(cause => new Error(`Could not open`, { cause })))
   }
 
 }

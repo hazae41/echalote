@@ -1,5 +1,9 @@
 import { Cursor } from "@hazae41/cursor"
 
+export namespace DestroyCell {
+  export type Reasons = typeof DestroyCell.reasons
+}
+
 export class DestroyCell {
   readonly #class = DestroyCell
 

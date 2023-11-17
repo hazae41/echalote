@@ -86,6 +86,10 @@ export class TorClientDuplex {
     this.#secret.close(reason)
   }
 
+  get inner() {
+    return this.#secret.inner
+  }
+
   async tryWait() {
     if (this.#secret.state.type === "handshaked")
       return Ok.void()
@@ -623,9 +627,9 @@ export class SecretTorClientDuplex {
           if (extend2.isOk())
             return new Ok(circuit)
 
-          if (circuit.destroyed && !this.closed && !signal?.aborted) {
+          if (circuit.closed && !this.closed && !signal?.aborted) {
             Console.debug("Create and extend failed", { error: extend2.get() })
-            await circuit.destroy()
+            await circuit.close()
             await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
             continue
           }
@@ -633,9 +637,9 @@ export class SecretTorClientDuplex {
           return extend2
         }
 
-        if (circuit.destroyed && !this.closed && !signal?.aborted) {
+        if (circuit.closed && !this.closed && !signal?.aborted) {
           Console.debug("Create and extend failed", { error: extend1.get() })
-          await circuit.destroy()
+          await circuit.close()
           await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
           continue
         }

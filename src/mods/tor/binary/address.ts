@@ -17,9 +17,9 @@ export class TypedAddress {
   }
 
   writeOrThrow(cursor: Cursor) {
-    cursor.tryWriteUint8(this.type)
-    cursor.tryWriteUint8(this.value.length)
-    cursor.tryWrite(this.value)
+    cursor.writeUint8OrThrow(this.type)
+    cursor.writeUint8OrThrow(this.value.length)
+    cursor.writeOrThrow(this.value)
   }
 
   static readOrThrow(cursor: Cursor) {

@@ -1,27 +1,27 @@
+import { Opaque, Writable } from "@hazae41/binary";
+import { Cadenas } from "@hazae41/cadenas";
 import { Disposer } from "@hazae41/cleaner";
 import { Circuit, Echalote, TorClientDuplex } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
+import { tryFetch } from "@hazae41/fleche";
 import { Mutex } from "@hazae41/mutex";
 import { None } from "@hazae41/option";
 import { Pool } from "@hazae41/piscine";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
-import { createCircuitPool, createTorPool, tryCreateTor } from "libs/circuits/circuits";
+import { createCircuitPool, createStreamPool, createTorPool, tryCreateTor } from "libs/circuits/circuits";
 import { DependencyList, useCallback, useEffect, useMemo, useState } from "react";
 
-async function superfetch(circuit: Circuit) {
+async function superfetch(stream: ReadableWritablePair<Opaque<Uint8Array>, Writable>) {
   const start = Date.now()
 
   const body = JSON.stringify({ "jsonrpc": "2.0", "method": "eth_blockNumber", "params": [], "id": 67 })
   const headers = { "content-type": "application/json" }
-  const res = await circuit.tryFetch("https://eth.llamarpc.com", { method: "POST", headers, body }).then(r => r.unwrap())
 
-  // const res = await circuit.fetch("https://twitter.com", {})
+  const res = await tryFetch("https://eth.llamarpc.com", { method: "POST", headers, body, stream, preventClose: true, preventAbort: true, preventCancel: true }).then(r => r.unwrap())
 
   console.log(res, Date.now() - start)
   console.log(await res.text(), Date.now() - start)
-
-  await circuit.destroy()
 }
 
 function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
@@ -52,6 +52,7 @@ export default function Page() {
     Sha1.set(await Sha1.fromMorax())
 
     Echalote.Console.debugging = true
+    Cadenas.Console.debugging = true
 
     const fallbacksUrl = "https://raw.githubusercontent.com/hazae41/echalote/master/tools/fallbacks/fallbacks.json"
     const fallbacksRes = await fetch(fallbacksUrl)
@@ -79,17 +80,27 @@ export default function Page() {
     return createCircuitPool(tors, { capacity: 9 })
   }, [tors])
 
+  const streams = useMemo(() => {
+    if (!circuits) return
+
+    return createStreamPool(circuits, { capacity: 9 })
+  }, [circuits])
+
   const onClick = useCallback(async () => {
     try {
+      if (!streams || streams.locked) return
       if (!circuits || circuits.locked) return
 
-      const circuit = await Pool.takeCryptoRandom(circuits).then(r => r.unwrap().result.get())
+      // const circuit = await circuits.inner.tryGetRandom().then(r => r.unwrap().result.get().inner)
+      // const stream = await circuit.openAsOrThrow("https://eth.llamarpc.com")
 
-      await superfetch(circuit.inner)
+      const stream = await streams.inner.tryGetRandom().then(r => r.unwrap().result.get().inner)
+
+      await superfetch(stream)
     } catch (e: unknown) {
       console.error("onClick", { e })
     }
-  }, [circuits])
+  }, [streams, circuits])
 
   const [_, setCounter] = useState(0)
 

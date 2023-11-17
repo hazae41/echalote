@@ -36,10 +36,10 @@ export class RelaySendmeCircuitCell<T extends Writable> {
   }
 
   writeOrThrow(cursor: Cursor) {
-    cursor.tryWriteUint8(this.version)
+    cursor.writeUint8OrThrow(this.version)
 
     const size = this.fragment.sizeOrThrow()
-    cursor.tryWriteUint16(size)
+    cursor.writeUint16OrThrow(size)
 
     this.fragment.writeOrThrow(cursor)
   }

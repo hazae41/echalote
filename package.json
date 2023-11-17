@@ -37,7 +37,6 @@
     "@hazae41/cleaner": "^2.0.3",
     "@hazae41/cursor": "^1.2.3",
     "@hazae41/ed25519": "^2.1.10",
-    "@hazae41/fleche": "^1.2.2",
     "@hazae41/future": "^1.0.3",
     "@hazae41/kcp": "^0.2.37",
     "@hazae41/mutex": "^1.2.12",
