@@ -2,12 +2,14 @@ import { Opaque, Writable } from "@hazae41/binary";
 import { SuperReadableStream, SuperWritableStream } from "@hazae41/cascade";
 import { Cursor } from "@hazae41/cursor";
 import { None, Some } from "@hazae41/option";
+import { CloseEvents, ErrorEvents, SuperEventTarget } from "@hazae41/plume";
 import { Ok, Result } from "@hazae41/result";
 import { Console } from "mods/console/index.js";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { SecretCircuit } from "mods/tor/circuit.js";
+import { RelayEndReason } from "./binary/cells/relayed/relay_end/reason.js";
 import { RelaySendmeStreamCell } from "./binary/cells/relayed/relay_sendme/cell.js";
 
 export class TorStreamDuplex {
@@ -18,12 +20,20 @@ export class TorStreamDuplex {
     this.#secret = secret
   }
 
-  get readable(): ReadableStream<Opaque> {
-    return this.#secret.readable
+  get outer() {
+    return this.#secret.outer
   }
 
-  get writable(): WritableStream<Writable> {
-    return this.#secret.writable
+}
+
+export class RelayEndedError extends Error {
+  readonly #class = RelayEndedError
+  readonly name = this.#class.name
+
+  constructor(
+    readonly reason: RelayEndReason
+  ) {
+    super(`Relay ended`, { cause: reason })
   }
 
 }
@@ -31,56 +41,160 @@ export class TorStreamDuplex {
 export class SecretTorStreamDuplex {
   readonly #class = SecretTorStreamDuplex
 
-  readonly #reader: SuperReadableStream<Opaque>
-  readonly #writer: SuperWritableStream<Writable>
+  readonly events = {
+    input: new SuperEventTarget<CloseEvents & ErrorEvents>(),
+    output: new SuperEventTarget<CloseEvents & ErrorEvents>()
+  } as const
 
-  readonly readable: ReadableStream<Opaque>
-  readonly writable: WritableStream<Writable>
+  readonly #input: SuperReadableStream<Opaque>
+  readonly #output: SuperWritableStream<Writable>
+
+  readonly outer: ReadableWritablePair<Opaque, Writable>
 
   delivery = 500
   package = 500
 
+  #onClean: () => void
+
   constructor(
     readonly id: number,
-    readonly circuit: SecretCircuit,
-    readonly signal?: AbortSignal
+    readonly circuit: SecretCircuit
   ) {
     const onClose = this.#onCircuitClose.bind(this)
-    this.circuit.events.on("close", onClose, { passive: true })
-
     const onError = this.#onCircuitError.bind(this)
-    this.circuit.events.on("error", onError, { passive: true })
 
     const onRelayDataCell = this.#onRelayDataCell.bind(this)
-    this.circuit.events.on("RELAY_DATA", onRelayDataCell, { passive: true })
-
     const onRelayEndCell = this.#onRelayEndCell.bind(this)
+
+    this.circuit.events.on("close", onClose, { passive: true })
+    this.circuit.events.on("error", onError, { passive: true })
+
+    this.circuit.events.on("RELAY_DATA", onRelayDataCell, { passive: true })
     this.circuit.events.on("RELAY_END", onRelayEndCell, { passive: true })
 
-    this.#reader = new SuperReadableStream({})
+    this.#onClean = () => {
+      this.circuit.events.off("close", onClose)
+      this.circuit.events.off("error", onError)
 
-    this.#writer = new SuperWritableStream({
+      this.circuit.events.off("RELAY_DATA", onRelayDataCell)
+      this.circuit.events.off("RELAY_END", onRelayEndCell)
+
+      this.#onClean = () => { }
+    }
+
+    this.#input = new SuperReadableStream({})
+
+    this.#output = new SuperWritableStream({
       write: this.#onWrite.bind(this)
     })
 
-    this.readable = this.#reader.start()
-    this.writable = this.#writer.start()
+    const preInputer = this.#input.start()
+    const postOutputer = this.#output.start()
+
+    const postInputer = new TransformStream<Opaque, Opaque>({})
+    const preOutputer = new TransformStream<Writable, Writable>({})
+
+    /**
+     * Outer protocol (TLS? HTTP?)
+     */
+    this.outer = {
+      readable: postInputer.readable,
+      writable: preOutputer.writable
+    }
+
+    preInputer
+      .pipeTo(postInputer.writable)
+      .then(() => this.#onInputClose())
+      .catch(e => this.#onInputError(e))
+      .catch(() => { })
+
+    preOutputer.readable
+      .pipeTo(postOutputer)
+      .then(() => this.#onOutputClose())
+      .catch(e => this.#onOutputError(e))
+      .catch(() => { })
   }
 
-  #closeOrThrow(reason?: unknown) {
-    this.#reader.close()
-    this.#writer.error(reason)
+  [Symbol.dispose]() {
+    this.#onClose()
+  }
 
-    this.#reader.closed = { reason }
-    this.#writer.closed = { reason }
+  #onClose(reason?: unknown) {
+    if (this.#input.closed)
+      return
+    if (this.#output.closed)
+      return
+
+    this.#input.close()
+    this.#output.error(reason)
+
+    this.#input.closed = { reason }
+    this.#output.closed = { reason }
+
+    this.#onClean()
+  }
+
+  #onError(reason?: unknown) {
+    if (this.#input.closed)
+      return
+    if (this.#output.closed)
+      return
+
+    this.#input.error(reason)
+    this.#output.error(reason)
+
+    this.#input.closed = { reason }
+    this.#output.closed = { reason }
+
+    this.#onClean()
+  }
+
+  async #onInputClose() {
+    Console.debug(`${this.#class.name}.onReadClose`)
+
+    this.#input.closed = {}
+
+    if (this.#output.closed)
+      this.#onClean()
+
+    await this.events.input.emit("close", [undefined])
+  }
+
+  async #onOutputClose() {
+    Console.debug(`${this.#class.name}.onWriteClose`)
+
+    this.#output.closed = {}
+
+    if (this.#input.closed)
+      this.#onClean()
+
+    await this.events.output.emit("close", [undefined])
+  }
+
+  async #onInputError(reason?: unknown) {
+    Console.debug(`${this.#class.name}.onReadError`, { reason })
+
+    this.#input.closed = { reason }
+    this.#output.error(reason)
+    this.#onClean()
+
+    await this.events.input.emit("error", [reason])
+  }
+
+  async #onOutputError(reason?: unknown) {
+    Console.debug(`${this.#class.name}.onWriteError`, { reason })
+
+    this.#output.closed = { reason }
+    this.#input.error(reason)
+    this.#onClean()
+
+    await this.events.output.emit("error", [reason])
   }
 
   async #onCircuitClose() {
     Console.debug(`${this.#class.name}.onCircuitClose`)
 
-    try {
-      this.#closeOrThrow()
-    } catch (e: unknown) { }
+    this.#onClose()
 
     return new None()
   }
@@ -88,9 +202,7 @@ export class SecretTorStreamDuplex {
   async #onCircuitError(reason?: unknown) {
     Console.debug(`${this.#class.name}.onCircuitError`, { reason })
 
-    try {
-      this.#closeOrThrow(reason)
-    } catch (e: unknown) { }
+    this.#onError(reason)
 
     return new None()
   }
@@ -113,7 +225,7 @@ export class SecretTorStreamDuplex {
         this.circuit.tor.output.tryEnqueue(sendme_cell.cellOrThrow()).throw(t)
       }
 
-      this.#reader.tryEnqueue(cell.fragment.fragment).inspectErrSync(e => Console.debug({ e })).ignore()
+      this.#input.tryEnqueue(cell.fragment.fragment).inspectErrSync(e => Console.debug({ e })).ignore()
 
       return Ok.void()
     })
@@ -130,9 +242,10 @@ export class SecretTorStreamDuplex {
 
     Console.debug(`${this.#class.name}.onRelayEndCell`, cell)
 
-    try {
-      this.#closeOrThrow(cell.fragment.reason)
-    } catch (e: unknown) { }
+    if (cell.fragment.reason.id === RelayEndCell.reasons.REASON_DONE)
+      this.#onClose(new RelayEndedError(cell.fragment.reason))
+    else
+      this.#onError(new RelayEndedError(cell.fragment.reason))
 
     return new None()
   }

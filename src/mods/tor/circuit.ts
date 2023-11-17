@@ -164,40 +164,59 @@ export class SecretCircuit {
 
   #closed?: { reason?: unknown }
 
+  #onClean: () => void
+
   constructor(
     readonly id: number,
     readonly tor: SecretTorClientDuplex
   ) {
     const onClose = this.#onTorClose.bind(this)
-    this.tor.events.on("close", onClose, { passive: true })
-
     const onError = this.#onTorError.bind(this)
-    this.tor.events.on("error", onError, { passive: true })
 
     const onDestroyCell = this.#onDestroyCell.bind(this)
-    this.tor.events.on("DESTROY", onDestroyCell, { passive: true })
 
     const onRelayExtended2Cell = this.#onRelayExtended2Cell.bind(this)
-    this.tor.events.on("RELAY_EXTENDED2", onRelayExtended2Cell, { passive: true })
-
     const onRelayTruncatedCell = this.#onRelayTruncatedCell.bind(this)
-    this.tor.events.on("RELAY_TRUNCATED", onRelayTruncatedCell, { passive: true })
 
     const onRelayConnectedCell = this.#onRelayConnectedCell.bind(this)
-    this.tor.events.on("RELAY_CONNECTED", onRelayConnectedCell, { passive: true })
-
     const onRelayDataCell = this.#onRelayDataCell.bind(this)
-    this.tor.events.on("RELAY_DATA", onRelayDataCell, { passive: true })
-
     const onRelayEndCell = this.#onRelayEndCell.bind(this)
+
+    this.tor.events.on("close", onClose, { passive: true })
+    this.tor.events.on("error", onError, { passive: true })
+
+    this.tor.events.on("DESTROY", onDestroyCell, { passive: true })
+
+    this.tor.events.on("RELAY_EXTENDED2", onRelayExtended2Cell, { passive: true })
+    this.tor.events.on("RELAY_TRUNCATED", onRelayTruncatedCell, { passive: true })
+
+    this.tor.events.on("RELAY_CONNECTED", onRelayConnectedCell, { passive: true })
+    this.tor.events.on("RELAY_DATA", onRelayDataCell, { passive: true })
     this.tor.events.on("RELAY_END", onRelayEndCell, { passive: true })
+
+    this.#onClean = () => {
+      for (const target of this.targets)
+        target[Symbol.dispose]()
+
+      this.tor.events.off("close", onClose)
+      this.tor.events.off("error", onError)
+
+      this.tor.events.off("DESTROY", onDestroyCell)
+
+      this.tor.events.off("RELAY_EXTENDED2", onRelayExtended2Cell)
+      this.tor.events.off("RELAY_TRUNCATED", onRelayTruncatedCell)
+
+      this.tor.events.off("RELAY_CONNECTED", onRelayConnectedCell)
+      this.tor.events.off("RELAY_DATA", onRelayDataCell)
+      this.tor.events.off("RELAY_END", onRelayEndCell)
+
+      this.#onClean = () => { }
+    }
+
   }
 
-  [Symbol.dispose]() {
-    if (!this.#closed)
-      this.#closed = {}
-    for (const target of this.targets)
-      target[Symbol.dispose]()
+  async [Symbol.asyncDispose]() {
+    await this.close()
   }
 
   get closed() {
@@ -208,11 +227,13 @@ export class SecretCircuit {
     if (this.#closed)
       return
     this.#closed = { reason }
-    this[Symbol.dispose]()
+    this.#onClean()
   }
 
   async close(reason: number = DestroyCell.reasons.NONE) {
     const error = new DestroyedError(reason)
+
+    // TODO: send destroy cell
 
     this.#onCloseOrError(error)
 
@@ -535,8 +556,11 @@ export class SecretCircuit {
     const req = new Request(input)
     const url = new URL(req.url)
 
-    if (url.protocol === "http:")
-      return await this.openOrThrow(url.hostname, Number(url.port) || 80, params)
+    if (url.protocol === "http:") {
+      const tcp = await this.openOrThrow(url.hostname, Number(url.port) || 80, params)
+
+      return tcp.outer
+    }
 
     if (url.protocol === "https:") {
       const tcp = await this.openOrThrow(url.hostname, Number(url.port) || 443, params)
@@ -544,8 +568,8 @@ export class SecretCircuit {
       const ciphers = [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
       const tls = new TlsClientDuplex({ host_name: url.hostname, ciphers })
 
-      tcp.readable.pipeTo(tls.inner.writable).catch(() => { })
-      tls.inner.readable.pipeTo(tcp.writable).catch(() => { })
+      tcp.outer.readable.pipeTo(tls.inner.writable).catch(() => { })
+      tls.inner.readable.pipeTo(tcp.outer.writable).catch(() => { })
 
       return tls.outer
     }

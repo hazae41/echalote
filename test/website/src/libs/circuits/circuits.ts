@@ -69,8 +69,8 @@ export function createStreamPool<TorPoolError>(circuits: Mutex<Pool<Disposer<Cir
         return new None()
       }
 
-      stream.readable.pipeTo(inputer.writable, { signal }).finally(onCloseOrError)
-      outputer.readable.pipeTo(stream.writable, { signal }).finally(onCloseOrError)
+      stream.readable.pipeTo(inputer.writable, { signal }).finally(onCloseOrError).catch(() => { })
+      outputer.readable.pipeTo(stream.writable, { signal }).finally(onCloseOrError).catch(() => { })
 
       const readable = inputer.readable
       const writable = outputer.writable

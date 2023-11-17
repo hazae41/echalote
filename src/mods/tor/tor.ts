@@ -10,7 +10,7 @@ import { None, Some } from "@hazae41/option";
 import { Paimon } from "@hazae41/paimon";
 import { TooManyRetriesError } from "@hazae41/piscine";
 import { AbortedError, CloseEvents, ClosedError, ErrorEvents, ErroredError, Plume, SuperEventTarget } from "@hazae41/plume";
-import { Catched, Err, Ok, Panic, Result } from "@hazae41/result";
+import { Err, Ok, Panic, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
 import { AbortSignals } from "libs/signals/signals.js";
@@ -211,18 +211,18 @@ export class SecretTorClientDuplex {
     Console.debug(`${this.#class.name}.onReadClose`)
 
     this.input.closed = {}
+    this.output.close()
 
     await this.events.emit("close", [undefined])
-
-    return Ok.void()
   }
 
   async #onWriteClose() {
     Console.debug(`${this.#class.name}.onWriteClose`)
 
     this.output.closed = {}
+    this.input.error()
 
-    return Ok.void()
+    await this.events.emit("close", [undefined])
   }
 
   async #onReadError(reason?: unknown) {
@@ -232,8 +232,6 @@ export class SecretTorClientDuplex {
     this.output.error(reason)
 
     await this.events.emit("error", [reason])
-
-    return Catched.throwOrErr(reason)
   }
 
   async #onWriteError(reason?: unknown) {
@@ -242,7 +240,7 @@ export class SecretTorClientDuplex {
     this.output.closed = { reason }
     this.input.error(reason)
 
-    return Catched.throwOrErr(reason)
+    await this.events.emit("error", [reason])
   }
 
   async #onOutputStart(): Promise<Result<void, ErroredError | ClosedError>> {
