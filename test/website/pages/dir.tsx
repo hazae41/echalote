@@ -59,8 +59,11 @@ export default function Page() {
     }, { capacity: 3 })
   }, [params])
 
-  const onClick = useCallback(async () => {
-    try {
+  const [authority, setAuthority] = useState<any>()
+  const [stream, setStream] = useState<any>()
+
+  useEffect(() => {
+    (async () => {
       if (tors == null)
         return
       const tor = await tors.inner.tryGetCryptoRandom().then(r => r.unwrap().result.get().inner)
@@ -69,17 +72,27 @@ export default function Page() {
       const authority = await circuit.extendDirOrThrow()
       const stream = await circuit.openDirOrThrow()
 
+      setAuthority(authority)
+      setStream(stream)
+    })()
+  }, [tors])
+
+  const onClick = useCallback(async () => {
+    try {
+      if (!stream) return
+      if (!authority) return
+
+      const start = Date.now()
+      // const url = `http://${authority.hosts[0]}/tor/micro/d/06+KF9i+hr5r1HOVpmjCXSiyxdVLJlZB/wk6TlXXSjY.z`
       const url = `http://${authority.hosts[0]}/tor/status-vote/current/consensus-microdesc.z`
-      const res = await tryFetch(url, { stream: stream.outer }).then(r => r.unwrap())
+      const res = await tryFetch(url, { stream: stream.outer, preventAbort: true, preventCancel: true, preventClose: true }).then(r => r.unwrap())
 
-      console.log("lol")
-      console.log(res)
-      console.log(await res.text())
-
+      console.log(res, Date.now() - start)
+      console.log(await res.text(), Date.now() - start)
     } catch (e: unknown) {
       console.error("onClick", { e })
     }
-  }, [tors])
+  }, [stream, authority])
 
 
   return <>
