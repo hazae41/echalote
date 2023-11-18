@@ -9,7 +9,7 @@ import { Future } from "@hazae41/future";
 import { None, Option } from "@hazae41/option";
 import { TooManyRetriesError } from "@hazae41/piscine";
 import { AbortedError, CloseEvents, ClosedError, ErrorEvents, ErroredError, Plume, SuperEventTarget } from "@hazae41/plume";
-import { Err, Ok, Result } from "@hazae41/result";
+import { Err, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
@@ -387,13 +387,11 @@ export class SecretCircuit {
     return await this.extendToOrThrow(fallback, signal)
   }
 
-  async extendToOrThrow(fallback: Fallback, signal?: AbortSignal) {
+  async extendToOrThrow(fallback: Fallback, signal = AbortSignals.never()) {
     if (this.closed?.reason != null)
       throw ErroredError.from(this.closed.reason)
     if (this.closed != null)
       throw ClosedError.from(this.closed.reason)
-
-    const signal2 = AbortSignals.timeout(5_000, signal)
 
     const relayid_rsax = Base16.get().padStartAndDecodeOrThrow(fallback.id).copyAndDispose()
     const relayid_rsa = Bytes.castOrThrow(relayid_rsax, HASH_LEN)
@@ -419,10 +417,10 @@ export class SecretCircuit {
     const relay_extend2 = new RelayExtend2Cell(RelayExtend2Cell.types.NTOR, links, ntor_request)
     this.tor.output.enqueue(RelayEarlyCell.Streamless.from(this, undefined, relay_extend2).cellOrThrow())
 
-    const msg_extended2 = await Plume.tryWaitOrCloseOrErrorOrSignal(this.events, "RELAY_EXTENDED2", (future: Future<Ok<RelayCell.Streamless<RelayExtended2Cell<Opaque>>>>, e) => {
-      future.resolve(new Ok(e))
+    const msg_extended2 = await Plume.waitOrCloseOrErrorOrSignal(this.events, "RELAY_EXTENDED2", (future: Future<RelayCell.Streamless<RelayExtended2Cell<Opaque>>>, e) => {
+      future.resolve(e)
       return new None()
-    }, signal2).then(r => r.unwrap())
+    }, signal)
 
     const response = msg_extended2.fragment.fragment.readIntoOrThrow(Ntor.NtorResponse)
 
@@ -507,17 +505,15 @@ export class SecretCircuit {
     return new Err(new TooManyRetriesError())
   }
 
-  async truncateOrThrow(reason = RelayTruncateCell.reasons.NONE, signal?: AbortSignal) {
-    const signal2 = AbortSignals.timeout(5_000, signal)
-
+  async truncateOrThrow(reason = RelayTruncateCell.reasons.NONE, signal = AbortSignals.never()) {
     const relay_truncate = new RelayTruncateCell(reason)
     const relay_truncate_cell = RelayCell.Streamless.from(this, undefined, relay_truncate)
     this.tor.output.enqueue(relay_truncate_cell.cellOrThrow())
 
-    await Plume.tryWaitOrCloseOrErrorOrSignal(this.events, "RELAY_TRUNCATED", (future: Future<Ok<RelayCell.Streamless<RelayTruncatedCell>>>, e) => {
-      future.resolve(new Ok(e))
+    await Plume.waitOrCloseOrErrorOrSignal(this.events, "RELAY_TRUNCATED", (future: Future<RelayCell.Streamless<RelayTruncatedCell>>, e) => {
+      future.resolve(e)
       return new None()
-    }, signal2).then(r => r.unwrap())
+    }, signal)
   }
 
   async tryTruncate(reason = RelayTruncateCell.reasons.NONE, signal?: AbortSignal) {
@@ -526,7 +522,7 @@ export class SecretCircuit {
     }).then(r => r.mapErrSync(cause => new Error(`Could not truncate`, { cause })))
   }
 
-  async openOrThrow(hostname: string, port: number, params: CircuitOpenParams = {}) {
+  async openOrThrow(hostname: string, port: number, params: CircuitOpenParams = {}, signal = AbortSignals.never()) {
     if (this.closed?.reason != null)
       throw ErroredError.from(this.closed.reason)
     if (this.closed != null)
@@ -549,11 +545,13 @@ export class SecretCircuit {
     const begin_cell = RelayCell.Streamful.from(this, stream, begin)
     this.tor.output.enqueue(begin_cell.cellOrThrow())
 
-    if (params.wait)
-      await Plume.tryWaitOrCloseOrError(stream.events.input, "open", (future: Future<Ok<void>>) => {
-        future.resolve(Ok.void())
-        return new None()
-      }).then(r => r.unwrap())
+    if (!params.wait)
+      return new TorStreamDuplex(stream)
+
+    await Plume.waitOrCloseOrErrorOrSignal(stream.events.input, "open", (future: Future<void>) => {
+      future.resolve(undefined)
+      return new None()
+    }, signal)
 
     return new TorStreamDuplex(stream)
   }

@@ -1,5 +1,9 @@
 export namespace AbortSignals {
 
+  export function never() {
+    return new AbortController().signal
+  }
+
   export function timeout(delay: number, parent?: AbortSignal) {
     return merge(AbortSignal.timeout(delay), parent)
   }

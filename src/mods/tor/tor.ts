@@ -602,13 +602,13 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async #tryWaitCreatedFast(circuit: SecretCircuit, signal?: AbortSignal): Promise<Result<Cell.Circuitful<CreatedFastCell>, AbortedError | ErroredError | ClosedError>> {
-    return await Plume.tryWaitOrCloseOrErrorOrSignal(this.events, "CREATED_FAST", async (future: Future<Ok<Cell.Circuitful<CreatedFastCell>>>, e) => {
+  async #waitCreatedFast(circuit: SecretCircuit, signal = AbortSignals.never()): Promise<Cell.Circuitful<CreatedFastCell>> {
+    return await Plume.waitOrCloseOrErrorOrSignal(this.events, "CREATED_FAST", async (future: Future<Cell.Circuitful<CreatedFastCell>>, e) => {
       if (e.circuit !== circuit)
         return new None()
-      future.resolve(new Ok(e))
+      future.resolve(e)
       return new None()
-    }, AbortSignals.timeout(5_000, signal))
+    }, signal)
   }
 
   async tryCreateAndExtendLoop(signal?: AbortSignal): Promise<Result<Circuit, Error>> {
@@ -691,7 +691,7 @@ export class SecretTorClientDuplex {
     return new Err(new TooManyRetriesError())
   }
 
-  async createOrThrow(signal?: AbortSignal) {
+  async createOrThrow(signal = AbortSignals.never()) {
     if (this.#state.type !== "handshaked")
       throw new InvalidTorStateError()
 
@@ -701,7 +701,7 @@ export class SecretTorClientDuplex {
     const create_fast = new CreateFastCell(material)
     this.output.enqueue(Cell.Circuitful.from(circuit, create_fast))
 
-    const created_fast = await this.#tryWaitCreatedFast(circuit, signal).then(r => r.unwrap())
+    const created_fast = await this.#waitCreatedFast(circuit, signal)
 
     const k0 = Bytes.concat([material, created_fast.fragment.material])
     const result = await KDFTorResult.computeOrThrow(k0)
@@ -731,7 +731,7 @@ export class SecretTorClientDuplex {
     return new Circuit(circuit)
   }
 
-  async tryCreate(signal?: AbortSignal) {
+  async tryCreate(signal: AbortSignal = AbortSignals.never()) {
     return await Result.runAndWrap(async () => {
       return await this.createOrThrow(signal)
     }).then(r => r.mapErrSync(cause => new Error(`Could not create`, { cause })))

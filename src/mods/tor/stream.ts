@@ -1,9 +1,8 @@
 import { Opaque, Writable } from "@hazae41/binary";
 import { SuperReadableStream, SuperWritableStream } from "@hazae41/cascade";
 import { Cursor } from "@hazae41/cursor";
-import { None, Some } from "@hazae41/option";
+import { None } from "@hazae41/option";
 import { CloseEvents, ErrorEvents, SuperEventTarget } from "@hazae41/plume";
-import { Ok, Result } from "@hazae41/result";
 import { Console } from "mods/console/index.js";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
@@ -231,27 +230,20 @@ export class SecretTorStreamDuplex {
     if (cell.stream !== this)
       return new None()
 
-    const result = await Result.unthrow<Result<void, Error>>(async t => {
-      Console.debug(`${this.#class.name}.onRelayDataCell`, cell)
+    Console.debug(`${this.#class.name}.onRelayDataCell`, cell)
 
-      this.delivery--
+    this.delivery--
 
-      if (this.delivery === 450) {
-        this.delivery = 500
+    if (this.delivery === 450) {
+      this.delivery = 500
 
-        const sendme = new RelaySendmeStreamCell()
+      const sendme = new RelaySendmeStreamCell()
 
-        const sendme_cell = RelayCell.Streamful.from(this.circuit, this, sendme)
-        this.circuit.tor.output.tryEnqueue(sendme_cell.cellOrThrow()).throw(t)
-      }
+      const sendme_cell = RelayCell.Streamful.from(this.circuit, this, sendme)
+      this.circuit.tor.output.enqueue(sendme_cell.cellOrThrow())
+    }
 
-      this.#input.tryEnqueue(cell.fragment.fragment).inspectErrSync(e => Console.debug({ e })).ignore()
-
-      return Ok.void()
-    })
-
-    if (result.isErr())
-      return new Some(result)
+    this.#input.enqueue(cell.fragment.fragment)
 
     return new None()
   }

@@ -52,7 +52,7 @@ export class BatchedFetchStream {
         clearTimeout(timeout)
         clearInterval(interval)
 
-        batch.push(Writable.tryWriteToBytes(chunk).unwrap())
+        batch.push(Writable.writeToBytesOrThrow(chunk))
 
         timeout = setTimeout(async () => {
 
