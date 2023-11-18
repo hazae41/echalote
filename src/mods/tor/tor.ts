@@ -82,8 +82,12 @@ export class TorClientDuplex {
     return Boolean(this.#secret.closed)
   }
 
-  close(reason?: unknown) {
-    this.#secret.close(reason)
+  close() {
+    this.#secret.close()
+  }
+
+  error(reason?: unknown) {
+    this.#secret.error(reason)
   }
 
   get inner() {
@@ -116,13 +120,13 @@ export class TorClientDuplex {
 export type SecretTorEvents = CloseEvents & ErrorEvents & {
   "handshaked": () => void
 
-  "CREATED_FAST": (cell: Cell.Circuitful<CreatedFastCell>) => Result<void, Error>
-  "DESTROY": (cell: Cell.Circuitful<DestroyCell>) => Result<void, Error>
-  "RELAY_CONNECTED": (cell: RelayCell.Streamful<RelayConnectedCell>) => Result<void, Error>
-  "RELAY_DATA": (cell: RelayCell.Streamful<RelayDataCell<Opaque>>) => Result<void, Error>
-  "RELAY_EXTENDED2": (cell: RelayCell.Streamless<RelayExtended2Cell<Opaque>>) => Result<void, Error>
-  "RELAY_TRUNCATED": (cell: RelayCell.Streamless<RelayTruncatedCell>) => Result<void, Error>
-  "RELAY_END": (cell: RelayCell.Streamful<RelayEndCell>) => Result<void, Error>
+  "CREATED_FAST": (cell: Cell.Circuitful<CreatedFastCell>) => void
+  "DESTROY": (cell: Cell.Circuitful<DestroyCell>) => void
+  "RELAY_CONNECTED": (cell: RelayCell.Streamful<RelayConnectedCell>) => void
+  "RELAY_DATA": (cell: RelayCell.Streamful<RelayDataCell<Opaque>>) => void
+  "RELAY_EXTENDED2": (cell: RelayCell.Streamless<RelayExtended2Cell<Opaque>>) => void
+  "RELAY_TRUNCATED": (cell: RelayCell.Streamless<RelayTruncatedCell>) => void
+  "RELAY_END": (cell: RelayCell.Streamful<RelayEndCell>) => void
 }
 
 export class SecretTorClientDuplex {
@@ -138,8 +142,6 @@ export class SecretTorClientDuplex {
   readonly authorities = new Array<Authority>()
   readonly circuits = new Mutex(new Map<number, SecretCircuit>())
 
-  readonly #controller: AbortController
-
   readonly #buffer = new Cursor(new Uint8Array(65535))
 
   #state: TorState = { type: "none" }
@@ -152,8 +154,6 @@ export class SecretTorClientDuplex {
   constructor(
     readonly params: TorClientParams
   ) {
-    this.#controller = new AbortController()
-
     // this.authorities = parseAuthorities()
 
     const ciphers = Object.values(TorCiphers)
@@ -179,15 +179,19 @@ export class SecretTorClientDuplex {
 
     tls.outer.readable
       .pipeTo(inputer)
-      .then(() => this.#onReadClose())
-      .catch(e => this.#onReadError(e))
+      .then(() => this.#onInputClose())
+      .catch(e => this.#onInputError(e))
       .catch(() => { })
 
     outputer
       .pipeTo(tls.outer.writable)
-      .then(() => this.#onWriteClose())
-      .catch(e => this.#onWriteError(e))
+      .then(() => this.#onOutputClose())
+      .catch(e => this.#onOutputError(e))
       .catch(() => { })
+  }
+
+  [Symbol.dispose]() {
+    this.close()
   }
 
   async #init() {
@@ -200,14 +204,18 @@ export class SecretTorClientDuplex {
   }
 
   get closed() {
-    return this.input.closed
+    return this.output.closed
   }
 
-  close(reason?: unknown) {
-    this.#controller.abort(reason)
+  close() {
+    this.output.close()
   }
 
-  async #onReadClose() {
+  error(reason?: unknown) {
+    this.output.error(reason)
+  }
+
+  async #onInputClose() {
     Console.debug(`${this.#class.name}.onReadClose`)
 
     this.input.closed = {}
@@ -216,7 +224,7 @@ export class SecretTorClientDuplex {
     await this.events.emit("close", [undefined])
   }
 
-  async #onWriteClose() {
+  async #onOutputClose() {
     Console.debug(`${this.#class.name}.onWriteClose`)
 
     this.output.closed = {}
@@ -225,7 +233,7 @@ export class SecretTorClientDuplex {
     await this.events.emit("close", [undefined])
   }
 
-  async #onReadError(reason?: unknown) {
+  async #onInputError(reason?: unknown) {
     Console.debug(`${this.#class.name}.onReadError`, { reason })
 
     this.input.closed = { reason }
@@ -234,7 +242,7 @@ export class SecretTorClientDuplex {
     await this.events.emit("error", [reason])
   }
 
-  async #onWriteError(reason?: unknown) {
+  async #onOutputError(reason?: unknown) {
     Console.debug(`${this.#class.name}.onWriteError`, { reason })
 
     this.output.closed = { reason }
@@ -243,18 +251,15 @@ export class SecretTorClientDuplex {
     await this.events.emit("error", [reason])
   }
 
-  async #onOutputStart(): Promise<Result<void, ErroredError | ClosedError>> {
+  async #onOutputStart() {
     await this.#init()
 
-    const version = new VersionsCell([5])
-    this.output.enqueue(OldCell.Circuitless.from(undefined, version))
+    this.output.enqueue(OldCell.Circuitless.from(undefined, new VersionsCell([5])))
 
     await Plume.waitOrCloseOrError(this.events, "handshaked", (future: Future<void>) => {
       future.resolve(undefined)
       return new None()
     })
-
-    return Ok.void()
   }
 
   async #onInputWrite(chunk: Opaque) {
@@ -333,17 +338,16 @@ export class SecretTorClientDuplex {
     throw new Panic(`Unknown state`)
   }
 
-  async #onNoneStateCell(cell: Cell<Opaque> | OldCell<Opaque>, state: TorNoneState): Promise<Result<void, Error>> {
+  async #onNoneStateCell(cell: Cell<Opaque> | OldCell<Opaque>, state: TorNoneState) {
     if (cell instanceof Cell.Circuitful)
-      return new Err(new InvalidCellError())
+      throw new InvalidCellError()
     if (cell instanceof Cell.Circuitless)
-      return new Err(new InvalidCellError())
+      throw new InvalidCellError()
 
     if (cell.command === VersionsCell.command)
       return await this.#onVersionsCell(cell, state)
 
     console.warn(`Unknown pre-version cell ${cell.command}`)
-    return Ok.void()
   }
 
   async #onVersionedStateCell(cell: Cell<Opaque>, state: TorVersionedState) {
@@ -376,19 +380,15 @@ export class SecretTorClientDuplex {
     return Ok.void()
   }
 
-  async #onVersionsCell(cell: OldCell<Opaque>, state: TorNoneState): Promise<Result<void, Error>> {
-    return await Result.unthrow(async t => {
-      const cell2 = OldCell.Circuitless.intoOrThrow(cell, VersionsCell)
+  async #onVersionsCell(cell: OldCell<Opaque>, state: TorNoneState) {
+    const cell2 = OldCell.Circuitless.intoOrThrow(cell, VersionsCell)
 
-      Console.debug(cell2)
+    Console.debug(cell2)
 
-      if (!cell2.fragment.versions.includes(5))
-        return new Err(new InvalidTorVersionError())
+    if (!cell2.fragment.versions.includes(5))
+      throw new InvalidTorVersionError()
 
-      this.#state = { ...state, type: "versioned", version: 5 }
-
-      return Ok.void()
-    })
+    this.#state = { ...state, type: "versioned", version: 5 }
   }
 
   async #onCertsCell(cell: Cell<Opaque>, state: TorVersionedState) {
@@ -566,15 +566,12 @@ export class SecretTorClientDuplex {
     console.warn(`Unknown RELAY_SENDME circuit cell version ${cell2.fragment.version}`)
   }
 
-  async #onRelaySendmeStreamCell(cell: RelayCell<Opaque>): Promise<Result<void, Error>> {
-    return await Result.unthrow(async t => {
-      const cell2 = RelayCell.Streamful.intoOrThrow(cell, RelaySendmeStreamCell)
+  async #onRelaySendmeStreamCell(cell: RelayCell<Opaque>) {
+    const cell2 = RelayCell.Streamful.intoOrThrow(cell, RelaySendmeStreamCell)
 
-      Console.debug(cell2)
+    Console.debug(cell2)
 
-      cell2.stream.package += 50
-      return Ok.void()
-    })
+    cell2.stream.package += 50
   }
 
   async #createCircuitOrThrow() {

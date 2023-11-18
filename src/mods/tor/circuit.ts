@@ -150,15 +150,15 @@ export type SecretCircuitEvents = CloseEvents & ErrorEvents & {
   /**
    * Streamless
    */
-  "RELAY_EXTENDED2": (cell: RelayCell.Streamless<RelayExtended2Cell<Opaque>>) => Result<void, Error>
-  "RELAY_TRUNCATED": (cell: RelayCell.Streamless<RelayTruncatedCell>) => Result<void, Error>
+  "RELAY_EXTENDED2": (cell: RelayCell.Streamless<RelayExtended2Cell<Opaque>>) => void
+  "RELAY_TRUNCATED": (cell: RelayCell.Streamless<RelayTruncatedCell>) => void
 
   /**
    * Streamful
    */
-  "RELAY_CONNECTED": (cell: RelayCell.Streamful<RelayConnectedCell>) => Result<void, Error>
-  "RELAY_DATA": (cell: RelayCell.Streamful<RelayDataCell<Opaque>>) => Result<void, Error>
-  "RELAY_END": (cell: RelayCell.Streamful<RelayEndCell>) => Result<void, Error>
+  "RELAY_CONNECTED": (cell: RelayCell.Streamful<RelayConnectedCell>) => void
+  "RELAY_DATA": (cell: RelayCell.Streamful<RelayDataCell<Opaque>>) => void
+  "RELAY_END": (cell: RelayCell.Streamful<RelayEndCell>) => void
 }
 
 export class SecretCircuit {
@@ -463,7 +463,7 @@ export class SecretCircuit {
     this.targets.push(target)
   }
 
-  async tryExtend(exit: boolean, signal?: AbortSignal) {
+  async tryExtend(exit: boolean, signal?: AbortSignal): Promise<Result<void, Error>> {
     return await Result.runAndWrap(async () => {
       return await this.extendOrThrow(exit, signal)
     }).then(r => r.mapErrSync(cause => new Error(`Could not extend`, { cause })))
@@ -516,7 +516,7 @@ export class SecretCircuit {
     }, signal)
   }
 
-  async tryTruncate(reason = RelayTruncateCell.reasons.NONE, signal?: AbortSignal) {
+  async tryTruncate(reason = RelayTruncateCell.reasons.NONE, signal?: AbortSignal): Promise<Result<void, Error>> {
     return await Result.runAndWrap(async () => {
       return await this.truncateOrThrow(reason, signal)
     }).then(r => r.mapErrSync(cause => new Error(`Could not truncate`, { cause })))
@@ -556,7 +556,7 @@ export class SecretCircuit {
     return new TorStreamDuplex(stream)
   }
 
-  async tryOpen(hostname: string, port: number, params: CircuitOpenParams = {}) {
+  async tryOpen(hostname: string, port: number, params: CircuitOpenParams = {}): Promise<Result<TorStreamDuplex, Error>> {
     return await Result.runAndWrap(async () => {
       return await this.openOrThrow(hostname, port, params)
     }).then(r => r.mapErrSync(cause => new Error(`Could not open`, { cause })))

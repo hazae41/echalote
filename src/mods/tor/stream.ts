@@ -86,6 +86,8 @@ export class SecretTorStreamDuplex {
       this.circuit.events.off("RELAY_DATA", onRelayDataCell)
       this.circuit.events.off("RELAY_END", onRelayEndCell)
 
+      this.circuit.streams.delete(this.id)
+
       this.#onClean = () => { }
     }
 
@@ -123,10 +125,10 @@ export class SecretTorStreamDuplex {
   }
 
   [Symbol.dispose]() {
-    this.#onClose()
+    this.close()
   }
 
-  #onClose(reason?: unknown) {
+  close(reason?: unknown) {
     if (this.#input.closed)
       return
     if (this.#output.closed)
@@ -141,7 +143,7 @@ export class SecretTorStreamDuplex {
     this.#onClean()
   }
 
-  #onError(reason?: unknown) {
+  error(reason?: unknown) {
     if (this.#input.closed)
       return
     if (this.#output.closed)
@@ -201,7 +203,7 @@ export class SecretTorStreamDuplex {
   async #onCircuitClose() {
     Console.debug(`${this.#class.name}.onCircuitClose`)
 
-    this.#onClose()
+    this.close()
 
     return new None()
   }
@@ -209,7 +211,7 @@ export class SecretTorStreamDuplex {
   async #onCircuitError(reason?: unknown) {
     Console.debug(`${this.#class.name}.onCircuitError`, { reason })
 
-    this.#onError(reason)
+    this.error(reason)
 
     return new None()
   }
@@ -255,9 +257,9 @@ export class SecretTorStreamDuplex {
     Console.debug(`${this.#class.name}.onRelayEndCell`, cell)
 
     if (cell.fragment.reason.id === RelayEndCell.reasons.REASON_DONE)
-      this.#onClose(new RelayEndedError(cell.fragment.reason))
+      this.close(new RelayEndedError(cell.fragment.reason))
     else
-      this.#onError(new RelayEndedError(cell.fragment.reason))
+      this.error(new RelayEndedError(cell.fragment.reason))
 
     return new None()
   }
