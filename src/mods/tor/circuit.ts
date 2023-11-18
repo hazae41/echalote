@@ -34,6 +34,8 @@ import { Cell } from "./binary/cells/cell.js";
 import { RelayCell } from "./binary/cells/direct/relay/cell.js";
 import { RelayEarlyCell } from "./binary/cells/direct/relay_early/cell.js";
 import { HASH_LEN } from "./constants.js";
+import { Authorities } from "./fallbacks/generated/authorities.js";
+import { RelayBeginDirCell } from "./index.js";
 
 export const IPv6 = {
   always: 3,
@@ -136,12 +138,20 @@ export class Circuit {
     return await this.#secret.tryOpen(hostname, port, params)
   }
 
+  async openDirOrThrow(signal?: AbortSignal) {
+    return await this.#secret.openDirOrThrow(signal)
+  }
+
   async openAsOrThrow(input: RequestInfo | URL, params?: CircuitOpenParams) {
     return await this.#secret.openAsOrThrow(input, params)
   }
 
   async close() {
     return await this.#secret.close()
+  }
+
+  async extendDirOrThrow(signal?: AbortSignal) {
+    return await this.#secret.extendDirOrThrow(signal)
   }
 
 }
@@ -356,18 +366,16 @@ export class SecretCircuit {
     return new None()
   }
 
-  // async tryExtendDir(signal: AbortSignal) {
-  //   const authority = Arrays.cryptoRandom(this.tor.authorities.filter(it => it.v3ident))
+  async extendDirOrThrow(signal = AbortSignals.never()) {
+    const authority = Arrays.cryptoRandom(Authorities.fallbacks)
 
-  //   if (!authority)
-  //     t new Error(`Could not find authority`)
+    if (!authority)
+      throw new Error(`Could not find authority`)
 
-  //   await this.#tryExtendTo({
-  //     hosts: [authority.ipv4],
-  //     id: authority.v3ident!,
-  //     onion: authority.fingerprint,
-  //   }, signal)
-  // }
+    await this.extendToOrThrow(authority, signal)
+
+    return authority
+  }
 
   async extendOrThrow(exit: boolean, signal?: AbortSignal) {
     if (this.closed?.reason != null)
@@ -520,6 +528,33 @@ export class SecretCircuit {
     return await Result.runAndWrap(async () => {
       return await this.truncateOrThrow(reason, signal)
     }).then(r => r.mapErrSync(cause => new Error(`Could not truncate`, { cause })))
+  }
+
+  async openDirOrThrow(signal = AbortSignals.never()) {
+    if (this.closed?.reason != null)
+      throw ErroredError.from(this.closed.reason)
+    if (this.closed != null)
+      throw ClosedError.from(this.closed.reason)
+
+    const stream = new SecretTorStreamDuplex(this.#streamId++, this)
+
+    this.streams.set(stream.id, stream)
+
+    const begin = new RelayBeginDirCell()
+    const begin_cell = RelayCell.Streamful.from(this, stream, begin)
+    this.tor.output.enqueue(begin_cell.cellOrThrow())
+
+    console.log("begin dir")
+
+    // if (!params.wait)
+    //   return new TorStreamDuplex(stream)
+
+    // await Plume.waitOrCloseOrErrorOrSignal(stream.events.input, "open", (future: Future<void>) => {
+    //   future.resolve(undefined)
+    //   return new None()
+    // }, signal)
+
+    return new TorStreamDuplex(stream)
   }
 
   async openOrThrow(hostname: string, port: number, params: CircuitOpenParams = {}, signal = AbortSignals.never()) {
