@@ -1,6 +1,6 @@
 import { Opaque, Writable } from "@hazae41/binary"
 import { ResultableUnderlyingDefaultSource, ResultableUnderlyingSink, SuperReadableStream, SuperWritableStream } from "@hazae41/cascade"
-import { Ok, Panic, Result } from "@hazae41/result"
+import { Ok, Result } from "@hazae41/result"
 
 export async function createWebSocketStream(url: string) {
   const websocket = new WebSocket(url)
@@ -12,12 +12,13 @@ export async function createWebSocketStream(url: string) {
     websocket.addEventListener("error", err)
   })
 
-  return WebSocketStream.tryNew(websocket, { shouldCloseOnAbort: true, shouldCloseOnCancel: true })
+  return WebSocketStream.fromOrThrow(websocket, { shouldCloseOnAbort: true, shouldCloseOnCancel: true })
 }
 
 async function closeOrThrow(websocket: WebSocket) {
   if (websocket.readyState !== WebSocket.OPEN)
     return
+
   await new Promise<void>((ok, err) => {
     const onClose = (e: CloseEvent) => {
       if (e.wasClean)
@@ -57,14 +58,15 @@ export class WebSocketStream {
     this.writable = this.writer.start()
   }
 
-  static tryNew(socket: WebSocket, params?: WebSocketStreamParams) {
+  static fromOrThrow(socket: WebSocket, params?: WebSocketStreamParams) {
     if (socket.readyState !== WebSocket.OPEN)
-      throw Panic.from(new Error(`WebSocket is not open`))
+      throw new Error(`WebSocket is not open`)
     if (socket.binaryType !== "arraybuffer")
-      throw Panic.from(new Error(`WebSocket binaryType is not arraybuffer`))
+      throw new Error(`WebSocket binaryType is not arraybuffer`)
 
     return new WebSocketStream(socket, params)
   }
+
 }
 
 export interface WebSocketSourceParams {
