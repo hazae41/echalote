@@ -249,10 +249,12 @@ export class SecretTorClientDuplex {
     const version = new VersionsCell([5])
     this.output.enqueue(OldCell.Circuitless.from(undefined, version))
 
-    return await Plume.tryWaitOrCloseOrError(this.events, "handshaked", (future: Future<Ok<void>>) => {
-      future.resolve(Ok.void())
+    await Plume.waitOrCloseOrError(this.events, "handshaked", (future: Future<void>) => {
+      future.resolve(undefined)
       return new None()
     })
+
+    return Ok.void()
   }
 
   async #onInputWrite(chunk: Opaque) {
@@ -288,20 +290,18 @@ export class SecretTorClientDuplex {
     const cursor = new Cursor(chunk)
 
     while (cursor.remaining) {
-      const raw = this.#state.type === "none"
-        ? Readable.tryReadOrRollback(OldCell.Raw, cursor).ignore()
-        : Readable.tryReadOrRollback(Cell.Raw, cursor).ignore()
+      try {
+        const raw = this.#state.type === "none"
+          ? Readable.readOrRollbackAndThrow(OldCell.Raw, cursor)
+          : Readable.readOrRollbackAndThrow(Cell.Raw, cursor)
 
-      if (raw.isErr()) {
+        const cell = raw.unpackOrThrow(this)
+        await this.#onCell(cell, this.#state)
+      } catch (e: unknown) {
         this.#buffer.writeOrThrow(cursor.after)
         break
       }
-
-      const cell = raw.get().unpackOrThrow(this)
-      await this.#onCell(cell, this.#state)
     }
-
-    return
   }
 
   async #onCell(cell: Cell<Opaque> | OldCell<Opaque>, state: TorState) {
