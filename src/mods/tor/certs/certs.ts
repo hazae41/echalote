@@ -1,3 +1,4 @@
+import { Writable } from "@hazae41/binary";
 import { Bytes } from "@hazae41/bytes";
 import { Ed25519 } from "@hazae41/ed25519";
 import { Paimon, RsaPublicKey } from "@hazae41/paimon";
@@ -13,6 +14,7 @@ export type CertError =
   | PrematureCertError
   | InvalidSignatureError
   | UnknownCertExtensionError
+  | InvalidCertError
 
 export class DuplicatedCertError extends Error {
   readonly #class = DuplicatedCertError
@@ -74,9 +76,19 @@ export class InvalidSignatureError extends Error {
 
 }
 
+export class InvalidCertError extends Error {
+  readonly #class = InvalidCertError
+  readonly name = this.#class.name
+
+  constructor() {
+    super(`Invalid certificate`)
+  }
+
+}
+
 export interface Certs {
   readonly rsa_self: RsaCert,
-  readonly rsa_to_tls: RsaCert,
+  readonly rsa_to_tls?: RsaCert,
   readonly rsa_to_auth?: RsaCert,
   readonly rsa_to_ed: CrossCert,
   readonly ed_to_sign: Ed25519Cert,
@@ -86,12 +98,13 @@ export interface Certs {
 
 export namespace Certs {
 
-  export async function verifyOrThrow(certs: Partial<Certs>): Promise<Certs> {
-    const { rsa_self, rsa_to_tls, rsa_to_ed, ed_to_sign, sign_to_tls } = certs
+  export async function verifyOrThrow(pcerts: Partial<Certs>, tlsCerts?: X509.Certificate[]): Promise<Certs> {
+    const { rsa_self, rsa_to_ed, ed_to_sign, sign_to_tls } = pcerts
+
+    if (tlsCerts == null)
+      throw new ExpectedCertError()
 
     if (rsa_self == null)
-      throw new ExpectedCertError()
-    if (rsa_to_tls == null)
       throw new ExpectedCertError()
     if (rsa_to_ed == null)
       throw new ExpectedCertError()
@@ -100,25 +113,32 @@ export namespace Certs {
     if (sign_to_tls == null)
       throw new ExpectedCertError()
 
-    const certs2 = { rsa_self, rsa_to_tls, rsa_to_ed, ed_to_sign, sign_to_tls }
+    const certs = { rsa_self, rsa_to_ed, ed_to_sign, sign_to_tls }
 
     const result = await Promise.all([
-      verifyRsaSelfOrThrow(certs2),
-      verifyRsaToTlsOrThrow(certs2),
-      verifyRsaToEdOrThrow(certs2),
-      verifyEdToSigningOrThrow(certs2),
-      verifySigningToTlsOrThrow(certs2),
+      verifyRsaSelfOrThrow(certs),
+      verifyRsaToEdOrThrow(certs),
+      verifyEdToSigningOrThrow(certs),
+      verifySigningToTlsOrThrow(certs, tlsCerts),
     ]).then(all => all.every(x => x === true))
 
     if (result !== true)
       throw new Error(`Could not verify certs`)
 
-    return certs2
+    return certs
   }
 
   async function verifyRsaSelfOrThrow(certs: Certs): Promise<true> {
     if (certs.rsa_self.verifyOrThrow() !== true)
       throw new Panic(`Could not verify ID_SELF cert`)
+
+    const length = certs.rsa_self.x509.tbsCertificate.subjectPublicKeyInfo.subjectPublicKey.bytes.length
+
+    /**
+     * Only accept 1024-bits (128-bytes) public keys
+     */
+    if (length !== 12 + 128)
+      throw new InvalidCertError()
 
     const signed = X509.writeToBytesOrThrow(certs.rsa_self.x509.tbsCertificate)
     const publicKey = X509.writeToBytesOrThrow(certs.rsa_self.x509.tbsCertificate.subjectPublicKeyInfo)
@@ -131,27 +151,6 @@ export namespace Certs {
 
     if (verified !== true)
       throw new InvalidSignatureError()
-
-    return true
-  }
-
-  async function verifyRsaToTlsOrThrow(certs: Certs): Promise<true> {
-    if (certs.rsa_to_tls.verifyOrThrow() !== true)
-      throw new Panic(`Could not verify ID_TO_TLS cert`)
-
-    const signed = X509.writeToBytesOrThrow(certs.rsa_to_tls.x509.tbsCertificate)
-    const publicKey = X509.writeToBytesOrThrow(certs.rsa_self.x509.tbsCertificate.subjectPublicKeyInfo)
-
-    const signatureAlgorithm = { name: "RSASSA-PKCS1-v1_5", hash: { name: "SHA-256" } }
-    const signature = certs.rsa_to_tls.x509.signatureValue.bytes
-
-    const key = await crypto.subtle.importKey("spki", publicKey, signatureAlgorithm, true, ["verify"])
-    const verified = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, signature, signed)
-
-    if (verified !== true)
-      throw new InvalidSignatureError()
-
-    console.warn("Could not verify ID_TO_TLS cert key")
 
     return true
   }
@@ -177,6 +176,10 @@ export namespace Certs {
     if (verified !== true)
       throw new InvalidSignatureError()
 
+    /**
+     * We don't verify the Ed25519 identity on Snowflake / Meek
+     */
+
     return true
   }
 
@@ -195,7 +198,7 @@ export namespace Certs {
     return true
   }
 
-  async function verifySigningToTlsOrThrow(certs: Certs): Promise<true> {
+  async function verifySigningToTlsOrThrow(certs: Certs, tlsCerts: X509.Certificate[]): Promise<true> {
     if (await certs.sign_to_tls.verifyOrThrow() !== true)
       throw new Error(`Could not verify SIGNING_TO_TLS cert`)
 
@@ -207,7 +210,11 @@ export namespace Certs {
     if (verified !== true)
       throw new InvalidSignatureError()
 
-    console.warn("Could not verify SIGNING_TO_TLS cert key")
+    const tls = Writable.writeToBytesOrThrow(tlsCerts[0].toDER())
+    const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", tls))
+
+    if (Bytes.equals(hash, certs.sign_to_tls.certKey) !== true)
+      throw new InvalidCertError()
 
     return true
   }

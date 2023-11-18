@@ -12,6 +12,7 @@ import { TooManyRetriesError } from "@hazae41/piscine";
 import { AbortedError, CloseEvents, ClosedError, ErrorEvents, ErroredError, Plume, SuperEventTarget } from "@hazae41/plume";
 import { Err, Ok, Panic, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
+import { X509 } from "@hazae41/x509";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
 import { AbortSignals } from "libs/signals/signals.js";
 import { Console } from "mods/console/index.js";
@@ -146,6 +147,8 @@ export class SecretTorClientDuplex {
 
   #state: TorState = { type: "none" }
 
+  #tlsCerts?: X509.Certificate[]
+
   /**
    * Create a new Tor client
    * @param tcp Some TCP stream
@@ -160,7 +163,11 @@ export class SecretTorClientDuplex {
     const tls = new TlsClientDuplex({ ciphers })
 
     tls.events.input.on("certificates", (certs) => {
-      console.log(certs)
+      this.#tlsCerts = certs
+
+      /**
+       * Accept all certificates as valid
+       */
       return new Some(Ok.void())
     })
 
@@ -391,7 +398,7 @@ export class SecretTorClientDuplex {
 
     Console.debug(cell2)
 
-    const certs = await Certs.verifyOrThrow(cell2.fragment.certs)
+    const certs = await Certs.verifyOrThrow(cell2.fragment.certs, this.#tlsCerts)
 
     const idh = await certs.rsa_self.sha1OrThrow()
     const guard = { certs, idh }
