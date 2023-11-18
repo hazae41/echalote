@@ -269,8 +269,6 @@ export class SecretTorClientDuplex {
       await this.#onReadBuffered(chunk.bytes)
     else
       await this.#onReadDirect(chunk.bytes)
-
-    return Ok.void()
   }
 
   /**
@@ -324,9 +322,9 @@ export class SecretTorClientDuplex {
       return await this.#onNoneStateCell(cell, state)
 
     if (cell instanceof OldCell.Circuitful)
-      return new Err(new InvalidCellError())
+      throw new InvalidCellError()
     if (cell instanceof OldCell.Circuitless)
-      return new Err(new InvalidCellError())
+      throw new InvalidCellError()
 
     if (state.type === "versioned")
       return await this.#onVersionedStateCell(cell, state)
@@ -355,7 +353,6 @@ export class SecretTorClientDuplex {
       return await this.#onCertsCell(cell, state)
 
     console.warn(`Unknown versioned-state cell ${cell.command}`)
-    return Ok.void()
   }
 
   async #onHandshakingStateCell(cell: Cell<Opaque>, state: TorHandshakingState) {
@@ -365,7 +362,6 @@ export class SecretTorClientDuplex {
       return await this.#onNetinfoCell(cell, state)
 
     console.warn(`Unknown handshaking-state cell ${cell.command}`)
-    return Ok.void()
   }
 
   async #onHandshakedStateCell(cell: Cell<Opaque>) {
@@ -377,7 +373,6 @@ export class SecretTorClientDuplex {
       return await this.#onRelayCell(cell)
 
     console.warn(`Unknown handshaked-state cell ${cell.command}`)
-    return Ok.void()
   }
 
   async #onVersionsCell(cell: OldCell<Opaque>, state: TorNoneState) {
