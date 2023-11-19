@@ -1,6 +1,6 @@
 import { Cadenas } from "@hazae41/cadenas";
 import { Disposer } from "@hazae41/cleaner";
-import { Circuit, Echalote, TorClientDuplex } from "@hazae41/echalote";
+import { Circuit, Echalote, Microdesc, Microdescs, TorClientDuplex } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
 import { tryFetch } from "@hazae41/fleche";
 import { Mutex } from "@hazae41/mutex";
@@ -60,7 +60,7 @@ export default function Page() {
   }, [params])
 
   const [authority, setAuthority] = useState<any>()
-  const [stream, setStream] = useState<any>()
+  const [circuit, setCircuit] = useState<Circuit>()
 
   useEffect(() => {
     (async () => {
@@ -70,29 +70,52 @@ export default function Page() {
       const circuit = await tor.tryCreate().then(r => r.unwrap())
 
       const authority = await circuit.extendDirOrThrow()
-      const stream = await circuit.openDirOrThrow()
 
+      setCircuit(circuit)
       setAuthority(authority)
-      setStream(stream)
     })()
   }, [tors])
 
   const onClick = useCallback(async () => {
     try {
-      if (!stream) return
+      if (!circuit) return
       if (!authority) return
 
       const start = Date.now()
-      // const url = `http://${authority.hosts[0]}/tor/micro/d/06+KF9i+hr5r1HOVpmjCXSiyxdVLJlZB/wk6TlXXSjY.z`
-      const url = `http://${authority.hosts[0]}/tor/status-vote/current/consensus-microdesc.z`
-      const res = await tryFetch(url, { stream: stream.outer, preventAbort: true, preventCancel: true, preventClose: true }).then(r => r.unwrap())
 
-      console.log(res, Date.now() - start)
-      console.log(await res.text(), Date.now() - start)
+      const stream = await circuit.openDirOrThrow()
+      const url = `http://${authority.hosts[0]}/tor/status-vote/current/consensus-microdesc.z`
+      const response = await tryFetch(url, { stream: stream.outer }).then(r => r.unwrap())
+      console.log(response, Date.now() - start)
+      const microdescs = Microdescs.parseOrThrow(await response.text())
+      console.log(microdescs, Date.now() - start)
+
+      function* chunks<T>(array: T[], size: number) {
+        for (let i = 0; i < array.length; i += size)
+          yield array.slice(i, i + size)
+      }
+
+      for (const chunk of chunks(microdescs, 96)) {
+        try {
+          const start = Date.now()
+
+          const name = chunk.map(m => m.microdesc).join("-")
+          const url = `http://${authority.hosts[0]}/tor/micro/d/${name}.z`
+          const stream = await circuit.openDirOrThrow()
+          const signal = AbortSignal.timeout(5000)
+          const response = await tryFetch(url, { stream: stream.outer, signal }).then(r => r.unwrap())
+          console.log(response, Date.now() - start)
+          const microdesc = Microdesc.parseOrThrow(await response.text())
+          console.log(microdesc, Date.now() - start)
+        } catch (e: unknown) {
+          console.error("chunk", { e })
+        }
+      }
+
     } catch (e: unknown) {
       console.error("onClick", { e })
     }
-  }, [stream, authority])
+  }, [circuit, authority])
 
 
   return <>

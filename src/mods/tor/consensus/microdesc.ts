@@ -18,12 +18,12 @@ export namespace Microdescs {
     readonly bandwidth: Record<string, string>
   }
 
-  export function parseOrThrow(lines: string[]) {
+  export function parseOrThrow(text: string) {
+    const lines = text.split("\n")
+
     const items: Item[] = []
 
-    let i = 0;
-
-    for (; i < lines.length; i++) {
+    for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
       if (!line.startsWith("r "))
@@ -40,8 +40,11 @@ export namespace Microdescs {
       item.orport = orport
       item.dirport = dirport
 
-      for (; i + 1 < lines.length; i++) {
-        const line = lines[i + 1]
+      for (let j = i + 1; j < lines.length; j++, i++) {
+        const line = lines[j]
+
+        if (line.startsWith("r "))
+          break
 
         if (line.startsWith("a ")) {
           const [, ipv6] = line.split(" ")
@@ -79,7 +82,7 @@ export namespace Microdescs {
           continue
         }
 
-        break
+        continue
       }
 
       if (item.nickname == null)
@@ -120,53 +123,66 @@ export namespace Microdesc {
   export interface Item {
     readonly onionKey: string
     readonly ntorOnionKey: string
-    readonly idEd25519: string
+    readonly idEd25519?: string
   }
 
-  export function parseOrThrow(lines: string[]) {
-    const item: Partial<Mutable<Item>> = {}
+  export function parseOrThrow(text: string) {
+    const lines = text.split("\n")
+
+    const items: Item[] = []
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
-      if (line.startsWith("onion-key")) {
-        let onionKey = ""
+      if (!line.startsWith("onion-key"))
+        continue
 
-        for (; i + 1 < lines.length; i++) {
-          const line = lines[i + 1]
+      const item: Partial<Mutable<Item>> = {}
 
-          if (line.startsWith("ntor-onion-key "))
-            break
-          onionKey += line
+      let onionKey = ""
+
+      for (let j = i + 1; j < lines.length; j++, i++) {
+        const line = lines[j]
+
+        if (line.startsWith("ntor-onion-key "))
+          break
+        onionKey += line
+      }
+
+      item.onionKey = onionKey
+
+      for (let j = i + 1; j < lines.length; j++, i++) {
+        const line = lines[j]
+
+        if (line.startsWith("onion-key"))
+          break
+
+        if (line.startsWith("ntor-onion-key ")) {
+          const [, ntorOnionKey] = line.split(" ")
+          item.ntorOnionKey = ntorOnionKey
+          continue
         }
 
-        item.onionKey = onionKey
+        if (line.startsWith("id ed25519 ")) {
+          const [, , idEd25519] = line.split(" ")
+          item.idEd25519 = idEd25519
+          continue
+        }
+
         continue
       }
 
-      if (line.startsWith("ntor-onion-key ")) {
-        const [, ntorOnionKey] = line.split(" ")
-        item.ntorOnionKey = ntorOnionKey
-        continue
-      }
+      if (item.onionKey == null)
+        throw new Error("Missing onion-key")
+      if (item.ntorOnionKey == null)
+        throw new Error("Missing ntor-onion-key")
+      if (item.idEd25519 == null)
+        throw new Error("Missing id ed25519")
 
-      if (line.startsWith("id ed25519 ")) {
-        const [, , idEd25519] = line.split(" ")
-        item.idEd25519 = idEd25519
-        continue
-      }
-
-      break
+      items.push(item as Item)
     }
 
-    if (item.onionKey == null)
-      throw new Error("Missing onion-key")
-    if (item.ntorOnionKey == null)
-      throw new Error("Missing ntor-onion-key")
-    if (item.idEd25519 == null)
-      throw new Error("Missing id ed25519")
-
-    return item as Item
+    return items
   }
 
 }

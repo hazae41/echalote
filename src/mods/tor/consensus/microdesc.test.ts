@@ -102,9 +102,9 @@ pr Conflux=1 Cons=1-2 Desc=1-2 DirCache=2 FlowCtrl=1-2 HSDir=2 HSIntro=4-5 HSRen
 w Bandwidth=510`
 
 test("microdesc", async () => {
-  console.log(Microdesc.parseOrThrow(microdesc.split("\n")))
+  console.log(Microdesc.parseOrThrow(microdesc))
 })
 
 test("microdescs", async () => {
-  console.log(Microdescs.parseOrThrow(microdescs.split("\n")))
+  console.log(Microdescs.parseOrThrow(microdescs))
 })

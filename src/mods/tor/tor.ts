@@ -141,7 +141,7 @@ export class SecretTorClientDuplex {
 
   readonly circuits = new Mutex(new Map<number, SecretCircuit>())
 
-  readonly #buffer = new Cursor(new Uint8Array(65535))
+  readonly #buffer = new Cursor(new Uint8Array(2 ** 18))
 
   #state: TorState = { type: "none" }
 
