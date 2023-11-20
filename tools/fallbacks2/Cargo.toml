@@ -1,0 +1,27 @@
+[package]
+name = "fallbackdir"
+version = "0.1.0"
+authors = ["David Goulet <dgoulet@torproject.org>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = [ "tokio" ]
+tokio = [ "tor-rtcompat/tokio" ]
+
+[dependencies]
+anyhow = "1.0.38"
+chrono = "0.4"
+rand = "0.8.3"
+reqwest = { version = "0.11", features = ["json"] }
+serde = { version = "1", features = ["derive"] }
+tokio-crate = { package = "tokio", version = "1.7.0", features = ["rt", "rt-multi-thread", "io-util", "net", "time", "macros" ] }
+
+arti-client = { git = "https://gitlab.torproject.org/tpo/core/arti.git", features = ["experimental-api"]}
+tor-dirmgr = { git = "https://gitlab.torproject.org/tpo/core/arti.git" }
+tor-netdir = { git = "https://gitlab.torproject.org/tpo/core/arti.git", features = ["experimental-api"] }
+tor-netdoc = { git = "https://gitlab.torproject.org/tpo/core/arti.git" }
+tor-rtcompat = { git = "https://gitlab.torproject.org/tpo/core/arti.git", features = ["tokio"] }
+serde_json = "1.0.108"
+base64ct = "1.6.0"

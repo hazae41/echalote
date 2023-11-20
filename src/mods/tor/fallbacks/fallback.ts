@@ -1,4 +1,4 @@
-export interface Fallback {
+export interface OldFallback {
   /**
    * 20-bytes RSA identity fingerprint
    */

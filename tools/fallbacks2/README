@@ -1,0 +1,33 @@
+The Tor Fallback Scripts are used to generate the hard-coded fallback
+directory mirror lists for Tor.
+
+NOTE: This script is based on arti
+(https://gitlab.torproject.org/tpo/core/arti) which is under heavy development
+and thus this tool can break at any moment or maybe even not work.
+
+Who needs to run these scripts?
+
+You probably don't need to run these scripts. They are used by the Tor
+maintainers to produce the tor/src/app/config/fallback_dirs.inc list.
+You might want to use them if you are maintaining your own Tor network,
+or doing research on Tor. But small Tor networks should run fine without
+fallbacks.
+
+What are Fallback Directory Mirrors?
+
+Tor protects your privacy on the internet by hiding the connection between
+your Internet address and the services you use. Tor uses fallback directory
+mirrors when it is first installed, to find the rest of the Tor network. It
+also uses them when its cached directory documents are very old.
+
+To run:
+        $ cargo run --release
+
+It will output two files that is one for tor.git and one for arti.git which
+will be prefixed "tor-git_" and "tor-arti_".
+
+Source:
+        https://gitlab.torproject.org/tpo/core/fallback-scripts.git
+
+Home page:
+        https://www.torproject.org/

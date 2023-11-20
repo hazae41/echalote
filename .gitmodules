@@ -1,4 +1,0 @@
-[submodule "tools/authorities"]
-	path = tools/authorities
-	url = git@github.com:hazae41/echalote.git
-	branch = authorities
