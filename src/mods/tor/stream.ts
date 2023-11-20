@@ -10,6 +10,7 @@ import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { SecretCircuit } from "mods/tor/circuit.js";
 import { RelayEndReason } from "./binary/cells/relayed/relay_end/reason.js";
 import { RelaySendmeStreamCell } from "./binary/cells/relayed/relay_sendme/cell.js";
+import { RelayConnectedCell } from "./index.js";
 
 export class TorStreamDuplex {
 
@@ -41,6 +42,10 @@ export type StreamEvents = CloseEvents & ErrorEvents & {
   "open": () => void
 }
 
+export type SecretTorStreamDuplexType =
+  | "external"
+  | "directory"
+
 export class SecretTorStreamDuplex {
   readonly #class = SecretTorStreamDuplex
 
@@ -60,6 +65,7 @@ export class SecretTorStreamDuplex {
   #onClean: () => void
 
   constructor(
+    readonly type: SecretTorStreamDuplexType,
     readonly id: number,
     readonly circuit: SecretCircuit
   ) {
@@ -216,6 +222,10 @@ export class SecretTorStreamDuplex {
   async #onRelayConnectedCell(cell: RelayCell.Streamful<Opaque>) {
     if (cell.stream !== this)
       return new None()
+    if (this.type === "directory")
+      return new None()
+
+    const cell2 = RelayCell.Streamful.intoOrThrow(cell, RelayConnectedCell)
 
     Console.debug(`${this.#class.name}.onRelayConnectedCell`, cell)
 

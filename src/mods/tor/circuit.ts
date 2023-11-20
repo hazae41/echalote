@@ -535,7 +535,7 @@ export class SecretCircuit {
     if (this.closed != null)
       throw ClosedError.from(this.closed.reason)
 
-    const stream = new SecretTorStreamDuplex(this.#streamId++, this)
+    const stream = new SecretTorStreamDuplex("directory", this.#streamId++, this)
 
     this.streams.set(stream.id, stream)
 
@@ -564,7 +564,7 @@ export class SecretCircuit {
 
     const { ipv6 = "preferred" } = params
 
-    const stream = new SecretTorStreamDuplex(this.#streamId++, this)
+    const stream = new SecretTorStreamDuplex("external", this.#streamId++, this)
 
     this.streams.set(stream.id, stream)
 
