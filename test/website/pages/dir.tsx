@@ -98,19 +98,28 @@ export default function Page() {
       const fasts = microdescs.filter(it => it.flags.includes("Fast"))
 
       const f = async (chunk: Echalote.Microdescs.Item[]) => {
-        const start = Date.now()
+        for (let i = 0; i < 3; i++) {
+          try {
+            const start = Date.now()
 
-        const name = chunk.map(m => m.microdesc).join("-")
-        const url = `http://${authority.hosts[0]}/tor/micro/d/${name}.z`
+            const name = chunk.map(m => m.microdesc).join("-")
+            const url = `http://${authority.hosts[0]}/tor/micro/d/${name}.z`
 
-        const stream = await circuit.openDirOrThrow()
-        const signal = AbortSignal.timeout(5000)
+            const stream = await circuit.openDirOrThrow()
+            const signal = AbortSignal.timeout(5000)
 
-        const response = await tryFetch(url, { stream: stream.outer, signal }).then(r => r.unwrap())
-        console.log(response, Date.now() - start)
+            const response = await tryFetch(url, { stream: stream.outer, signal }).then(r => r.unwrap())
+            console.log(response, Date.now() - start)
 
-        const microdesc = Microdesc.parseOrThrow(await response.text())
-        console.log(microdesc, Date.now() - start)
+            const microdesc = Microdesc.parseOrThrow(await response.text())
+            console.log(microdesc, Date.now() - start)
+          } catch (e: unknown) {
+            if (i == 2)
+              throw e
+            console.error("f", { e })
+            continue
+          }
+        }
       }
 
       const promises = new Array<Promise<void>>()

@@ -449,7 +449,10 @@ export class SecretTorClientDuplex {
 
   async #onRelayCell(parent: Cell<Opaque>) {
     const raw = RelayCell.Raw.uncellOrThrow(parent)
-    const cell = raw.unpackOrThrow()
+    const cell = raw.unpackOrNull()
+
+    if (cell == null)
+      return
 
     if (cell.rcommand === RelayExtended2Cell.rcommand)
       return await this.#onRelayExtended2Cell(cell)

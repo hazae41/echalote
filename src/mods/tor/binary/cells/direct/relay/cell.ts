@@ -5,7 +5,7 @@ import { Zepar } from "@hazae41/zepar";
 import { Cell, } from "mods/tor/binary/cells/cell.js";
 import { SecretCircuit } from "mods/tor/circuit.js";
 import { SecretTorStreamDuplex } from "mods/tor/stream.js";
-import { ExpectedCircuitError, ExpectedStreamError, InvalidRelayCellDigestError, InvalidRelayCommandError, UnexpectedStreamError, UnknownStreamError, UnrecognisedRelayCellError } from "../../errors.js";
+import { ExpectedCircuitError, ExpectedStreamError, InvalidRelayCellDigestError, InvalidRelayCommandError, UnexpectedStreamError, UnrecognisedRelayCellError } from "../../errors.js";
 import { RelayDataCell } from "../../relayed/relay_data/cell.js";
 
 export interface RelayCellable {
@@ -51,14 +51,14 @@ export namespace RelayCell {
       readonly digest20?: Uint8Array<20>
     ) { }
 
-    unpackOrThrow() {
+    unpackOrNull() {
       if (this.stream === 0)
         return new Streamless(this.circuit, undefined, this.rcommand, this.fragment, this.digest20)
 
       const stream = this.circuit.streams.get(this.stream)
 
       if (stream == null)
-        throw new UnknownStreamError()
+        return
 
       return new Streamful(this.circuit, stream, this.rcommand, this.fragment, this.digest20)
     }
