@@ -1,13 +1,13 @@
 import { Cadenas } from "@hazae41/cadenas";
 import { Disposer } from "@hazae41/cleaner";
-import { Circuit, Echalote, Microdesc, Microdescs, TorClientDuplex } from "@hazae41/echalote";
+import { Authorities, Circuit, Echalote, Fallback, Microdesc, Microdescs, TorClientDuplex } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
 import { tryFetch } from "@hazae41/fleche";
 import { Mutex } from "@hazae41/mutex";
 import { Pool } from "@hazae41/piscine";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
-import { createTorPool, tryCreateTor } from "libs/circuits/circuits";
+import { tryCreateTor } from "libs/circuits/circuits";
 import { DependencyList, useCallback, useEffect, useState } from "react";
 
 function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
@@ -51,35 +51,32 @@ export default function Page() {
     return { fallbacks }
   }, [])
 
-  const tors = useAsyncMemo(async () => {
-    if (!params) return
-
-    return createTorPool(async () => {
-      return await tryCreateTor(params)
-    }, { capacity: 3 })
-  }, [params])
-
+  const [tor, setTor] = useState<TorClientDuplex>()
   const [authority, setAuthority] = useState<any>()
   const [circuit, setCircuit] = useState<Circuit>()
 
   useEffect(() => {
+    if (!params) return
+
     (async () => {
-      if (tors == null)
-        return
-      const tor = await tors.inner.tryGetCryptoRandom().then(r => r.unwrap().result.get().inner)
+      const tor = await tryCreateTor(params).then(r => r.unwrap())
       const circuit = await tor.tryCreate().then(r => r.unwrap())
 
-      const authority = await circuit.extendDirOrThrow()
+      const authority = { "id": "7EA6EAD6FD83083C538F44038BBFA077587DD755", "eid": "g/2ajydWM/x16QePc6QXMVcVsaftXbmH4dZUozDhl5E", "exit": false, "onion": [9, 138, 203, 5, 62, 176, 241, 118, 192, 6, 190, 106, 84, 251, 145, 152, 157, 121, 189, 229, 110, 18, 41, 43, 19, 52, 251, 106, 175, 230, 63, 8], "hosts": ["45.66.35.11:443"] }
+      await circuit.extendToOrThrow(authority)
 
+      setTor(tor)
       setCircuit(circuit)
       setAuthority(authority)
     })()
-  }, [tors])
+  }, [params])
 
   const onClick = useCallback(async () => {
     try {
+      if (!params) return
       if (!circuit) return
       if (!authority) return
+      if (!tor) return
 
       const start = Date.now()
 
@@ -97,7 +94,7 @@ export default function Page() {
 
       const fasts = microdescs.filter(it => it.flags.includes("Fast"))
 
-      const f = async (chunk: Echalote.Microdescs.Item[]) => {
+      const f = async (circuit: Circuit, chunk: Echalote.Microdescs.Item[]) => {
         for (let i = 0; i < 3; i++) {
           try {
             const start = Date.now()
@@ -113,6 +110,8 @@ export default function Page() {
 
             const microdesc = Microdesc.parseOrThrow(await response.text())
             console.log(microdesc, Date.now() - start)
+
+            break
           } catch (e: unknown) {
             if (i == 2)
               throw e
@@ -125,25 +124,37 @@ export default function Page() {
 
       const chunks = chunkify(fasts, 96)
 
-      const g = async () => {
-        for (const chunk of chunks)
-          await f(chunk)
+      const g = async (authority: Fallback) => {
+        try {
+          const tor = await tryCreateTor(params).then(r => r.unwrap())
+          const circuit = await tor.tryCreate().then(r => r.unwrap())
+          await circuit.extendToOrThrow(authority, AbortSignal.timeout(5000))
+
+          for (const chunk of chunks)
+            await f(circuit, chunk)
+        } catch (e: unknown) {
+          console.log("g", { e, authority })
+          throw e
+        }
       }
 
       const promises = new Array<Promise<void>>()
 
-      for (let i = 0; i < 3; i++) {
-        promises.push(g())
+      for (let i = 0; i < Authorities.fallbacks.length; i++) {
+        const authority = Authorities.fallbacks[i]
+        if (authority.id === "BD6A829255CB08E66FBE7D3748363586E46B3810")
+          continue
+        promises.push(g(authority))
       }
 
       await Promise.all(promises)
 
-      console.log("Done!!!")
+      console.log("Done!!!", Date.now() - start)
 
     } catch (e: unknown) {
       console.error("onClick", { e })
     }
-  }, [circuit, authority])
+  }, [tor, circuit, authority])
 
 
   return <>

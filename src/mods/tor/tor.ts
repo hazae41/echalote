@@ -1,7 +1,7 @@
 import { Opaque, Readable, Writable } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Bytes } from "@hazae41/bytes";
-import { TlsClientDuplex } from "@hazae41/cadenas";
+import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
 import { SuperReadableStream, SuperWritableStream } from "@hazae41/cascade";
 import { Cursor } from "@hazae41/cursor";
 import { Future } from "@hazae41/future";
@@ -35,7 +35,6 @@ import { RelayDropCell } from "mods/tor/binary/cells/relayed/relay_drop/cell.js"
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { RelayExtended2Cell } from "mods/tor/binary/cells/relayed/relay_extended2/cell.js";
 import { RelayTruncatedCell } from "mods/tor/binary/cells/relayed/relay_truncated/cell.js";
-import { TorCiphers } from "mods/tor/ciphers.js";
 import { Circuit, SecretCircuit } from "mods/tor/circuit.js";
 import { Target } from "mods/tor/target.js";
 import { InvalidKdfKeyHashError, KDFTorResult } from "./algorithms/kdftor.js";
@@ -155,7 +154,8 @@ export class SecretTorClientDuplex {
   constructor(
     readonly params: TorClientParams
   ) {
-    const ciphers = Object.values(TorCiphers)
+    // const ciphers = Object.values(TorCiphers)
+    const ciphers = [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
     const tls = new TlsClientDuplex({ ciphers })
 
     tls.events.input.on("certificates", (certs) => {

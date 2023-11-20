@@ -1,4 +1,5 @@
 export * from "./algorithms/index.js";
+export * from "./authorities/authorities.js";
 export * from "./binary/index.js";
 export * from "./certs/index.js";
 export * from "./ciphers.js";

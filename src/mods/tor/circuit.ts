@@ -29,11 +29,11 @@ import { SecretTorStreamDuplex, TorStreamDuplex } from "mods/tor/stream.js";
 import { Target } from "mods/tor/target.js";
 import { Fallback, SecretTorClientDuplex } from "mods/tor/tor.js";
 import { InvalidNtorAuthError, NtorResult } from "./algorithms/ntor/ntor.js";
+import { Authorities } from "./authorities/authorities.js";
 import { Cell } from "./binary/cells/cell.js";
 import { RelayCell } from "./binary/cells/direct/relay/cell.js";
 import { RelayEarlyCell } from "./binary/cells/direct/relay_early/cell.js";
 import { HASH_LEN } from "./constants.js";
-import { Authorities } from "./fallbacks/generated/authorities.js";
 import { RelayBeginDirCell } from "./index.js";
 
 export const IPv6 = {
@@ -119,6 +119,18 @@ export class Circuit {
 
   async #onError(reason?: unknown) {
     return await this.events.emit("error", [reason])
+  }
+
+  async extendToOrThrow(fallback: Fallback, signal?: AbortSignal) {
+    return await this.#secret.extendToOrThrow(fallback, signal)
+  }
+
+  async tryExtendTo(fallback: Fallback, signal?: AbortSignal) {
+    return await this.#secret.tryExtendTo(fallback, signal)
+  }
+
+  async extendOrThrow(exit: boolean, signal?: AbortSignal) {
+    return await this.#secret.extendOrThrow(exit, signal)
   }
 
   async tryExtend(exit: boolean, signal: AbortSignal) {
@@ -394,6 +406,12 @@ export class SecretCircuit {
     return await this.extendToOrThrow(fallback, signal)
   }
 
+  async tryExtend(exit: boolean, signal?: AbortSignal): Promise<Result<void, Error>> {
+    return await Result.runAndWrap(async () => {
+      return await this.extendOrThrow(exit, signal)
+    }).then(r => r.mapErrSync(cause => new Error(`Could not extend`, { cause })))
+  }
+
   async extendToOrThrow(fallback: Fallback, signal = AbortSignals.never()) {
     if (this.closed?.reason != null)
       throw ErroredError.from(this.closed.reason)
@@ -470,9 +488,9 @@ export class SecretCircuit {
     this.targets.push(target)
   }
 
-  async tryExtend(exit: boolean, signal?: AbortSignal): Promise<Result<void, Error>> {
+  async tryExtendTo(fallback: Fallback, signal?: AbortSignal): Promise<Result<void, Error>> {
     return await Result.runAndWrap(async () => {
-      return await this.extendOrThrow(exit, signal)
+      return await this.extendToOrThrow(fallback, signal)
     }).then(r => r.mapErrSync(cause => new Error(`Could not extend`, { cause })))
   }
 
