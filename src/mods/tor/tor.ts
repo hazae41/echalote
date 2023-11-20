@@ -501,10 +501,10 @@ export class SecretTorClientDuplex {
     if (exit.delivery === 900) {
       exit.delivery = 1000
 
-      if (cell2.digest20 == null)
+      if (cell2.digest == null)
         throw new InvalidRelayCellDigestError()
 
-      const digest = new RelaySendmeDigest(cell2.digest20)
+      const digest = new RelaySendmeDigest(cell2.digest)
       const sendme = new RelaySendmeCircuitCell(1, digest)
 
       const sendme_cell = RelayCell.Streamless.from(cell2.circuit, undefined, sendme)

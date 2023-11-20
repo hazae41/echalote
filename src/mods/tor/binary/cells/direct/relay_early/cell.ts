@@ -5,7 +5,7 @@ import { Zepar } from "@hazae41/zepar";
 import { Cell, } from "mods/tor/binary/cells/cell.js";
 import { SecretCircuit } from "mods/tor/circuit.js";
 import { SecretTorStreamDuplex } from "mods/tor/stream.js";
-import { ExpectedCircuitError, ExpectedStreamError, InvalidRelayCellDigestError, InvalidRelayCommandError, UnexpectedStreamError, UnknownStreamError, UnrecognisedRelayCellError } from "../../errors.js";
+import { ExpectedCircuitError, ExpectedStreamError, InvalidRelayCommandError, UnexpectedStreamError, UnknownStreamError, UnrecognisedRelayCellError } from "../../errors.js";
 
 export interface RelayEarlyCellable {
   readonly rcommand: number,
@@ -116,16 +116,17 @@ export namespace RelayEarlyCell {
           continue
 
         const stream = cursor.readUint16OrThrow()
-        const digest = cursor.getAndCopyOrThrow(4)
+        const digest4 = cursor.getAndCopyOrThrow(4)
 
         cursor.writeUint32OrThrow(0)
 
+        using hasher = target.backward_digest.cloneOrThrow()
+        using digest = hasher.updateOrThrow(cursor.bytes).finalizeOrThrow()
+
+        if (!Bytes.equals2(digest4, digest.bytes.subarray(0, 4)))
+          continue
+
         target.backward_digest.updateOrThrow(cursor.bytes)
-
-        using digestSlice = target.backward_digest.finalizeOrThrow()
-
-        if (!Bytes.equals2(digest, digestSlice.bytes.subarray(0, 4)))
-          throw new InvalidRelayCellDigestError()
 
         const length = cursor.readUint16OrThrow()
         const bytes = cursor.readAndCopyOrThrow(length)

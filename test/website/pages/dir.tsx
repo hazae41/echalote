@@ -90,7 +90,7 @@ export default function Page() {
       const microdescs = Microdescs.parseOrThrow(await response.text())
       console.log(microdescs, Date.now() - start)
 
-      function* chunks<T>(array: T[], size: number) {
+      function* chunkify<T>(array: T[], size: number) {
         for (let i = 0; i < array.length; i += size)
           yield array.slice(i, i + size)
       }
@@ -116,20 +116,22 @@ export default function Page() {
           } catch (e: unknown) {
             if (i == 2)
               throw e
-            console.error("f", { e })
+            console.warn("f", { e })
+            await new Promise(ok => setTimeout(ok, 1000))
             continue
           }
         }
       }
 
-      const promises = new Array<Promise<void>>()
+      const chunks = chunkify(fasts, 96)
 
-      for (const chunk of chunks(fasts, 96)) {
-        promises.push(f(chunk))
-        // await new Promise(ok => setTimeout(ok, 1000))
+      for (let i = 0, chunk = chunks.next(); !chunk.done; i++, chunk = chunks.next()) {
+        if (i % 10 === 0)
+          await new Promise(ok => setTimeout(ok, 1000))
+        const promises = new Array<Promise<void>>()
+        promises.push(f(chunk.value))
+        await Promise.all(promises)
       }
-
-      await Promise.all(promises)
 
       console.log("Done!!!")
 

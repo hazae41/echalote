@@ -5,7 +5,7 @@ import { Zepar } from "@hazae41/zepar";
 import { Cell, } from "mods/tor/binary/cells/cell.js";
 import { SecretCircuit } from "mods/tor/circuit.js";
 import { SecretTorStreamDuplex } from "mods/tor/stream.js";
-import { ExpectedCircuitError, ExpectedStreamError, InvalidRelayCellDigestError, InvalidRelayCommandError, UnexpectedStreamError, UnrecognisedRelayCellError } from "../../errors.js";
+import { ExpectedCircuitError, ExpectedStreamError, InvalidRelayCommandError, UnexpectedStreamError, UnrecognisedRelayCellError } from "../../errors.js";
 import { RelayDataCell } from "../../relayed/relay_data/cell.js";
 
 export interface RelayCellable {
@@ -48,19 +48,19 @@ export namespace RelayCell {
       readonly stream: number,
       readonly rcommand: number,
       readonly fragment: T,
-      readonly digest20?: Uint8Array<20>
+      readonly digest?: Uint8Array<20>
     ) { }
 
     unpackOrNull() {
       if (this.stream === 0)
-        return new Streamless(this.circuit, undefined, this.rcommand, this.fragment, this.digest20)
+        return new Streamless(this.circuit, undefined, this.rcommand, this.fragment, this.digest)
 
       const stream = this.circuit.streams.get(this.stream)
 
       if (stream == null)
         return
 
-      return new Streamful(this.circuit, stream, this.rcommand, this.fragment, this.digest20)
+      return new Streamful(this.circuit, stream, this.rcommand, this.fragment, this.digest)
     }
 
     cellOrThrow() {
@@ -124,22 +124,23 @@ export namespace RelayCell {
           continue
 
         const stream = cursor.readUint16OrThrow()
-        const digest = cursor.getAndCopyOrThrow(4)
+        const digest4 = cursor.getAndCopyOrThrow(4)
 
         cursor.writeUint32OrThrow(0)
 
+        using hasher = target.backward_digest.cloneOrThrow()
+        const digest = hasher.updateOrThrow(cursor.bytes).finalizeOrThrow().copyAndDispose()
+
+        if (!Bytes.equals2(digest4, digest.subarray(0, 4)))
+          continue
+
         target.backward_digest.updateOrThrow(cursor.bytes)
-
-        const digest20 = target.backward_digest.finalizeOrThrow().copyAndDispose() as Uint8Array<20>
-
-        if (!Bytes.equals2(digest, digest20.subarray(0, 4)))
-          throw new InvalidRelayCellDigestError()
 
         const length = cursor.readUint16OrThrow()
         const bytes = cursor.readAndCopyOrThrow(length)
         const data = new Opaque(bytes)
 
-        return new Raw<Opaque>(cell.circuit, stream, rcommand, data, digest20)
+        return new Raw<Opaque>(cell.circuit, stream, rcommand, data, digest)
       }
 
       throw new UnrecognisedRelayCellError()
@@ -155,7 +156,7 @@ export namespace RelayCell {
       readonly stream: SecretTorStreamDuplex,
       readonly rcommand: number,
       readonly fragment: T,
-      readonly digest20?: Uint8Array<20>
+      readonly digest?: Uint8Array<20>
     ) {
       this.#raw = new Raw(circuit, stream.id, rcommand, fragment)
     }
@@ -176,7 +177,7 @@ export namespace RelayCell {
 
       const fragment = cell.fragment.readIntoOrThrow(readable)
 
-      return new Streamful(cell.circuit, cell.stream, readable.rcommand, fragment, cell.digest20)
+      return new Streamful(cell.circuit, cell.stream, readable.rcommand, fragment, cell.digest)
     }
 
   }
@@ -189,7 +190,7 @@ export namespace RelayCell {
       readonly stream: undefined,
       readonly rcommand: number,
       readonly fragment: T,
-      readonly digest20?: Uint8Array<20>
+      readonly digest?: Uint8Array<20>
     ) {
       this.#raw = new Raw(circuit, 0, rcommand, fragment)
     }
@@ -210,7 +211,7 @@ export namespace RelayCell {
 
       const fragment = cell.fragment.readIntoOrThrow(readable)
 
-      return new Streamless(cell.circuit, cell.stream, readable.rcommand, fragment, cell.digest20)
+      return new Streamless(cell.circuit, cell.stream, readable.rcommand, fragment, cell.digest)
     }
 
   }

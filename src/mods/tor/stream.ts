@@ -130,7 +130,23 @@ export class SecretTorStreamDuplex {
   }
 
   [Symbol.dispose]() {
-    this.#onClose()
+    this.close()
+  }
+
+  close(reason?: unknown) {
+    const relay_end_cell = new RelayEndCell(new RelayEndReasonOther(RelayEndCell.reasons.REASON_DONE))
+    const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_end_cell)
+    this.circuit.tor.output.enqueue(relay_cell.cellOrThrow())
+
+    this.#onClose(reason)
+  }
+
+  error(reason?: unknown) {
+    const relay_end_cell = new RelayEndCell(new RelayEndReasonOther(RelayEndCell.reasons.REASON_DONE))
+    const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_end_cell)
+    this.circuit.tor.output.enqueue(relay_cell.cellOrThrow())
+
+    this.#onError(reason)
   }
 
   #onClose(reason?: unknown) {
