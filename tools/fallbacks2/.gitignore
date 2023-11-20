@@ -1,9 +1,0 @@
-# Editor droppings
-\#*\#
-.#*
-*~
-*.swp
-*.swo
-# fallback dir lists: these get committed to the tor repository
-*.inc
-/target

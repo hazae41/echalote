@@ -123,7 +123,7 @@ export namespace Microdesc {
   export interface Item {
     readonly onionKey: string
     readonly ntorOnionKey: string
-    readonly idEd25519?: string
+    readonly idEd25519: string
   }
 
   export function parseOrThrow(text: string) {

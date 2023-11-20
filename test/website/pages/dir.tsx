@@ -1,13 +1,12 @@
-import { Cadenas } from "@hazae41/cadenas";
 import { Disposer } from "@hazae41/cleaner";
-import { Authorities, Circuit, Echalote, Fallback, Microdesc, Microdescs, TorClientDuplex } from "@hazae41/echalote";
+import { Circuit, Echalote, Fallback, Microdesc, Microdescs, TorClientDuplex } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
 import { tryFetch } from "@hazae41/fleche";
 import { Mutex } from "@hazae41/mutex";
 import { Pool } from "@hazae41/piscine";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
-import { tryCreateTor } from "libs/circuits/circuits";
+import { createTorPool2, tryCreateTor } from "libs/circuits/circuits";
 import { DependencyList, useCallback, useEffect, useState } from "react";
 
 function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
@@ -29,132 +28,88 @@ export interface TorAndCircuits {
 export default function Page() {
 
   const params = useAsyncMemo(async () => {
-    // const ed25519 = Ed25519.fromNoble(noble_ed25519.ed25519)
-    // const x25519 = X25519.fromNoble(noble_ed25519.x25519)
-    // const sha1 = Sha1.fromNoble(noble_sha1.sha1)
-
     Ed25519.set(await Ed25519.fromSafeOrBerith())
     X25519.set(await X25519.fromSafeOrBerith())
     Sha1.set(await Sha1.fromMorax())
 
     Echalote.Console.debugging = true
-    Cadenas.Console.debugging = true
-
-    const fallbacksUrl = "https://raw.githubusercontent.com/hazae41/echalote/master/tools/fallbacks/fallbacks.json"
-    const fallbacksRes = await fetch(fallbacksUrl)
-
-    if (!fallbacksRes.ok)
-      throw new Error(await fallbacksRes.text())
-
-    const fallbacks = await fallbacksRes.json()
-
-    return { fallbacks }
+    // Cadenas.Console.debugging = true
   }, [])
 
-  const [tor, setTor] = useState<TorClientDuplex>()
-  const [authority, setAuthority] = useState<any>()
-  const [circuit, setCircuit] = useState<Circuit>()
-
-  useEffect(() => {
-    if (!params) return
-
-    (async () => {
-      const tor = await tryCreateTor(params).then(r => r.unwrap())
-      const circuit = await tor.tryCreate().then(r => r.unwrap())
-
-      const authority = { "id": "7EA6EAD6FD83083C538F44038BBFA077587DD755", "eid": "g/2ajydWM/x16QePc6QXMVcVsaftXbmH4dZUozDhl5E", "exit": false, "onion": [9, 138, 203, 5, 62, 176, 241, 118, 192, 6, 190, 106, 84, 251, 145, 152, 157, 121, 189, 229, 110, 18, 41, 43, 19, 52, 251, 106, 175, 230, 63, 8], "hosts": ["45.66.35.11:443"] }
-      await circuit.extendToOrThrow(authority)
-
-      setTor(tor)
-      setCircuit(circuit)
-      setAuthority(authority)
-    })()
-  }, [params])
+  const tors = useAsyncMemo(async () => {
+    return createTorPool2({ fallbacks: [], capacity: 3 })
+  }, [])
 
   const onClick = useCallback(async () => {
     try {
-      if (!params) return
-      if (!circuit) return
-      if (!authority) return
-      if (!tor) return
+      if (!tors) return
 
       const start = Date.now()
 
+      const tor = await tryCreateTor({ fallbacks: [] }).then(r => r.unwrap())
+      const circuit = await tor.tryCreate().then(r => r.unwrap())
+
       const stream = await circuit.openDirOrThrow()
-      const url = `http://${authority.hosts[0]}/tor/status-vote/current/consensus-microdesc.z`
+      const url = `http://localhost/tor/status-vote/current/consensus-microdesc.z`
+
       const response = await tryFetch(url, { stream: stream.outer }).then(r => r.unwrap())
       console.log(response, Date.now() - start)
-      const microdescs = Microdescs.parseOrThrow(await response.text())
-      console.log(microdescs, Date.now() - start)
 
-      function* chunkify<T>(array: T[], size: number) {
-        for (let i = 0; i < array.length; i += size)
-          yield array.slice(i, i + size)
+      const microrefs = Microdescs.parseOrThrow(await response.text())
+      console.log(microrefs, Date.now() - start)
+
+      const fasts = microrefs.filter(it => true
+        && it.flags.includes("Fast")
+        && it.flags.includes("Stable"))
+
+      async function unref(ref: Microdescs.Item) {
+        const start = Date.now()
+
+        const stream = await circuit.openDirOrThrow()
+        const url = `http://localhost/tor/micro/d/${ref.microdesc}.z`
+
+        const response = await tryFetch(url, { stream: stream.outer }).then(r => r.unwrap())
+        console.log(response, Date.now() - start)
+
+        const desc = Microdesc.parseOrThrow(await response.text())
+        console.log(desc, Date.now() - start)
+
+        return desc[0]
       }
 
-      const fasts = microdescs.filter(it => it.flags.includes("Fast"))
+      {
+        const start = Date.now()
 
-      const f = async (circuit: Circuit, chunk: Echalote.Microdescs.Item[]) => {
-        for (let i = 0; i < 3; i++) {
-          try {
-            const start = Date.now()
+        for (let i = 0; i < 2; i++) {
+          const ref = fasts[Math.floor(Math.random() * fasts.length)]
+          const desc = await unref(ref)
+          console.log(ref, desc)
 
-            const name = chunk.map(m => m.microdesc).join("-")
-            const url = `http://${authority.hosts[0]}/tor/micro/d/${name}.z`
-
-            const stream = await circuit.openDirOrThrow()
-            const signal = AbortSignal.timeout(5000)
-
-            const response = await tryFetch(url, { stream: stream.outer, signal }).then(r => r.unwrap())
-            console.log(response, Date.now() - start)
-
-            const microdesc = Microdesc.parseOrThrow(await response.text())
-            console.log(microdesc, Date.now() - start)
-
-            break
-          } catch (e: unknown) {
-            if (i == 2)
-              throw e
-            console.warn("f", { e })
-            await new Promise(ok => setTimeout(ok, 1000))
-            continue
+          const fb: Fallback = {
+            id: Buffer.from(ref.identity, "base64").toString("hex"),
+            onion: Buffer.from(desc.ntorOnionKey, "base64").toJSON().data,
+            hosts: [`${ref.hostname}:${ref.orport}`],
+            eid: desc.idEd25519
           }
+
+          await circuit.extendToOrThrow(fb)
         }
+
+        const url = `https://twitter.com`
+        const stream = await circuit.openAsOrThrow(url)
+
+        const response = await tryFetch(url, { stream }).then(r => r.unwrap())
+        console.log(response, Date.now() - start)
+
+        const data = await response.text()
+        console.log(data, Date.now() - start)
       }
-
-      const chunks = chunkify(fasts, 96)
-
-      const g = async (authority: Fallback) => {
-        try {
-          const tor = await tryCreateTor(params).then(r => r.unwrap())
-          const circuit = await tor.tryCreate().then(r => r.unwrap())
-          await circuit.extendToOrThrow(authority, AbortSignal.timeout(5000))
-
-          for (const chunk of chunks)
-            await f(circuit, chunk)
-        } catch (e: unknown) {
-          console.log("g", { e, authority })
-          throw e
-        }
-      }
-
-      const promises = new Array<Promise<void>>()
-
-      for (let i = 0; i < Authorities.fallbacks.length; i++) {
-        const authority = Authorities.fallbacks[i]
-        if (authority.id === "BD6A829255CB08E66FBE7D3748363586E46B3810")
-          continue
-        promises.push(g(authority))
-      }
-
-      await Promise.all(promises)
 
       console.log("Done!!!", Date.now() - start)
-
     } catch (e: unknown) {
       console.error("onClick", { e })
     }
-  }, [tor, circuit, authority])
+  }, [tors])
 
 
   return <>

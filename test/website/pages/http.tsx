@@ -11,6 +11,7 @@ import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
 import { createCircuitPool, createStreamPool, createTorPool, tryCreateTor } from "libs/circuits/circuits";
 import { DependencyList, useCallback, useEffect, useMemo, useState } from "react";
+import fallbacks from "../fallbacks.json";
 
 async function superfetch(stream: ReadableWritablePair<Opaque<Uint8Array>, Writable>) {
   const start = Date.now()
@@ -54,13 +55,13 @@ export default function Page() {
     Echalote.Console.debugging = true
     Cadenas.Console.debugging = true
 
-    const fallbacksUrl = "https://raw.githubusercontent.com/hazae41/echalote/master/tools/fallbacks/fallbacks.json"
-    const fallbacksRes = await fetch(fallbacksUrl)
+    // const fallbacksUrl = "https://raw.githubusercontent.com/hazae41/echalote/master/tools/fallbacks/fallbacks.json"
+    // const fallbacksRes = await fetch(fallbacksUrl)
 
-    if (!fallbacksRes.ok)
-      throw new Error(await fallbacksRes.text())
+    // if (!fallbacksRes.ok)
+    //   throw new Error(await fallbacksRes.text())
 
-    const fallbacks = await fallbacksRes.json()
+    // const fallbacks = await fallbacksRes.json()
 
     return { fallbacks }
   }, [])
