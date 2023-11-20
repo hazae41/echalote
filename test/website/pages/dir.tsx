@@ -125,13 +125,18 @@ export default function Page() {
 
       const chunks = chunkify(fasts, 96)
 
-      for (let i = 0, chunk = chunks.next(); !chunk.done; i++, chunk = chunks.next()) {
-        if (i % 10 === 0)
-          await new Promise(ok => setTimeout(ok, 1000))
-        const promises = new Array<Promise<void>>()
-        promises.push(f(chunk.value))
-        await Promise.all(promises)
+      const g = async () => {
+        for (const chunk of chunks)
+          await f(chunk)
       }
+
+      const promises = new Array<Promise<void>>()
+
+      for (let i = 0; i < 3; i++) {
+        promises.push(g())
+      }
+
+      await Promise.all(promises)
 
       console.log("Done!!!")
 

@@ -138,6 +138,8 @@ export class SecretTorStreamDuplex {
     const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_end_cell)
     this.circuit.tor.output.enqueue(relay_cell.cellOrThrow())
 
+    this.package--
+
     this.#onClose(reason)
   }
 
@@ -145,6 +147,8 @@ export class SecretTorStreamDuplex {
     const relay_end_cell = new RelayEndCell(new RelayEndReasonOther(RelayEndCell.reasons.REASON_DONE))
     const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_end_cell)
     this.circuit.tor.output.enqueue(relay_cell.cellOrThrow())
+
+    this.package--
 
     this.#onError(reason)
   }
@@ -187,6 +191,8 @@ export class SecretTorStreamDuplex {
       const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_end_cell)
       this.circuit.tor.output.enqueue(relay_cell.cellOrThrow())
 
+      this.package--
+
       this.#onClean()
     }
 
@@ -200,6 +206,8 @@ export class SecretTorStreamDuplex {
       const relay_end_cell = new RelayEndCell(new RelayEndReasonOther(RelayEndCell.reasons.REASON_DONE))
       const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_end_cell)
       this.circuit.tor.output.enqueue(relay_cell.cellOrThrow())
+
+      this.package--
 
       this.#onClean()
     }
@@ -217,6 +225,8 @@ export class SecretTorStreamDuplex {
       const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_end_cell)
       this.circuit.tor.output.enqueue(relay_cell.cellOrThrow())
 
+      this.package--
+
       this.#onClean()
     }
 
@@ -233,6 +243,8 @@ export class SecretTorStreamDuplex {
       const relay_end_cell = new RelayEndCell(new RelayEndReasonOther(RelayEndCell.reasons.REASON_MISC))
       const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_end_cell)
       this.circuit.tor.output.enqueue(relay_cell.cellOrThrow())
+
+      this.package--
 
       this.#onClean()
     }

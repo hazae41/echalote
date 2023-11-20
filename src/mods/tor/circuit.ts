@@ -129,16 +129,16 @@ export class Circuit {
     return await this.#secret.tryExtendLoop(exit, signal)
   }
 
-  async openOrThrow(hostname: string, port: number, params?: CircuitOpenParams) {
-    return await this.#secret.openOrThrow(hostname, port, params)
+  async openOrThrow(hostname: string, port: number, params?: CircuitOpenParams, signal?: AbortSignal) {
+    return await this.#secret.openOrThrow(hostname, port, params, signal)
   }
 
   async tryOpen(hostname: string, port: number, params?: CircuitOpenParams) {
     return await this.#secret.tryOpen(hostname, port, params)
   }
 
-  async openDirOrThrow(signal?: AbortSignal) {
-    return await this.#secret.openDirOrThrow(signal)
+  async openDirOrThrow(params?: CircuitOpenParams, signal?: AbortSignal) {
+    return await this.#secret.openDirOrThrow(params, signal)
   }
 
   async openAsOrThrow(input: RequestInfo | URL, params?: CircuitOpenParams) {
@@ -529,7 +529,7 @@ export class SecretCircuit {
     }).then(r => r.mapErrSync(cause => new Error(`Could not truncate`, { cause })))
   }
 
-  async openDirOrThrow(signal = AbortSignals.never()) {
+  async openDirOrThrow(params: CircuitOpenParams = {}, signal = AbortSignals.never()) {
     if (this.closed?.reason != null)
       throw ErroredError.from(this.closed.reason)
     if (this.closed != null)
@@ -543,15 +543,13 @@ export class SecretCircuit {
     const begin_cell = RelayCell.Streamful.from(this, stream, begin)
     this.tor.output.enqueue(begin_cell.cellOrThrow())
 
-    console.log("begin dir")
+    if (!params.wait)
+      return new TorStreamDuplex(stream)
 
-    // if (!params.wait)
-    //   return new TorStreamDuplex(stream)
-
-    // await Plume.waitOrCloseOrErrorOrSignal(stream.events.input, "open", (future: Future<void>) => {
-    //   future.resolve(undefined)
-    //   return new None()
-    // }, signal)
+    await Plume.waitOrCloseOrErrorOrSignal(stream.events.input, "open", (future: Future<void>) => {
+      future.resolve(undefined)
+      return new None()
+    }, signal)
 
     return new TorStreamDuplex(stream)
   }
@@ -590,13 +588,13 @@ export class SecretCircuit {
     return new TorStreamDuplex(stream)
   }
 
-  async tryOpen(hostname: string, port: number, params: CircuitOpenParams = {}): Promise<Result<TorStreamDuplex, Error>> {
+  async tryOpen(hostname: string, port: number, params: CircuitOpenParams = {}, signal = AbortSignals.never()): Promise<Result<TorStreamDuplex, Error>> {
     return await Result.runAndWrap(async () => {
-      return await this.openOrThrow(hostname, port, params)
+      return await this.openOrThrow(hostname, port, params, signal)
     }).then(r => r.mapErrSync(cause => new Error(`Could not open`, { cause })))
   }
 
-  async openAsOrThrow(input: RequestInfo | URL, params: CircuitOpenParams = {}): Promise<ReadableWritablePair<Opaque, Writable>> {
+  async openAsOrThrow(input: RequestInfo | URL, params: CircuitOpenParams = {}, signal = AbortSignals.never()): Promise<ReadableWritablePair<Opaque, Writable>> {
     if (this.closed?.reason != null)
       throw ErroredError.from(this.closed.reason)
     if (this.closed != null)
@@ -606,13 +604,13 @@ export class SecretCircuit {
     const url = new URL(req.url)
 
     if (url.protocol === "http:") {
-      const tcp = await this.openOrThrow(url.hostname, Number(url.port) || 80, params)
+      const tcp = await this.openOrThrow(url.hostname, Number(url.port) || 80, params, signal)
 
       return tcp.outer
     }
 
     if (url.protocol === "https:") {
-      const tcp = await this.openOrThrow(url.hostname, Number(url.port) || 443, params)
+      const tcp = await this.openOrThrow(url.hostname, Number(url.port) || 443, params, signal)
 
       const ciphers = [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
       const tls = new TlsClientDuplex({ host_name: url.hostname, ciphers })
@@ -626,9 +624,9 @@ export class SecretCircuit {
     throw new UnknownProtocolError(url.protocol)
   }
 
-  async tryOpenAs(input: RequestInfo | URL, params: CircuitOpenParams = {}): Promise<Result<ReadableWritablePair<Opaque, Writable>, Error>> {
+  async tryOpenAs(input: RequestInfo | URL, params: CircuitOpenParams = {}, signal = AbortSignals.never()): Promise<Result<ReadableWritablePair<Opaque, Writable>, Error>> {
     return await Result.runAndWrap(async () => {
-      return await this.openAsOrThrow(input, params)
+      return await this.openAsOrThrow(input, params, signal)
     }).then(r => r.mapErrSync(cause => new Error(`Could not open`, { cause })))
   }
 
