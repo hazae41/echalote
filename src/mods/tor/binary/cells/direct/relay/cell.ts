@@ -124,6 +124,8 @@ export namespace RelayCell {
           continue
 
         const stream = cursor.readUint16OrThrow()
+
+        const offset = cursor.offset
         const digest4 = cursor.getAndCopyOrThrow(4)
 
         cursor.writeUint32OrThrow(0)
@@ -131,8 +133,11 @@ export namespace RelayCell {
         using hasher = target.backward_digest.cloneOrThrow()
         const digest = hasher.updateOrThrow(cursor.bytes).finalizeOrThrow().copyAndDispose()
 
-        if (!Bytes.equals2(digest4, digest.subarray(0, 4)))
+        if (!Bytes.equals2(digest4, digest.subarray(0, 4))) {
+          cursor.offset = offset
+          cursor.writeOrThrow(digest4)
           continue
+        }
 
         target.backward_digest.updateOrThrow(cursor.bytes)
 
