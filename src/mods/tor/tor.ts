@@ -39,7 +39,7 @@ import { TorCiphers } from "mods/tor/ciphers.js";
 import { Circuit, SecretCircuit } from "mods/tor/circuit.js";
 import { Target } from "mods/tor/target.js";
 import { InvalidKdfKeyHashError, KDFTorResult } from "./algorithms/kdftor.js";
-import { InvalidCellError, InvalidRelayCellDigestError, InvalidRelaySendmeCellDigestError } from "./binary/cells/errors.js";
+import { ExpectedStreamError, InvalidCellError, InvalidRelayCellDigestError, InvalidRelaySendmeCellDigestError } from "./binary/cells/errors.js";
 import { OldCell } from "./binary/cells/old.js";
 import { RelaySendmeCircuitCell, RelaySendmeDigest, RelaySendmeStreamCell } from "./binary/cells/relayed/relay_sendme/cell.js";
 import { Certs } from "./certs/certs.js";
@@ -122,7 +122,7 @@ export type SecretTorEvents = CloseEvents & ErrorEvents & {
 
   "CREATED_FAST": (cell: Cell.Circuitful<CreatedFastCell>) => void
   "DESTROY": (cell: Cell.Circuitful<DestroyCell>) => void
-  "RELAY_CONNECTED": (cell: RelayCell.Streamful<RelayConnectedCell>) => void
+  "RELAY_CONNECTED": (cell: RelayCell.Streamful<Opaque>) => void
   "RELAY_DATA": (cell: RelayCell.Streamful<RelayDataCell<Opaque>>) => void
   "RELAY_EXTENDED2": (cell: RelayCell.Streamless<RelayExtended2Cell<Opaque>>) => void
   "RELAY_TRUNCATED": (cell: RelayCell.Streamless<RelayTruncatedCell>) => void
@@ -141,7 +141,7 @@ export class SecretTorClientDuplex {
 
   readonly circuits = new Mutex(new Map<number, SecretCircuit>())
 
-  readonly #buffer = new Cursor(new Uint8Array(2 ** 18))
+  readonly #buffer = new Cursor(new Uint8Array(2 ** 16))
 
   #state: TorState = { type: "none" }
 
@@ -296,17 +296,21 @@ export class SecretTorClientDuplex {
     const cursor = new Cursor(chunk)
 
     while (cursor.remaining) {
+      let raw:
+        | OldCell.Raw<Opaque>
+        | Cell.Raw<Opaque>
+
       try {
-        const raw = this.#state.type === "none"
+        raw = this.#state.type === "none"
           ? Readable.readOrRollbackAndThrow(OldCell.Raw, cursor)
           : Readable.readOrRollbackAndThrow(Cell.Raw, cursor)
-
-        const cell = raw.unpackOrThrow(this)
-        await this.#onCell(cell, this.#state)
       } catch (e: unknown) {
         this.#buffer.writeOrThrow(cursor.after)
         break
       }
+
+      const cell = raw.unpackOrThrow(this)
+      await this.#onCell(cell, this.#state)
     }
   }
 
@@ -476,11 +480,10 @@ export class SecretTorClientDuplex {
   }
 
   async #onRelayConnectedCell(cell: RelayCell<Opaque>) {
-    const cell2 = RelayCell.Streamful.intoOrThrow(cell, RelayConnectedCell)
+    if (cell.stream == null)
+      throw new ExpectedStreamError()
 
-    Console.debug(cell2)
-
-    await this.events.emit("RELAY_CONNECTED", [cell2])
+    await this.events.emit("RELAY_CONNECTED", [cell])
   }
 
   async #onRelayDataCell(cell: RelayCell<Opaque>) {

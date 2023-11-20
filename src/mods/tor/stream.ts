@@ -10,7 +10,6 @@ import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { SecretCircuit } from "mods/tor/circuit.js";
 import { RelayEndReason } from "./binary/cells/relayed/relay_end/reason.js";
 import { RelaySendmeStreamCell } from "./binary/cells/relayed/relay_sendme/cell.js";
-import { RelayConnectedCell } from "./index.js";
 
 export class TorStreamDuplex {
 
@@ -214,7 +213,7 @@ export class SecretTorStreamDuplex {
     return new None()
   }
 
-  async #onRelayConnectedCell(cell: RelayCell.Streamful<RelayConnectedCell>) {
+  async #onRelayConnectedCell(cell: RelayCell.Streamful<Opaque>) {
     if (cell.stream !== this)
       return new None()
 

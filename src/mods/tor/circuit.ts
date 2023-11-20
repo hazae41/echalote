@@ -18,7 +18,6 @@ import { Console } from "mods/console/index.js";
 import { Ntor } from "mods/tor/algorithms/ntor/index.js";
 import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
 import { RelayBeginCell } from "mods/tor/binary/cells/relayed/relay_begin/cell.js";
-import { RelayConnectedCell } from "mods/tor/binary/cells/relayed/relay_connected/cell.js";
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { RelayExtend2Cell } from "mods/tor/binary/cells/relayed/relay_extend2/cell.js";
@@ -166,7 +165,7 @@ export type SecretCircuitEvents = CloseEvents & ErrorEvents & {
   /**
    * Streamful
    */
-  "RELAY_CONNECTED": (cell: RelayCell.Streamful<RelayConnectedCell>) => void
+  "RELAY_CONNECTED": (cell: RelayCell.Streamful<Opaque>) => void
   "RELAY_DATA": (cell: RelayCell.Streamful<RelayDataCell<Opaque>>) => void
   "RELAY_END": (cell: RelayCell.Streamful<RelayEndCell>) => void
 }
@@ -331,7 +330,7 @@ export class SecretCircuit {
     return new None()
   }
 
-  async #onRelayConnectedCell(cell: RelayCell.Streamful<RelayConnectedCell>) {
+  async #onRelayConnectedCell(cell: RelayCell.Streamful<Opaque>) {
     if (cell.circuit !== this)
       return new None()
 

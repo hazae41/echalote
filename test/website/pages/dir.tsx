@@ -95,22 +95,34 @@ export default function Page() {
           yield array.slice(i, i + size)
       }
 
-      for (const chunk of chunks(microdescs, 96)) {
-        try {
-          const start = Date.now()
+      const fasts = microdescs.filter(it => it.flags.includes("Fast"))
 
-          const name = chunk.map(m => m.microdesc).join("-")
-          const url = `http://${authority.hosts[0]}/tor/micro/d/${name}.z`
-          const stream = await circuit.openDirOrThrow()
-          const signal = AbortSignal.timeout(5000)
-          const response = await tryFetch(url, { stream: stream.outer, signal }).then(r => r.unwrap())
-          console.log(response, Date.now() - start)
-          const microdesc = Microdesc.parseOrThrow(await response.text())
-          console.log(microdesc, Date.now() - start)
-        } catch (e: unknown) {
-          console.error("chunk", { e })
-        }
+      const f = async (chunk: Echalote.Microdescs.Item[]) => {
+        const start = Date.now()
+
+        const name = chunk.map(m => m.microdesc).join("-")
+        const url = `http://${authority.hosts[0]}/tor/micro/d/${name}.z`
+
+        const stream = await circuit.openDirOrThrow()
+        const signal = AbortSignal.timeout(5000)
+
+        const response = await tryFetch(url, { stream: stream.outer, signal }).then(r => r.unwrap())
+        console.log(response, Date.now() - start)
+
+        const microdesc = Microdesc.parseOrThrow(await response.text())
+        console.log(microdesc, Date.now() - start)
       }
+
+      const promises = new Array<Promise<void>>()
+
+      for (const chunk of chunks(fasts, 96)) {
+        promises.push(f(chunk))
+        // await new Promise(ok => setTimeout(ok, 1000))
+      }
+
+      await Promise.all(promises)
+
+      console.log("Done!!!")
 
     } catch (e: unknown) {
       console.error("onClick", { e })
