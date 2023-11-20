@@ -167,13 +167,9 @@ export class SecretTorStreamDuplex {
     this.#input.closed = {}
 
     if (this.#output.closed && !this.#input.closed) {
-      console.warn("Closing")
-
       const relay_end_cell = new RelayEndCell(new RelayEndReasonOther(RelayEndCell.reasons.REASON_DONE))
       const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_end_cell)
       this.circuit.tor.output.enqueue(relay_cell.cellOrThrow())
-
-      console.warn("Stream closed")
 
       this.#onClean()
     }
