@@ -370,7 +370,7 @@ export namespace Consensus {
     consensus.authorities = authorities
     consensus.microdescs = microdescs
     consensus.signatures = signatures
-    return consensus
+    return consensus as Consensus
   }
 
 }
