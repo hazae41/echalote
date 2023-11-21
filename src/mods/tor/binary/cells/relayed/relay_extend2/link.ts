@@ -61,10 +61,12 @@ export class RelayExtend2LinkIPv6 {
     readonly port: number,
   ) { }
 
-  static from(host: string) {
-    const { hostname, port } = new URL(`http://${host}`)
+  static from(addrress: string) {
+    const { hostname, port } = new URL(`http://${addrress}`)
 
-    return new RelayExtend2LinkIPv6(hostname.slice(1, -1), Number(port))
+    const ip = hostname.slice(1, -1)
+
+    return new RelayExtend2LinkIPv6(ip, Number(port))
   }
 
   sizeOrThrow() {

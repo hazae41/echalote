@@ -1,7 +1,8 @@
+import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
 import { Disposer } from "@hazae41/cleaner";
-import { Circuit, Echalote, Microdesc, Microdescs, TorClientDuplex } from "@hazae41/echalote";
+import { Circuit, Consensus, Echalote, TorClientDuplex } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
-import { tryFetch } from "@hazae41/fleche";
+import { fetch } from "@hazae41/fleche";
 import { Mutex } from "@hazae41/mutex";
 import { Pool } from "@hazae41/piscine";
 import { Sha1 } from "@hazae41/sha1";
@@ -18,6 +19,31 @@ function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
   }, deps)
 
   return state
+}
+
+async function openAsOrThrow(circuit: Circuit, input: RequestInfo | URL) {
+  const req = new Request(input)
+  const url = new URL(req.url)
+
+  if (url.protocol === "http:") {
+    const tcp = await circuit.openOrThrow(url.hostname, Number(url.port) || 80)
+
+    return tcp.outer
+  }
+
+  if (url.protocol === "https:") {
+    const tcp = await circuit.openOrThrow(url.hostname, Number(url.port) || 443)
+
+    const ciphers = [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
+    const tls = new TlsClientDuplex({ host_name: url.hostname, ciphers })
+
+    tcp.outer.readable.pipeTo(tls.inner.writable).catch(() => { })
+    tls.inner.readable.pipeTo(tcp.outer.writable).catch(() => { })
+
+    return tls.outer
+  }
+
+  throw new Error(url.protocol)
 }
 
 export interface TorAndCircuits {
@@ -46,26 +72,38 @@ export default function Page() {
 
       const start = Date.now()
 
-      const tor = await tryCreateTor({ fallbacks: [] }).then(r => r.unwrap())
+      const tor = await tryCreateTor({}).then(r => r.unwrap())
       const circuit = await tor.tryCreate().then(r => r.unwrap())
+
+      {
+        const stream = await circuit.openDirOrThrow()
+        const url = `http://localhost/tor/keys/all.z`
+
+        const response = await fetch(url, { stream: stream.outer })
+        const text = await response.text()
+
+        console.log(text)
+      }
 
       const stream = await circuit.openDirOrThrow()
       const url = `http://localhost/tor/status-vote/current/consensus-microdesc.z`
 
-      const response = await tryFetch(url, { stream: stream.outer }).then(r => r.unwrap())
+      const response = await fetch(url, { stream: stream.outer })
       console.log(response, Date.now() - start)
 
-      const microrefs = Microdescs.parseOrThrow(await response.text())
-      console.log(microrefs, Date.now() - start)
+      const text = await response.text()
+      console.log(text)
+      const consensus = Consensus.parseOrThrow(text)
+      console.log(consensus, Date.now() - start)
 
-      console.log(microrefs.flatMap(it => it.flags).filter((it, i, a) => a.indexOf(it) === i))
+      console.log(consensus.microdescs.flatMap(it => it.flags).filter((it, i, a) => a.indexOf(it) === i))
 
-      const seconds = microrefs.filter(it => true
+      const seconds = consensus.microdescs.filter(it => true
         && it.flags.includes("Fast")
         && it.flags.includes("Stable")
         && it.flags.includes("V2Dir"))
 
-      const thirds = microrefs.filter(it => true
+      const thirds = consensus.microdescs.filter(it => true
         && it.flags.includes("Fast")
         && it.flags.includes("Stable")
         && it.flags.includes("Exit")
@@ -73,49 +111,14 @@ export default function Page() {
 
       console.log(seconds.length, thirds.length)
 
-      async function unref(ref: Microdescs.Item) {
-        const start = Date.now()
-
-        const stream = await circuit.openDirOrThrow()
-        const url = `http://localhost/tor/micro/d/${ref.microdesc}.z`
-
-        const response = await tryFetch(url, { stream: stream.outer }).then(r => r.unwrap())
-        console.log(response, Date.now() - start)
-
-        const desc = Microdesc.parseOrThrow(await response.text())
-        console.log(desc, Date.now() - start)
-
-        return desc[0]
-      }
-
       {
+        const second = await circuit.unrefOrThrow(seconds[Math.floor(Math.random() * seconds.length)])
+        await circuit.extendToOrThrow(second)
 
-        {
-          const ref = seconds[Math.floor(Math.random() * seconds.length)]
-          const desc = await unref(ref)
+        const third = await circuit.unrefOrThrow(thirds[Math.floor(Math.random() * thirds.length)])
+        await circuit.extendToOrThrow(third)
 
-          await circuit.extendToOrThrow({
-            id: Buffer.from(ref.identity, "base64").toString("hex"),
-            onion: Buffer.from(desc.ntorOnionKey, "base64").toJSON().data,
-            hosts: [`${ref.hostname}:${ref.orport}`],
-            eid: desc.idEd25519
-          })
-        }
-
-        {
-          const ref = thirds[Math.floor(Math.random() * thirds.length)]
-          const desc = await unref(ref)
-
-          await circuit.extendToOrThrow({
-            id: Buffer.from(ref.identity, "base64").toString("hex"),
-            onion: Buffer.from(desc.ntorOnionKey, "base64").toJSON().data,
-            hosts: [`${ref.hostname}:${ref.orport}`],
-            eid: desc.idEd25519
-          })
-        }
-
-        const url = `https://eth.llamarpc.com`
-        const stream = await circuit.openAsOrThrow(url)
+        const stream = await openAsOrThrow(circuit, `https://eth.llamarpc.com`)
 
         setStream(stream)
       }
@@ -131,7 +134,7 @@ export default function Page() {
       const body = JSON.stringify({ "jsonrpc": "2.0", "method": "eth_blockNumber", "params": [], "id": 67 })
       const headers = { "content-type": "application/json" }
 
-      const response = await tryFetch(`https://eth.llamarpc.com`, { stream, method: "POST", headers, body, preventClose: true, preventAbort: true, preventCancel: true }).then(r => r.unwrap())
+      const response = await fetch(`https://eth.llamarpc.com`, { stream, method: "POST", headers, body, preventClose: true, preventAbort: true, preventCancel: true })
       console.log(response, Date.now() - start)
 
       const data = await response.text()

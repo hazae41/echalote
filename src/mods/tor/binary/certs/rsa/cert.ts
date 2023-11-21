@@ -1,3 +1,4 @@
+import { Uint8Array } from "@hazae41/bytes";
 import { Cursor } from "@hazae41/cursor";
 import { X509 } from "@hazae41/x509";
 import { ExpiredCertError, PrematureCertError } from "mods/tor/certs/certs.js";
@@ -19,7 +20,7 @@ export class RsaCert {
   async sha1OrThrow() {
     const publicKey = X509.writeToBytesOrThrow(this.x509.tbsCertificate.subjectPublicKeyInfo)
 
-    return new Uint8Array(await crypto.subtle.digest("SHA-1", publicKey))
+    return new Uint8Array(await crypto.subtle.digest("SHA-1", publicKey)) as Uint8Array<20>
   }
 
   verifyOrThrow() {

@@ -1,15 +1,12 @@
-import { Arrays } from "@hazae41/arrays";
-import { Base16 } from "@hazae41/base16";
 import { Base64 } from "@hazae41/base64";
-import { Opaque, Writable } from "@hazae41/binary";
+import { Opaque } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Bytes } from "@hazae41/bytes";
-import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
+import { fetch } from "@hazae41/fleche";
 import { Future } from "@hazae41/future";
 import { None, Option } from "@hazae41/option";
-import { TooManyRetriesError } from "@hazae41/piscine";
-import { AbortedError, CloseEvents, ClosedError, ErrorEvents, ErroredError, Plume, SuperEventTarget } from "@hazae41/plume";
-import { Err, Result } from "@hazae41/result";
+import { CloseEvents, ClosedError, ErrorEvents, ErroredError, Plume, SuperEventTarget } from "@hazae41/plume";
+import { Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
@@ -21,20 +18,20 @@ import { RelayBeginCell } from "mods/tor/binary/cells/relayed/relay_begin/cell.j
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { RelayExtend2Cell } from "mods/tor/binary/cells/relayed/relay_extend2/cell.js";
-import { RelayExtend2Link, RelayExtend2LinkLegacyID, RelayExtend2LinkModernID } from "mods/tor/binary/cells/relayed/relay_extend2/link.js";
+import { RelayExtend2Link, RelayExtend2LinkIPv4, RelayExtend2LinkIPv6, RelayExtend2LinkLegacyID, RelayExtend2LinkModernID } from "mods/tor/binary/cells/relayed/relay_extend2/link.js";
 import { RelayExtended2Cell } from "mods/tor/binary/cells/relayed/relay_extended2/cell.js";
 import { RelayTruncateCell } from "mods/tor/binary/cells/relayed/relay_truncate/cell.js";
 import { RelayTruncatedCell } from "mods/tor/binary/cells/relayed/relay_truncated/cell.js";
 import { SecretTorStreamDuplex, TorStreamDuplex } from "mods/tor/stream.js";
 import { Target } from "mods/tor/target.js";
-import { Fallback, SecretTorClientDuplex } from "mods/tor/tor.js";
+import { SecretTorClientDuplex } from "mods/tor/tor.js";
 import { InvalidNtorAuthError, NtorResult } from "./algorithms/ntor/ntor.js";
-import { Authorities } from "./authorities/authorities.js";
 import { Cell } from "./binary/cells/cell.js";
 import { RelayCell } from "./binary/cells/direct/relay/cell.js";
 import { RelayEarlyCell } from "./binary/cells/direct/relay_early/cell.js";
+import { RelayBeginDirCell } from "./binary/cells/relayed/relay_begin_dir/cell.js";
+import { Microdesc } from "./consensus/microdesc.js";
 import { HASH_LEN } from "./constants.js";
-import { RelayBeginDirCell } from "./index.js";
 
 export const IPv6 = {
   always: 3,
@@ -121,24 +118,12 @@ export class Circuit {
     return await this.events.emit("error", [reason])
   }
 
-  async extendToOrThrow(fallback: Fallback, signal?: AbortSignal) {
-    return await this.#secret.extendToOrThrow(fallback, signal)
+  async extendToOrThrow(microdesc: Microdesc, signal?: AbortSignal) {
+    return await this.#secret.extendToOrThrow(microdesc, signal)
   }
 
-  async tryExtendTo(fallback: Fallback, signal?: AbortSignal) {
-    return await this.#secret.tryExtendTo(fallback, signal)
-  }
-
-  async extendOrThrow(exit: boolean, signal?: AbortSignal) {
-    return await this.#secret.extendOrThrow(exit, signal)
-  }
-
-  async tryExtend(exit: boolean, signal: AbortSignal) {
-    return await this.#secret.tryExtend(exit, signal)
-  }
-
-  async tryExtendLoop(exit: boolean, signal?: AbortSignal) {
-    return await this.#secret.tryExtendLoop(exit, signal)
+  async tryExtendTo(microdesc: Microdesc, signal?: AbortSignal) {
+    return await this.#secret.tryExtendTo(microdesc, signal)
   }
 
   async openOrThrow(hostname: string, port: number, params?: CircuitOpenParams, signal?: AbortSignal) {
@@ -153,16 +138,12 @@ export class Circuit {
     return await this.#secret.openDirOrThrow(params, signal)
   }
 
-  async openAsOrThrow(input: RequestInfo | URL, params?: CircuitOpenParams) {
-    return await this.#secret.openAsOrThrow(input, params)
+  async unrefOrThrow(ref: Microdesc.Pre) {
+    return await this.#secret.unrefOrThrow(ref)
   }
 
   async close() {
     return await this.#secret.close()
-  }
-
-  async extendDirOrThrow(signal?: AbortSignal) {
-    return await this.#secret.extendDirOrThrow(signal)
   }
 
 }
@@ -377,53 +358,26 @@ export class SecretCircuit {
     return new None()
   }
 
-  async extendDirOrThrow(signal = AbortSignals.never()) {
-    const authority = Arrays.cryptoRandom(Authorities.fallbacks)
-
-    if (!authority)
-      throw new Error(`Could not find authority`)
-
-    await this.extendToOrThrow(authority, signal)
-
-    return authority
-  }
-
-  async extendOrThrow(exit: boolean, signal?: AbortSignal) {
+  async extendToOrThrow(microdesc: Microdesc, signal = AbortSignals.never()) {
     if (this.closed?.reason != null)
       throw ErroredError.from(this.closed.reason)
     if (this.closed != null)
       throw ClosedError.from(this.closed.reason)
 
-    const fallbacks = exit
-      ? this.tor.params.fallbacks.filter(it => it.exit)
-      : this.tor.params.fallbacks
+    const relayid_rsa_x = Base64.get().decodeUnpaddedOrThrow(microdesc.identity).copyAndDispose()
+    const relayid_rsa = Bytes.castOrThrow(relayid_rsa_x, HASH_LEN)
 
-    const fallback = Arrays.cryptoRandom(fallbacks)
+    const ntor_key_x = Base64.get().decodeUnpaddedOrThrow(microdesc.ntorOnionKey).copyAndDispose()
+    const ntor_key = Bytes.castOrThrow(ntor_key_x, 32)
 
-    if (fallback == null)
-      throw new EmptyFallbacksError()
+    const relayid_ed = Option.mapSync(microdesc.idEd25519, Base64.get().decodeUnpaddedOrThrow)?.copyAndDispose()
 
-    return await this.extendToOrThrow(fallback, signal)
-  }
+    const links = new Array<RelayExtend2Link>()
 
-  async tryExtend(exit: boolean, signal?: AbortSignal): Promise<Result<void, Error>> {
-    return await Result.runAndWrap(async () => {
-      return await this.extendOrThrow(exit, signal)
-    }).then(r => r.mapErrSync(cause => new Error(`Could not extend`, { cause })))
-  }
+    links.push(new RelayExtend2LinkIPv4(microdesc.hostname, Number(microdesc.orport)))
 
-  async extendToOrThrow(fallback: Fallback, signal = AbortSignals.never()) {
-    if (this.closed?.reason != null)
-      throw ErroredError.from(this.closed.reason)
-    if (this.closed != null)
-      throw ClosedError.from(this.closed.reason)
-
-    const relayid_rsax = Base16.get().padStartAndDecodeOrThrow(fallback.id).copyAndDispose()
-    const relayid_rsa = Bytes.castOrThrow(relayid_rsax, HASH_LEN)
-
-    const relayid_ed = Option.mapSync(fallback.eid, Base64.get().decodeUnpaddedOrThrow)?.copyAndDispose()
-
-    const links: RelayExtend2Link[] = fallback.hosts.map(RelayExtend2Link.fromAddressString)
+    if (microdesc.ipv6 != null)
+      links.push(RelayExtend2LinkIPv6.from(microdesc.ipv6))
 
     links.push(new RelayExtend2LinkLegacyID(relayid_rsa))
 
@@ -436,7 +390,7 @@ export class SecretCircuit {
     const unsized_public_x_bytes = await wasm_public_x.tryExport().then(r => r.unwrap().copyAndDispose())
 
     const public_x = Bytes.castOrThrow(unsized_public_x_bytes, 32)
-    const public_b = Bytes.fromAndCastOrThrow(fallback.onion, 32)
+    const public_b = ntor_key
 
     const ntor_request = new Ntor.NtorRequest(public_x, relayid_rsa, public_b)
     const relay_extend2 = new RelayExtend2Cell(RelayExtend2Cell.types.NTOR, links, ntor_request)
@@ -488,46 +442,10 @@ export class SecretCircuit {
     this.targets.push(target)
   }
 
-  async tryExtendTo(fallback: Fallback, signal?: AbortSignal): Promise<Result<void, Error>> {
+  async tryExtendTo(microdesc: Microdesc, signal?: AbortSignal): Promise<Result<void, Error>> {
     return await Result.runAndWrap(async () => {
-      return await this.extendToOrThrow(fallback, signal)
+      return await this.extendToOrThrow(microdesc, signal)
     }).then(r => r.mapErrSync(cause => new Error(`Could not extend`, { cause })))
-  }
-
-  async tryExtendLoop(exit: boolean, signal?: AbortSignal): Promise<Result<void, Error>> {
-    for (let i = 0; !this.closed && !signal?.aborted && i < 3; i++) {
-      const result = await this.tryExtend(exit, signal)
-
-      if (result.isOk())
-        return result
-
-      if (this.closed)
-        return result
-      if (signal?.aborted)
-        return result
-
-      if (result.inner.name === AbortedError.name) {
-        Console.debug("Extend aborted", { error: result.get() })
-        await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
-        continue
-      }
-
-      if (result.inner.name === InvalidNtorAuthError.name) {
-        Console.debug("Extend failed", { error: result.get() })
-        await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
-        continue
-      }
-
-      return result
-    }
-
-    if (this.closed?.reason != null)
-      return new Err(ErroredError.from(this.closed.reason))
-    if (this.closed != null)
-      return new Err(ClosedError.from(this.closed.reason))
-    if (signal?.aborted)
-      return new Err(AbortedError.from(signal.reason))
-    return new Err(new TooManyRetriesError())
   }
 
   async truncateOrThrow(reason = RelayTruncateCell.reasons.NONE, signal = AbortSignals.never()) {
@@ -612,40 +530,43 @@ export class SecretCircuit {
     }).then(r => r.mapErrSync(cause => new Error(`Could not open`, { cause })))
   }
 
-  async openAsOrThrow(input: RequestInfo | URL, params: CircuitOpenParams = {}, signal = AbortSignals.never()): Promise<ReadableWritablePair<Opaque, Writable>> {
-    if (this.closed?.reason != null)
-      throw ErroredError.from(this.closed.reason)
-    if (this.closed != null)
-      throw ClosedError.from(this.closed.reason)
+  async fetchConsensusOrThrow(signal = AbortSignals.never()) {
+    const stream = await this.openDirOrThrow()
+    const url = `http://localhost/tor/status-vote/current/consensus-microdesc.z`
 
-    const req = new Request(input)
-    const url = new URL(req.url)
 
-    if (url.protocol === "http:") {
-      const tcp = await this.openOrThrow(url.hostname, Number(url.port) || 80, params, signal)
-
-      return tcp.outer
-    }
-
-    if (url.protocol === "https:") {
-      const tcp = await this.openOrThrow(url.hostname, Number(url.port) || 443, params, signal)
-
-      const ciphers = [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
-      const tls = new TlsClientDuplex({ host_name: url.hostname, ciphers })
-
-      tcp.outer.readable.pipeTo(tls.inner.writable).catch(() => { })
-      tls.inner.readable.pipeTo(tcp.outer.writable).catch(() => { })
-
-      return tls.outer
-    }
-
-    throw new UnknownProtocolError(url.protocol)
   }
 
-  async tryOpenAs(input: RequestInfo | URL, params: CircuitOpenParams = {}, signal = AbortSignals.never()): Promise<Result<ReadableWritablePair<Opaque, Writable>, Error>> {
+  async unrefOrThrow(ref: Microdesc.Pre) {
+    const stream = await this.openDirOrThrow()
+    const url = `http://localhost/tor/micro/d/${ref.microdesc}.z`
+
+    const response = await fetch(url, { stream: stream.outer })
+
+    if (!response.ok)
+      throw new Error(`Could not fetch`)
+
+    const buffer = await response.arrayBuffer()
+    const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", buffer))
+
+    const digest64 = Base64.get().encodeUnpaddedOrThrow(digest)
+
+    if (digest64 !== ref.microdesc)
+      throw new Error(`Digest mismatch`)
+
+    const text = Bytes.toUtf8(new Uint8Array(buffer))
+    const [post] = Microdesc.parseOrThrow(text)
+
+    if (post == null)
+      throw new Error(`Could not parse`)
+
+    return { ...ref, ...post } as Microdesc
+  }
+
+  async tryUnref(ref: Microdesc.Pre): Promise<Result<Microdesc, Error>> {
     return await Result.runAndWrap(async () => {
-      return await this.openAsOrThrow(input, params, signal)
-    }).then(r => r.mapErrSync(cause => new Error(`Could not open`, { cause })))
+      return await this.unrefOrThrow(ref)
+    }).then(r => r.mapErrSync(cause => new Error(`Could not unref`, { cause })))
   }
 
 }

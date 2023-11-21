@@ -1,5 +1,4 @@
 export * from "./algorithms/index.js";
-export * from "./authorities/authorities.js";
 export * from "./binary/index.js";
 export * from "./certs/index.js";
 export * from "./ciphers.js";
@@ -12,3 +11,4 @@ export * from "./state.js";
 export * from "./stream.js";
 export * from "./target.js";
 export * from "./tor.js";
+

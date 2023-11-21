@@ -8,9 +8,9 @@ import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
 import { RelayDataCell } from "mods/tor/binary/cells/relayed/relay_data/cell.js";
 import { RelayEndCell } from "mods/tor/binary/cells/relayed/relay_end/cell.js";
 import { SecretCircuit } from "mods/tor/circuit.js";
+import { RelayConnectedCell } from "./binary/cells/relayed/relay_connected/cell.js";
 import { RelayEndReason, RelayEndReasonOther } from "./binary/cells/relayed/relay_end/reason.js";
 import { RelaySendmeStreamCell } from "./binary/cells/relayed/relay_sendme/cell.js";
-import { RelayConnectedCell } from "./index.js";
 
 export class TorStreamDuplex {
 

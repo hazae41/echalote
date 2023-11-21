@@ -1,6 +1,6 @@
 import { Opaque, Readable, Writable } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
-import { Bytes } from "@hazae41/bytes";
+import { Bytes, Uint8Array } from "@hazae41/bytes";
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
 import { SuperReadableStream, SuperWritableStream } from "@hazae41/cascade";
 import { Cursor } from "@hazae41/cursor";
@@ -8,9 +8,8 @@ import { Future } from "@hazae41/future";
 import { Mutex } from "@hazae41/mutex";
 import { None, Some } from "@hazae41/option";
 import { Paimon } from "@hazae41/paimon";
-import { TooManyRetriesError } from "@hazae41/piscine";
-import { AbortedError, CloseEvents, ClosedError, ErrorEvents, ErroredError, Plume, SuperEventTarget } from "@hazae41/plume";
-import { Err, Ok, Panic, Result } from "@hazae41/result";
+import { CloseEvents, ErrorEvents, Plume, SuperEventTarget } from "@hazae41/plume";
+import { Ok, Panic, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X509 } from "@hazae41/x509";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
@@ -46,20 +45,11 @@ import { InvalidTorStateError, InvalidTorVersionError } from "./errors.js";
 import { TorHandshakingState, TorNoneState, TorState, TorVersionedState } from "./state.js";
 
 export interface Guard {
-  readonly idh: Uint8Array
+  readonly identity: Uint8Array<20>
   readonly certs: Certs
 }
 
-export interface Fallback {
-  readonly id: string,
-  readonly eid?: string,
-  readonly exit?: boolean,
-  readonly onion: number[]
-  readonly hosts: string[]
-}
-
 export interface TorClientParams {
-  readonly fallbacks: Fallback[]
   readonly signal?: AbortSignal
 }
 
@@ -100,14 +90,6 @@ export class TorClientDuplex {
       future.resolve(Ok.void())
       return new None()
     })
-  }
-
-  async tryCreateAndExtendLoop(signal?: AbortSignal) {
-    return await this.#secret.tryCreateAndExtendLoop(signal)
-  }
-
-  async tryCreateLoop(signal?: AbortSignal) {
-    return await this.#secret.tryCreateLoop(signal)
   }
 
   async tryCreate(signal?: AbortSignal) {
@@ -400,8 +382,8 @@ export class SecretTorClientDuplex {
 
     const certs = await Certs.verifyOrThrow(cell2.fragment.certs, this.#tlsCerts)
 
-    const idh = await certs.rsa_self.sha1OrThrow()
-    const guard = { certs, idh }
+    const identity = await certs.rsa_self.sha1OrThrow()
+    const guard: Guard = { certs, identity }
 
     this.#state = { ...state, type: "handshaking", guard }
   }
@@ -612,86 +594,6 @@ export class SecretTorClientDuplex {
     }, signal)
   }
 
-  async tryCreateAndExtendLoop(signal?: AbortSignal): Promise<Result<Circuit, Error>> {
-    return await Result.unthrow(async t => {
-
-      for (let i = 0; !this.closed && !signal?.aborted && i < 3; i++) {
-        const circuit = await this.tryCreateLoop(signal).then(r => r.throw(t))
-
-        const extend1 = await circuit.tryExtendLoop(false, signal).then(r => r.ignore())
-
-        if (extend1.isOk()) {
-          const extend2 = await circuit.tryExtendLoop(true, signal).then(r => r.ignore())
-
-          if (extend2.isOk())
-            return new Ok(circuit)
-
-          if (circuit.closed && !this.closed && !signal?.aborted) {
-            Console.debug("Create and extend failed", { error: extend2.get() })
-            await circuit.close()
-            await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
-            continue
-          }
-
-          return extend2
-        }
-
-        if (circuit.closed && !this.closed && !signal?.aborted) {
-          Console.debug("Create and extend failed", { error: extend1.get() })
-          await circuit.close()
-          await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
-          continue
-        }
-
-        return extend1
-      }
-
-      if (this.closed?.reason != null)
-        return new Err(ErroredError.from(this.closed.reason))
-      if (this.closed != null)
-        return new Err(ClosedError.from(this.closed.reason))
-      if (signal?.aborted)
-        return new Err(AbortedError.from(signal.reason))
-      return new Err(new TooManyRetriesError())
-    })
-  }
-
-  async tryCreateLoop(signal?: AbortSignal): Promise<Result<Circuit, Error>> {
-    for (let i = 0; !this.closed && !signal?.aborted && i < 3; i++) {
-      const result = await this.tryCreate(signal)
-
-      if (result.isOk())
-        return result
-
-      if (this.closed)
-        return result
-      if (signal?.aborted)
-        return result
-
-      if (result.inner.name === AbortedError.name) {
-        Console.debug("Create aborted", { error: result.get() })
-        await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
-        continue
-      }
-
-      if (result.inner.name === InvalidKdfKeyHashError.name) {
-        Console.debug("Create failed", { error: result.get() })
-        await new Promise(ok => setTimeout(ok, 1000 * (2 ** i)))
-        continue
-      }
-
-      return result
-    }
-
-    if (this.closed?.reason != null)
-      return new Err(ErroredError.from(this.closed.reason))
-    if (this.closed != null)
-      return new Err(ClosedError.from(this.closed.reason))
-    if (signal?.aborted)
-      return new Err(AbortedError.from(signal.reason))
-    return new Err(new TooManyRetriesError())
-  }
-
   async createOrThrow(signal = AbortSignals.never()) {
     if (this.#state.type !== "handshaked")
       throw new InvalidTorStateError()
@@ -725,14 +627,14 @@ export class SecretTorClientDuplex {
     const forwardKey = new Aes128Ctr128BEKey(forwardKeyMemory, forwardIvMemory)
     const backwardKey = new Aes128Ctr128BEKey(backwardKeyMemory, backwardIvMemory)
 
-    const target = new Target(this.#state.guard.idh, circuit, forwardDigest, backwardDigest, forwardKey, backwardKey)
+    const target = new Target(this.#state.guard.identity, circuit, forwardDigest, backwardDigest, forwardKey, backwardKey)
 
     circuit.targets.push(target)
 
     return new Circuit(circuit)
   }
 
-  async tryCreate(signal: AbortSignal = AbortSignals.never()) {
+  async tryCreate(signal: AbortSignal = AbortSignals.never()): Promise<Result<Circuit, Error>> {
     return await Result.runAndWrap(async () => {
       return await this.createOrThrow(signal)
     }).then(r => r.mapErrSync(cause => new Error(`Could not create`, { cause })))
