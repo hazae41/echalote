@@ -1,4 +1,8 @@
+import { Base64 } from "@hazae41/base64"
+import { Bytes } from "@hazae41/bytes"
+import { fetch } from "@hazae41/fleche"
 import { Mutable } from "libs/typescript/typescript.js"
+import { Circuit } from "../circuit.js"
 
 export interface Consensus {
   readonly type: string
@@ -19,10 +23,11 @@ export interface Consensus {
   readonly sharedRandPreviousValue: Consensus.SharedRandom
   readonly sharedRandCurrentValue: Consensus.SharedRandom
   readonly authorities: Consensus.Authority[]
-  readonly microdescs: Microdesc.Pre[]
+  readonly microdescs: Consensus.Microdesc.Ref[]
   readonly bandwidthWeights: Record<string, string>
-  readonly signatures: Consensus.Signature[]
+
   readonly preimage: string
+  readonly signatures: Consensus.Signature[]
 }
 
 export namespace Consensus {
@@ -56,151 +61,129 @@ export namespace Consensus {
     const consensus: Partial<Mutable<Consensus>> = {}
 
     const authorities: Authority[] = []
-    const microdescs: Microdesc.Pre[] = []
+    const microdescs: Microdesc.Ref[] = []
     const signatures: Signature[] = []
 
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]
+    for (let i = { x: 0 }; i.x < lines.length; i.x++) {
 
-      if (line.startsWith("network-status-version ")) {
-        const [, version, type] = line.split(" ")
+      if (lines[i.x].startsWith("network-status-version ")) {
+        const [, version, type] = lines[i.x].split(" ")
         consensus.version = Number(version)
         consensus.type = type
         continue
       }
 
-      if (line.startsWith("vote-status ")) {
-        const [, status] = line.split(" ")
+      if (lines[i.x].startsWith("vote-status ")) {
+        const [, status] = lines[i.x].split(" ")
         consensus.status = status
         continue
       }
 
-      if (line.startsWith("consensus-method ")) {
-        const [, method] = line.split(" ")
+      if (lines[i.x].startsWith("consensus-method ")) {
+        const [, method] = lines[i.x].split(" ")
         consensus.method = Number(method)
         continue
       }
 
-      if (line.startsWith("valid-after ")) {
-        const validAfter = line.split(" ").slice(1).join(" ")
+      if (lines[i.x].startsWith("valid-after ")) {
+        const validAfter = lines[i.x].split(" ").slice(1).join(" ")
         consensus.validAfter = new Date(validAfter)
         continue
       }
 
-      if (line.startsWith("fresh-until ")) {
-        const freshUntil = line.split(" ").slice(1).join(" ")
+      if (lines[i.x].startsWith("fresh-until ")) {
+        const freshUntil = lines[i.x].split(" ").slice(1).join(" ")
         consensus.freshUntil = new Date(freshUntil)
         continue
       }
 
-      if (line.startsWith("voting-delay ")) {
-        const [, first, second] = line.split(" ")
+      if (lines[i.x].startsWith("voting-delay ")) {
+        const [, first, second] = lines[i.x].split(" ")
         consensus.votingDelay = [Number(first), Number(second)]
         continue
       }
 
-      if (line.startsWith("client-versions ")) {
-        const [, versions] = line.split(" ")
+      if (lines[i.x].startsWith("client-versions ")) {
+        const [, versions] = lines[i.x].split(" ")
         consensus.clientVersions = versions.split(",")
         continue
       }
 
-      if (line.startsWith("server-versions ")) {
-        const [, versions] = line.split(" ")
+      if (lines[i.x].startsWith("server-versions ")) {
+        const [, versions] = lines[i.x].split(" ")
         consensus.serverVersions = versions.split(",")
         continue
       }
 
-      if (line.startsWith("known-flags ")) {
-        const [, ...flags] = line.split(" ")
+      if (lines[i.x].startsWith("known-flags ")) {
+        const [, ...flags] = lines[i.x].split(" ")
         consensus.knownFlags = flags
         continue
       }
 
-      if (line.startsWith("recommended-client-protocols ")) {
-        const [, ...protocols] = line.split(" ")
+      if (lines[i.x].startsWith("recommended-client-protocols ")) {
+        const [, ...protocols] = lines[i.x].split(" ")
         consensus.recommendedClientProtocols = Object.fromEntries(protocols.map(entry => entry.split("=")))
         continue
       }
 
-      if (line.startsWith("recommended-relay-protocols ")) {
-        const [, ...protocols] = line.split(" ")
+      if (lines[i.x].startsWith("recommended-relay-protocols ")) {
+        const [, ...protocols] = lines[i.x].split(" ")
         consensus.recommendedRelayProtocols = Object.fromEntries(protocols.map(entry => entry.split("=")))
         continue
       }
 
-      if (line.startsWith("required-client-protocols ")) {
-        const [, ...protocols] = line.split(" ")
+      if (lines[i.x].startsWith("required-client-protocols ")) {
+        const [, ...protocols] = lines[i.x].split(" ")
         consensus.requiredClientProtocols = Object.fromEntries(protocols.map(entry => entry.split("=")))
         continue
       }
 
-      if (line.startsWith("required-relay-protocols ")) {
-        const [, ...protocols] = line.split(" ")
+      if (lines[i.x].startsWith("required-relay-protocols ")) {
+        const [, ...protocols] = lines[i.x].split(" ")
         consensus.requiredRelayProtocols = Object.fromEntries(protocols.map(entry => entry.split("=")))
         continue
       }
 
-      if (line.startsWith("params ")) {
-        const [, ...params] = line.split(" ")
+      if (lines[i.x].startsWith("params ")) {
+        const [, ...params] = lines[i.x].split(" ")
         consensus.params = Object.fromEntries(params.map(entry => entry.split("=")))
         continue
       }
 
-      if (line.startsWith("shared-rand-previous-value ")) {
-        const [, reveals, random] = line.split(" ")
+      if (lines[i.x].startsWith("shared-rand-previous-value ")) {
+        const [, reveals, random] = lines[i.x].split(" ")
         consensus.sharedRandPreviousValue = { reveals: Number(reveals), random }
         continue
       }
 
-      if (line.startsWith("shared-rand-current-value ")) {
-        const [, reveals, random] = line.split(" ")
+      if (lines[i.x].startsWith("shared-rand-current-value ")) {
+        const [, reveals, random] = lines[i.x].split(" ")
         consensus.sharedRandCurrentValue = { reveals: Number(reveals), random }
         continue
       }
 
-      if (line.startsWith("directory-footer")) {
+      if (lines[i.x] === "directory-footer") {
+        for (i.x++; i.x < lines.length; i.x++) {
 
-        for (let j = i + 1; j < lines.length; j++, i++) {
-          const line = lines[j]
-
-          if (line.startsWith("bandwidth-weights ")) {
-            const [, ...weights] = line.split(" ")
+          if (lines[i.x].startsWith("bandwidth-weights ")) {
+            const [, ...weights] = lines[i.x].split(" ")
             consensus.bandwidthWeights = Object.fromEntries(weights.map(entry => entry.split("=")))
             continue
           }
 
-          if (line.startsWith("directory-signature ")) {
-            if (consensus.preimage == null)
-              consensus.preimage = `${lines.slice(0, j).join("\n")}\ndirectory-signature `
+          if (lines[i.x].startsWith("directory-signature ")) {
+            consensus.preimage ??= `${lines.slice(0, i.x).join("\n")}\ndirectory-signature `
 
             const item: Partial<Mutable<Consensus.Signature>> = {}
-            const [, algorithm, identity, signingKeyDigest] = line.split(" ")
+            const [, algorithm, identity, signingKeyDigest] = lines[i.x].split(" ")
             item.algorithm = algorithm
             item.identity = identity
             item.signingKeyDigest = signingKeyDigest
-            item.signature = parseSignatureOrThrow()
 
-            function parseSignatureOrThrow() {
-              j++, i++;
+            i.x++
 
-              const line = lines[j]
-
-              if (!line.startsWith("-----BEGIN SIGNATURE-----"))
-                throw new Error("Missing signature")
-
-              let signature = ""
-
-              for (let g = j + 1; g < lines.length; g++, j++, i++) {
-                const line = lines[g]
-
-                if (line.startsWith("-----END SIGNATURE-----"))
-                  return signature
-                signature += line
-              }
-
-              throw new Error("Missing signature")
-            }
+            item.signature = readSignatureOrThrow(lines, i)
 
             if (item.algorithm == null)
               throw new Error("Missing algorithm")
@@ -222,9 +205,9 @@ export namespace Consensus {
         break
       }
 
-      if (line.startsWith("dir-source ")) {
+      if (lines[i.x].startsWith("dir-source ")) {
         const item: Partial<Mutable<Authority>> = {}
-        const [_, nickname, identity, hostname, ipaddress, dirport, orport] = line.split(" ")
+        const [_, nickname, identity, hostname, ipaddress, dirport, orport] = lines[i.x].split(" ")
         item.nickname = nickname
         item.identity = identity
         item.hostname = hostname
@@ -232,22 +215,30 @@ export namespace Consensus {
         item.dirport = Number(dirport)
         item.orport = Number(orport)
 
-        for (let j = i + 1; j < lines.length; j++, i++) {
-          const line = lines[j]
-
-          if (line.startsWith("dir-source "))
+        for (i.x++; i.x < lines.length; i.x++) {
+          if (lines[i.x].startsWith("dir-source ")) {
+            i.x--
             break
-          if (line.startsWith("r "))
-            break
+          }
 
-          if (line.startsWith("contact ")) {
-            const contact = line.split(" ").slice(1).join(" ")
+          if (lines[i.x].startsWith("r ")) {
+            i.x--
+            break
+          }
+
+          if (lines[i.x] === "directory-footer") {
+            i.x--
+            break
+          }
+
+          if (lines[i.x].startsWith("contact ")) {
+            const contact = lines[i.x].split(" ").slice(1).join(" ")
             item.contact = contact
             continue
           }
 
-          if (line.startsWith("vote-digest ")) {
-            const [_, digest] = line.split(" ")
+          if (lines[i.x].startsWith("vote-digest ")) {
+            const [_, digest] = lines[i.x].split(" ")
             item.digest = digest
             continue
           }
@@ -277,10 +268,10 @@ export namespace Consensus {
         continue
       }
 
-      if (line.startsWith("r ")) {
-        const item: Partial<Mutable<Microdesc.Pre>> = {}
+      if (lines[i.x].startsWith("r ")) {
+        const item: Partial<Mutable<Microdesc.Ref>> = {}
 
-        const [_, nickname, identity, date, hour, hostname, orport, dirport] = line.split(" ")
+        const [_, nickname, identity, date, hour, hostname, orport, dirport] = lines[i.x].split(" ")
         item.nickname = nickname
         item.identity = identity
         item.date = date
@@ -289,46 +280,54 @@ export namespace Consensus {
         item.orport = Number(orport)
         item.dirport = Number(dirport)
 
-        for (let j = i + 1; j < lines.length; j++, i++) {
-          const line = lines[j]
-
-          if (line.startsWith("r "))
+        for (i.x++; i.x < lines.length; i.x++) {
+          if (lines[i.x].startsWith("dir-source ")) {
+            i.x--
             break
-          if (line.startsWith("directory-footer"))
-            break
+          }
 
-          if (line.startsWith("a ")) {
-            const [, ipv6] = line.split(" ")
+          if (lines[i.x].startsWith("r ")) {
+            i.x--
+            break
+          }
+
+          if (lines[i.x] === "directory-footer") {
+            i.x--
+            break
+          }
+
+          if (lines[i.x].startsWith("a ")) {
+            const [, ipv6] = lines[i.x].split(" ")
             item.ipv6 = ipv6
             continue
           }
 
-          if (line.startsWith("m ")) {
-            const [, digest] = line.split(" ")
+          if (lines[i.x].startsWith("m ")) {
+            const [, digest] = lines[i.x].split(" ")
             item.microdesc = digest
             continue
           }
 
-          if (line.startsWith("s ")) {
-            const [, ...flags] = line.split(" ")
+          if (lines[i.x].startsWith("s ")) {
+            const [, ...flags] = lines[i.x].split(" ")
             item.flags = flags
             continue
           }
 
-          if (line.startsWith("v ")) {
-            const version = line.slice("v ".length)
+          if (lines[i.x].startsWith("v ")) {
+            const version = lines[i.x].slice("v ".length)
             item.version = version
             continue
           }
 
-          if (line.startsWith("pr ")) {
-            const [, ...entries] = line.split(" ")
+          if (lines[i.x].startsWith("pr ")) {
+            const [, ...entries] = lines[i.x].split(" ")
             item.entries = Object.fromEntries(entries.map(entry => entry.split("=")))
             continue
           }
 
-          if (line.startsWith("w ")) {
-            const [, ...entries] = line.split(" ")
+          if (lines[i.x].startsWith("w ")) {
+            const [, ...entries] = lines[i.x].split(" ")
             item.bandwidth = Object.fromEntries(entries.map(entry => entry.split("=")))
             continue
           }
@@ -361,10 +360,11 @@ export namespace Consensus {
         if (item.bandwidth == null)
           throw new Error("Missing bandwidth")
 
-        microdescs.push(item as Microdesc.Pre)
+        microdescs.push(item as Microdesc.Ref)
         continue
       }
 
+      continue
     }
 
     consensus.authorities = authorities
@@ -373,93 +373,266 @@ export namespace Consensus {
     return consensus as Consensus
   }
 
-}
+  export interface Certificate {
+    readonly version: number
+    readonly fingerprint: string
+    readonly published: Date
+    readonly expires: Date
+    readonly identityKey: string
+    readonly signingKey: string
+    readonly crossCert: string
 
-export type Microdesc =
-  & Microdesc.Pre
-  & Microdesc.Post
-
-export namespace Microdesc {
-
-  export interface Pre {
-    readonly nickname: string
-    readonly identity: string
-    readonly date: string
-    readonly hour: string
-    readonly hostname: string
-    readonly orport: number
-    readonly dirport: number
-    readonly ipv6?: string
-    readonly microdesc: string
-    readonly flags: string[]
-    readonly version: string
-    readonly entries: Record<string, string>
-    readonly bandwidth: Record<string, string>
+    readonly preimage: string
+    readonly signature: string
   }
 
-  export interface Post {
-    readonly onionKey: string
-    readonly ntorOnionKey: string
-    readonly idEd25519: string
-  }
+  export namespace Certificate {
 
-  export function parseOrThrow(text: string) {
-    const lines = text.split("\n")
+    export function parseOrThrow(text: string) {
+      const lines = text.split("\n")
 
-    const items: Post[] = []
+      const items: Certificate[] = []
 
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]
+      for (const i = { x: 0 }; i.x < lines.length; i.x++) {
+        if (lines[i.x].startsWith("dir-key-certificate-version ")) {
+          const start = i.x
 
-      if (!line.startsWith("onion-key"))
-        continue
+          const cert: Partial<Mutable<Certificate>> = {}
 
-      const item: Partial<Mutable<Post>> = {}
+          const [, version] = lines[i.x].split(" ")
+          cert.version = Number(version)
 
-      let onionKey = ""
+          for (i.x++; i.x < lines.length; i.x++) {
+            if (lines[i.x].startsWith("dir-key-certificate-version ")) {
+              i.x--
+              break
+            }
 
-      for (let j = i + 1; j < lines.length; j++, i++) {
-        const line = lines[j]
+            if (lines[i.x].startsWith("fingerprint ")) {
+              const [, fingerprint] = lines[i.x].split(" ")
+              cert.fingerprint = fingerprint
+              continue
+            }
 
-        if (line.startsWith("ntor-onion-key "))
-          break
-        onionKey += line
-      }
+            if (lines[i.x].startsWith("dir-key-published ")) {
+              const published = lines[i.x].split(" ").slice(1).join(" ")
+              cert.published = new Date(published)
+              continue
+            }
 
-      item.onionKey = onionKey
+            if (lines[i.x].startsWith("dir-key-expires ")) {
+              const expires = lines[i.x].split(" ").slice(1).join(" ")
+              cert.expires = new Date(expires)
+              continue
+            }
 
-      for (let j = i + 1; j < lines.length; j++, i++) {
-        const line = lines[j]
+            if (lines[i.x] === "dir-identity-key") {
+              i.x++
 
-        if (line.startsWith("onion-key"))
-          break
+              cert.identityKey = readRsaPublicKeyOrThrow(lines, i)
+              continue
+            }
 
-        if (line.startsWith("ntor-onion-key ")) {
-          const [, ntorOnionKey] = line.split(" ")
-          item.ntorOnionKey = ntorOnionKey
+            if (lines[i.x] === "dir-signing-key") {
+              i.x++
+
+              cert.signingKey = readRsaPublicKeyOrThrow(lines, i)
+              continue
+            }
+
+            if (lines[i.x] === "dir-key-crosscert") {
+              i.x++
+
+              cert.crossCert = readIdSignatureOrThrow(lines, i)
+              continue
+            }
+
+            if (lines[i.x] === "dir-key-certification") {
+              i.x++
+              cert.preimage = lines.slice(start, i.x).join("\n") + "\n"
+              cert.signature = readSignatureOrThrow(lines, i)
+              continue
+            }
+
+            continue
+          }
+
+          if (cert.version == null)
+            throw new Error("Missing version")
+          if (cert.fingerprint == null)
+            throw new Error("Missing fingerprint")
+          if (cert.published == null)
+            throw new Error("Missing published")
+          if (cert.expires == null)
+            throw new Error("Missing expires")
+          if (cert.identityKey == null)
+            throw new Error("Missing identityKey")
+          if (cert.signingKey == null)
+            throw new Error("Missing signingKey")
+          if (cert.crossCert == null)
+            throw new Error("Missing crossCert")
+          if (cert.signature == null)
+            throw new Error("Missing certification")
+
+          items.push(cert as Certificate)
           continue
         }
 
-        if (line.startsWith("id ed25519 ")) {
-          const [, , idEd25519] = line.split(" ")
-          item.idEd25519 = idEd25519
-          continue
-        }
-
         continue
       }
 
-      if (item.onionKey == null)
-        throw new Error("Missing onion-key")
-      if (item.ntorOnionKey == null)
-        throw new Error("Missing ntor-onion-key")
-      if (item.idEd25519 == null)
-        throw new Error("Missing id ed25519")
-
-      items.push(item as Post)
+      return items
     }
 
-    return items
   }
 
+  export type Microdesc =
+    & Microdesc.Ref
+    & Microdesc.Data
+
+  export namespace Microdesc {
+
+    export interface Ref {
+      readonly nickname: string
+      readonly identity: string
+      readonly date: string
+      readonly hour: string
+      readonly hostname: string
+      readonly orport: number
+      readonly dirport: number
+      readonly ipv6?: string
+      readonly microdesc: string
+      readonly flags: string[]
+      readonly version: string
+      readonly entries: Record<string, string>
+      readonly bandwidth: Record<string, string>
+    }
+
+    export interface Data {
+      readonly onionKey: string
+      readonly ntorOnionKey: string
+      readonly idEd25519: string
+    }
+
+    export async function unrefOrThrow(circuit: Circuit, ref: Ref) {
+      const stream = await circuit.openDirOrThrow()
+      const response = await fetch(`http://localhost/tor/micro/d/${ref.microdesc}.z`, { stream: stream.outer })
+
+      if (!response.ok)
+        throw new Error(`Could not fetch`)
+
+      const buffer = await response.arrayBuffer()
+      const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", buffer))
+
+      const digest64 = Base64.get().encodeUnpaddedOrThrow(digest)
+
+      if (digest64 !== ref.microdesc)
+        throw new Error(`Digest mismatch`)
+
+      const text = Bytes.toUtf8(new Uint8Array(buffer))
+      const [data] = Consensus.Microdesc.parseOrThrow(text)
+
+      if (data == null)
+        throw new Error(`Empty microdescriptor`)
+
+      return { ...ref, ...data } as Microdesc
+    }
+
+    export function parseOrThrow(text: string) {
+      const lines = text.split("\n")
+
+      const items: Data[] = []
+
+      for (const i = { x: 0 }; i.x < lines.length; i.x++) {
+        if (lines[i.x] === "onion-key") {
+          i.x++
+
+          const item: Partial<Mutable<Data>> = {}
+          item.onionKey = readRsaPublicKeyOrThrow(lines, i)
+
+          for (i.x++; i.x < lines.length; i.x++) {
+            if (lines[i.x] === "onion-key") {
+              i.x--
+              break
+            }
+
+            if (lines[i.x].startsWith("ntor-onion-key ")) {
+              const [, ntorOnionKey] = lines[i.x].split(" ")
+              item.ntorOnionKey = ntorOnionKey
+              continue
+            }
+
+            if (lines[i.x].startsWith("id ed25519 ")) {
+              const [, , idEd25519] = lines[i.x].split(" ")
+              item.idEd25519 = idEd25519
+              continue
+            }
+
+            continue
+          }
+
+          if (item.onionKey == null)
+            throw new Error("Missing onion-key")
+          if (item.ntorOnionKey == null)
+            throw new Error("Missing ntor-onion-key")
+          if (item.idEd25519 == null)
+            throw new Error("Missing id ed25519")
+
+          items.push(item as Data)
+          continue
+        }
+
+        continue
+      }
+
+      return items
+    }
+
+  }
+
+}
+
+function readRsaPublicKeyOrThrow(lines: string[], i: { x: number }) {
+  if (lines[i.x] !== "-----BEGIN RSA PUBLIC KEY-----")
+    throw new Error("Missing BEGIN RSA PUBLIC KEY")
+
+  let text = ""
+
+  for (i.x++; i.x < lines.length; i.x++) {
+    if (lines[i.x] === "-----END RSA PUBLIC KEY-----")
+      return text
+    text += lines[i.x]
+  }
+
+  throw new Error("Missing END RSA PUBLIC KEY")
+}
+
+function readSignatureOrThrow(lines: string[], i: { x: number }) {
+  if (lines[i.x] !== "-----BEGIN SIGNATURE-----")
+    throw new Error("Missing BEGIN SIGNATURE")
+
+  let text = ""
+
+  for (i.x++; i.x < lines.length; i.x++) {
+    if (lines[i.x] === "-----END SIGNATURE-----")
+      return text
+    text += lines[i.x]
+  }
+
+  throw new Error("Missing END SIGNATURE")
+}
+
+function readIdSignatureOrThrow(lines: string[], i: { x: number }) {
+  if (lines[i.x] !== "-----BEGIN ID SIGNATURE-----")
+    throw new Error("Missing BEGIN ID SIGNATURE")
+
+  let text = ""
+
+  for (i.x++; i.x < lines.length; i.x++) {
+    if (lines[i.x] === "-----END ID SIGNATURE-----")
+      return text
+    text += lines[i.x]
+  }
+
+  throw new Error("Missing END ID SIGNATURE")
 }

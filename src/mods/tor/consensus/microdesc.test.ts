@@ -1,5 +1,5 @@
 import { test } from "@hazae41/phobos";
-import { Consensus, Microdesc } from "./microdesc.js";
+import { Consensus } from "./microdesc.js";
 
 const microdesc = `onion-key
 -----BEGIN RSA PUBLIC KEY-----
@@ -102,7 +102,7 @@ pr Conflux=1 Cons=1-2 Desc=1-2 DirCache=2 FlowCtrl=1-2 HSDir=2 HSIntro=4-5 HSRen
 w Bandwidth=510`
 
 test("microdesc", async () => {
-  console.log(Microdesc.parseOrThrow(microdesc))
+  console.log(Consensus.Microdesc.parseOrThrow(microdesc))
 })
 
 test("microdescs", async () => {

@@ -30,7 +30,7 @@ import { Cell } from "./binary/cells/cell.js";
 import { RelayCell } from "./binary/cells/direct/relay/cell.js";
 import { RelayEarlyCell } from "./binary/cells/direct/relay_early/cell.js";
 import { RelayBeginDirCell } from "./binary/cells/relayed/relay_begin_dir/cell.js";
-import { Microdesc } from "./consensus/microdesc.js";
+import { Consensus } from "./consensus/microdesc.js";
 import { HASH_LEN } from "./constants.js";
 
 export const IPv6 = {
@@ -118,11 +118,11 @@ export class Circuit {
     return await this.events.emit("error", [reason])
   }
 
-  async extendToOrThrow(microdesc: Microdesc, signal?: AbortSignal) {
+  async extendToOrThrow(microdesc: Consensus.Microdesc, signal?: AbortSignal) {
     return await this.#secret.extendToOrThrow(microdesc, signal)
   }
 
-  async tryExtendTo(microdesc: Microdesc, signal?: AbortSignal) {
+  async tryExtendTo(microdesc: Consensus.Microdesc, signal?: AbortSignal) {
     return await this.#secret.tryExtendTo(microdesc, signal)
   }
 
@@ -138,7 +138,7 @@ export class Circuit {
     return await this.#secret.openDirOrThrow(params, signal)
   }
 
-  async unrefOrThrow(ref: Microdesc.Pre) {
+  async unrefOrThrow(ref: Consensus.Microdesc.Ref) {
     return await this.#secret.unrefOrThrow(ref)
   }
 
@@ -358,7 +358,7 @@ export class SecretCircuit {
     return new None()
   }
 
-  async extendToOrThrow(microdesc: Microdesc, signal = AbortSignals.never()) {
+  async extendToOrThrow(microdesc: Consensus.Microdesc, signal = AbortSignals.never()) {
     if (this.closed?.reason != null)
       throw ErroredError.from(this.closed.reason)
     if (this.closed != null)
@@ -442,7 +442,7 @@ export class SecretCircuit {
     this.targets.push(target)
   }
 
-  async tryExtendTo(microdesc: Microdesc, signal?: AbortSignal): Promise<Result<void, Error>> {
+  async tryExtendTo(microdesc: Consensus.Microdesc, signal?: AbortSignal): Promise<Result<void, Error>> {
     return await Result.runAndWrap(async () => {
       return await this.extendToOrThrow(microdesc, signal)
     }).then(r => r.mapErrSync(cause => new Error(`Could not extend`, { cause })))
@@ -530,14 +530,28 @@ export class SecretCircuit {
     }).then(r => r.mapErrSync(cause => new Error(`Could not open`, { cause })))
   }
 
-  async fetchConsensusOrThrow(signal = AbortSignals.never()) {
+  async fetchAuthoritiesOrThrow(signal = AbortSignals.never()) {
     const stream = await this.openDirOrThrow()
-    const url = `http://localhost/tor/status-vote/current/consensus-microdesc.z`
+    const response = await fetch(`http://localhost/tor/keys/all.z`, { stream: stream.outer })
 
+    if (!response.ok)
+      throw new Error(`Could not fetch`)
+
+    const text = await response.text()
 
   }
 
-  async unrefOrThrow(ref: Microdesc.Pre) {
+  async fetchConsensusOrThrow(signal = AbortSignals.never()) {
+    const stream = await this.openDirOrThrow()
+    const response = await fetch(`http://localhost/tor/status-vote/current/consensus-microdesc.z`, { stream: stream.outer })
+
+    if (!response.ok)
+      throw new Error(`Could not fetch`)
+
+    const text = await response.text()
+  }
+
+  async unrefOrThrow(ref: Consensus.Microdesc.Ref) {
     const stream = await this.openDirOrThrow()
     const url = `http://localhost/tor/micro/d/${ref.microdesc}.z`
 
@@ -555,15 +569,15 @@ export class SecretCircuit {
       throw new Error(`Digest mismatch`)
 
     const text = Bytes.toUtf8(new Uint8Array(buffer))
-    const [post] = Microdesc.parseOrThrow(text)
+    const [post] = Consensus.Microdesc.parseOrThrow(text)
 
     if (post == null)
       throw new Error(`Could not parse`)
 
-    return { ...ref, ...post } as Microdesc
+    return { ...ref, ...post } as Consensus.Microdesc
   }
 
-  async tryUnref(ref: Microdesc.Pre): Promise<Result<Microdesc, Error>> {
+  async tryUnref(ref: Consensus.Microdesc.Ref): Promise<Result<Consensus.Microdesc, Error>> {
     return await Result.runAndWrap(async () => {
       return await this.unrefOrThrow(ref)
     }).then(r => r.mapErrSync(cause => new Error(`Could not unref`, { cause })))

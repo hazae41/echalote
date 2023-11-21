@@ -1,12 +1,17 @@
+import { ASN1 } from "@hazae41/asn1";
+import { Base64 } from "@hazae41/base64";
+import { Bytes } from "@hazae41/bytes";
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
 import { Disposer } from "@hazae41/cleaner";
 import { Circuit, Consensus, Echalote, TorClientDuplex } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
 import { fetch } from "@hazae41/fleche";
 import { Mutex } from "@hazae41/mutex";
+import { Paimon } from "@hazae41/paimon";
 import { Pool } from "@hazae41/piscine";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
+import { X509 } from "@hazae41/x509";
 import { tryCreateTor } from "libs/circuits/circuits";
 import { DependencyList, useCallback, useEffect, useState } from "react";
 
@@ -53,15 +58,6 @@ export interface TorAndCircuits {
 
 export default function Page() {
 
-  const params = useAsyncMemo(async () => {
-    Ed25519.set(await Ed25519.fromSafeOrBerith())
-    X25519.set(await X25519.fromSafeOrBerith())
-    Sha1.set(await Sha1.fromMorax())
-
-    Echalote.Console.debugging = true
-    // Cadenas.Console.debugging = true
-  }, [])
-
   const [stream, setStream] = useState<ReadableWritablePair<any, any>>()
 
   useEffect(() => {
@@ -70,33 +66,47 @@ export default function Page() {
       X25519.set(await X25519.fromSafeOrBerith())
       Sha1.set(await Sha1.fromMorax())
 
-      const start = Date.now()
+      Echalote.Console.debugging = true
+      // Cadenas.Console.debugging = true
 
       const tor = await tryCreateTor({}).then(r => r.unwrap())
       const circuit = await tor.tryCreate().then(r => r.unwrap())
 
       {
         const stream = await circuit.openDirOrThrow()
-        const url = `http://localhost/tor/keys/all.z`
+        const response = await fetch(`http://localhost/tor/keys/all.z`, { stream: stream.outer })
+        const certificates = Consensus.Certificate.parseOrThrow(await response.text())
+        console.log(certificates)
 
-        const response = await fetch(url, { stream: stream.outer })
-        const text = await response.text()
+        for (const cert of certificates) {
+          const signed = Bytes.fromUtf8(cert.preimage)
+          const hashed = new Uint8Array(await crypto.subtle.digest("SHA-1", signed))
 
-        console.log(text)
+          const identityKey = Base64.get().decodeUnpaddedOrThrow(cert.identityKey).copyAndDispose()
+
+          const algorithmOid = ASN1.OID.newWithoutCheck("1.2.840.113549.1.1.1")
+          const algorithmAsn1 = ASN1.ObjectIdentifier.create(undefined, algorithmOid).toDER()
+          const algorithmId = new X509.AlgorithmIdentifier(algorithmAsn1, ASN1.Null.create(undefined).toDER())
+          const subjectPublicKey = ASN1.BitString.create(undefined, 0, identityKey).toDER()
+          const subject = new X509.SubjectPublicKeyInfo(algorithmId, subjectPublicKey)
+
+          const publicKey = X509.writeToBytesOrThrow(subject)
+
+          const signature = Base64.get().decodeUnpaddedOrThrow(cert.signature).copyAndDispose()
+
+          Paimon.initBundledOnce()
+
+          const publicKeyX = Paimon.RsaPublicKey.from_public_key_der(new Paimon.Memory(publicKey))
+          const verified = publicKeyX.verify_pkcs1v15_unprefixed(new Paimon.Memory(hashed), new Paimon.Memory(signature))
+
+          console.log(verified)
+        }
+
       }
 
       const stream = await circuit.openDirOrThrow()
-      const url = `http://localhost/tor/status-vote/current/consensus-microdesc.z`
-
-      const response = await fetch(url, { stream: stream.outer })
-      console.log(response, Date.now() - start)
-
-      const text = await response.text()
-      console.log(text)
-      const consensus = Consensus.parseOrThrow(text)
-      console.log(consensus, Date.now() - start)
-
-      console.log(consensus.microdescs.flatMap(it => it.flags).filter((it, i, a) => a.indexOf(it) === i))
+      const response = await fetch(`http://localhost/tor/status-vote/current/consensus-microdesc.z`, { stream: stream.outer })
+      const consensus = Consensus.parseOrThrow(await response.text())
 
       const seconds = consensus.microdescs.filter(it => true
         && it.flags.includes("Fast")
@@ -122,7 +132,7 @@ export default function Page() {
 
         setStream(stream)
       }
-    })()
+    })().catch(e => console.error({ e }))
   }, [])
 
   const onClick = useCallback(async () => {
