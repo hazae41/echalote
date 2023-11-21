@@ -1,6 +1,10 @@
+import { ASN1 } from "@hazae41/asn1"
+import { Base16 } from "@hazae41/base16"
 import { Base64 } from "@hazae41/base64"
 import { Bytes } from "@hazae41/bytes"
 import { fetch } from "@hazae41/fleche"
+import { Paimon } from "@hazae41/paimon"
+import { OIDs, X509 } from "@hazae41/x509"
 import { Mutable } from "libs/typescript/typescript.js"
 import { Circuit } from "../circuit.js"
 
@@ -23,7 +27,7 @@ export interface Consensus {
   readonly sharedRandPreviousValue: Consensus.SharedRandom
   readonly sharedRandCurrentValue: Consensus.SharedRandom
   readonly authorities: Consensus.Authority[]
-  readonly microdescs: Consensus.Microdesc.Ref[]
+  readonly microdescs: Consensus.Microdesc.Head[]
   readonly bandwidthWeights: Record<string, string>
 
   readonly preimage: string
@@ -48,11 +52,37 @@ export namespace Consensus {
     readonly digest: string
   }
 
+  export namespace Authority {
+
+    export const trusteds = new Set([
+      "0232AF901C31A04EE9848595AF9BB7620D4C5B2E",
+      "14C131DFC5C6F93646BE72FA1401C02A8DF2E8B4",
+      "23D15D965BC35114467363C165C4F724B64B4F66",
+      "27102BC123E7AF1D4741AE047E160C91ADC76B21",
+      "49015F787433103580E3B66A1707A00E60F2D15B",
+      "E8A9C45EDE6D711294FADF8E7951F4DE6CA56B58",
+      "ED03BB616EB2F60BEC80151114BB25CEF515B226",
+      "F533C81CEF0BC0267857C99B2F471ADF249FA232"
+    ])
+
+  }
+
   export interface Signature {
     readonly algorithm: string
     readonly identity: string
     readonly signingKeyDigest: string
     readonly signature: string
+  }
+
+  export async function fetchOrThrow(circuit: Circuit) {
+    const stream = await circuit.openDirOrThrow()
+    const response = await fetch(`http://localhost/tor/status-vote/current/consensus-microdesc.z`, { stream: stream.outer })
+    const consensus = Consensus.parseOrThrow(await response.text())
+
+    if (await Consensus.verifyOrThrow(circuit, consensus) !== true)
+      throw new Error(`Could not verify`)
+
+    return consensus
   }
 
   export function parseOrThrow(text: string) {
@@ -61,10 +91,10 @@ export namespace Consensus {
     const consensus: Partial<Mutable<Consensus>> = {}
 
     const authorities: Authority[] = []
-    const microdescs: Microdesc.Ref[] = []
+    const microdescs: Microdesc.Head[] = []
     const signatures: Signature[] = []
 
-    for (let i = { x: 0 }; i.x < lines.length; i.x++) {
+    for (const i = { x: 0 }; i.x < lines.length; i.x++) {
 
       if (lines[i.x].startsWith("network-status-version ")) {
         const [, version, type] = lines[i.x].split(" ")
@@ -269,7 +299,7 @@ export namespace Consensus {
       }
 
       if (lines[i.x].startsWith("r ")) {
-        const item: Partial<Mutable<Microdesc.Ref>> = {}
+        const item: Partial<Mutable<Microdesc.Head>> = {}
 
         const [_, nickname, identity, date, hour, hostname, orport, dirport] = lines[i.x].split(" ")
         item.nickname = nickname
@@ -360,7 +390,7 @@ export namespace Consensus {
         if (item.bandwidth == null)
           throw new Error("Missing bandwidth")
 
-        microdescs.push(item as Microdesc.Ref)
+        microdescs.push(item as Microdesc.Head)
         continue
       }
 
@@ -371,6 +401,58 @@ export namespace Consensus {
     consensus.microdescs = microdescs
     consensus.signatures = signatures
     return consensus as Consensus
+  }
+
+  export async function verifyOrThrow(circuit: Circuit, consensus: Consensus) {
+    let count = 0
+
+    for (const it of consensus.signatures) {
+      if (it.algorithm === "sha256") {
+        if (!Authority.trusteds.has(it.identity))
+          continue
+
+        const certificate = await Certificate.fetchOrThrow(circuit, it.identity)
+
+        if (certificate == null)
+          throw new Error(`Missing certificate for ${it.identity}`)
+
+        const signed = Bytes.fromUtf8(consensus.preimage)
+        const hashed = new Uint8Array(await crypto.subtle.digest("SHA-256", signed))
+
+        using signingKey = Base64.get().decodeUnpaddedOrThrow(certificate.signingKey)
+
+        const algorithmOid = ASN1.OID.newWithoutCheck(OIDs.keys.rsaEncryption)
+        const algorithmAsn1 = ASN1.ObjectIdentifier.create(undefined, algorithmOid).toDER()
+        const algorithmId = new X509.AlgorithmIdentifier(algorithmAsn1, ASN1.Null.create().toDER())
+        const subjectPublicKey = ASN1.BitString.create(undefined, 0, signingKey.bytes).toDER()
+        const subjectPublicKeyInfo = new X509.SubjectPublicKeyInfo(algorithmId, subjectPublicKey)
+
+        const publicKey = X509.writeToBytesOrThrow(subjectPublicKeyInfo)
+
+        using signature = Base64.get().decodeUnpaddedOrThrow(it.signature)
+
+        using signatureM = new Paimon.Memory(signature.bytes)
+        using hashedM = new Paimon.Memory(hashed)
+        using publicKeyM = new Paimon.Memory(publicKey)
+
+        using publicKeyX = Paimon.RsaPublicKey.from_public_key_der(publicKeyM)
+        const verified = publicKeyX.verify_pkcs1v15_unprefixed(hashedM, signatureM)
+
+        if (verified !== true)
+          throw new Error(`Could not verify`)
+
+        count++
+
+        continue
+      }
+
+      continue
+    }
+
+    if (count < 3)
+      throw new Error(`Not enough signatures`)
+
+    return true
   }
 
   export interface Certificate {
@@ -387,6 +469,78 @@ export namespace Consensus {
   }
 
   export namespace Certificate {
+
+    export async function fetchAllOrThrow(circuit: Circuit) {
+      const stream = await circuit.openDirOrThrow()
+      const response = await fetch(`http://localhost/tor/keys/fp/all.z`, { stream: stream.outer })
+
+      if (!response.ok)
+        throw new Error(`Could not fetch`)
+
+      const certificates = parseOrThrow(await response.text())
+
+      const verifieds = await Promise.all(certificates.map(verifyOrThrow))
+
+      if (verifieds.some(result => result !== true))
+        throw new Error(`Could not verify`)
+
+      return certificates
+    }
+
+    export async function fetchOrThrow(circuit: Circuit, fingerprint: string) {
+      const stream = await circuit.openDirOrThrow()
+      const response = await fetch(`http://localhost/tor/keys/fp/${fingerprint}.z`, { stream: stream.outer })
+
+      if (!response.ok)
+        throw new Error(`Could not fetch`)
+
+      const [certificate] = parseOrThrow(await response.text())
+
+      if (certificate == null)
+        throw new Error(`Missing certificate`)
+
+      if (await verifyOrThrow(certificate) !== true)
+        throw new Error(`Could not verify`)
+
+      return certificate
+    }
+
+    export async function verifyOrThrow(cert: Certificate) {
+      await Paimon.initBundledOnce()
+
+      using identityKey = Base64.get().decodeUnpaddedOrThrow(cert.identityKey)
+
+      const identity = new Uint8Array(await crypto.subtle.digest("SHA-1", identityKey.bytes))
+      const fingerprint = Base16.get().encodeOrThrow(identity)
+
+      if (fingerprint.toLowerCase() !== cert.fingerprint.toLowerCase())
+        throw new Error(`Fingerprint mismatch`)
+
+      const signed = Bytes.fromUtf8(cert.preimage)
+      const hashed = new Uint8Array(await crypto.subtle.digest("SHA-1", signed))
+
+      const algorithmOid = ASN1.OID.newWithoutCheck(OIDs.keys.rsaEncryption)
+      const algorithmAsn1 = ASN1.ObjectIdentifier.create(undefined, algorithmOid).toDER()
+      const algorithmId = new X509.AlgorithmIdentifier(algorithmAsn1, ASN1.Null.create().toDER())
+      const subjectPublicKey = ASN1.BitString.create(undefined, 0, identityKey.bytes).toDER()
+      const subjectPublicKeyInfo = new X509.SubjectPublicKeyInfo(algorithmId, subjectPublicKey)
+
+      const publicKey = X509.writeToBytesOrThrow(subjectPublicKeyInfo)
+
+      using signature = Base64.get().decodeUnpaddedOrThrow(cert.signature)
+
+      using hashedM = new Paimon.Memory(hashed)
+      using publicKeyM = new Paimon.Memory(publicKey)
+      using signatureM = new Paimon.Memory(signature.bytes)
+
+      using publicKeyX = Paimon.RsaPublicKey.from_public_key_der(publicKeyM)
+      const verified = publicKeyX.verify_pkcs1v15_unprefixed(hashedM, signatureM)
+
+      if (verified !== true)
+        throw new Error(`Could not verify`)
+
+      return true
+    }
 
     export function parseOrThrow(text: string) {
       const lines = text.split("\n")
@@ -487,12 +641,12 @@ export namespace Consensus {
   }
 
   export type Microdesc =
-    & Microdesc.Ref
-    & Microdesc.Data
+    & Microdesc.Head
+    & Microdesc.Body
 
   export namespace Microdesc {
 
-    export interface Ref {
+    export interface Head {
       readonly nickname: string
       readonly identity: string
       readonly date: string
@@ -508,13 +662,13 @@ export namespace Consensus {
       readonly bandwidth: Record<string, string>
     }
 
-    export interface Data {
+    export interface Body {
       readonly onionKey: string
       readonly ntorOnionKey: string
       readonly idEd25519: string
     }
 
-    export async function unrefOrThrow(circuit: Circuit, ref: Ref) {
+    export async function fetchOrThrow(circuit: Circuit, ref: Head) {
       const stream = await circuit.openDirOrThrow()
       const response = await fetch(`http://localhost/tor/micro/d/${ref.microdesc}.z`, { stream: stream.outer })
 
@@ -530,7 +684,7 @@ export namespace Consensus {
         throw new Error(`Digest mismatch`)
 
       const text = Bytes.toUtf8(new Uint8Array(buffer))
-      const [data] = Consensus.Microdesc.parseOrThrow(text)
+      const [data] = parseOrThrow(text)
 
       if (data == null)
         throw new Error(`Empty microdescriptor`)
@@ -541,13 +695,13 @@ export namespace Consensus {
     export function parseOrThrow(text: string) {
       const lines = text.split("\n")
 
-      const items: Data[] = []
+      const items: Body[] = []
 
       for (const i = { x: 0 }; i.x < lines.length; i.x++) {
         if (lines[i.x] === "onion-key") {
           i.x++
 
-          const item: Partial<Mutable<Data>> = {}
+          const item: Partial<Mutable<Body>> = {}
           item.onionKey = readRsaPublicKeyOrThrow(lines, i)
 
           for (i.x++; i.x < lines.length; i.x++) {
@@ -578,7 +732,7 @@ export namespace Consensus {
           if (item.idEd25519 == null)
             throw new Error("Missing id ed25519")
 
-          items.push(item as Data)
+          items.push(item as Body)
           continue
         }
 

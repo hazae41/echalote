@@ -1,1 +1,1 @@
-export * from "./microdesc.test.js";
+export * from "./consensus.test.js";

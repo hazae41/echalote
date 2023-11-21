@@ -1,5 +1,5 @@
 import { test } from "@hazae41/phobos";
-import { Consensus } from "./microdesc.js";
+import { Consensus } from "./consensus.js";
 
 const microdesc = `onion-key
 -----BEGIN RSA PUBLIC KEY-----

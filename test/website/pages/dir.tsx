@@ -1,17 +1,12 @@
-import { ASN1 } from "@hazae41/asn1";
-import { Base64 } from "@hazae41/base64";
-import { Bytes } from "@hazae41/bytes";
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
 import { Disposer } from "@hazae41/cleaner";
 import { Circuit, Consensus, Echalote, TorClientDuplex } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
 import { fetch } from "@hazae41/fleche";
 import { Mutex } from "@hazae41/mutex";
-import { Paimon } from "@hazae41/paimon";
 import { Pool } from "@hazae41/piscine";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
-import { X509 } from "@hazae41/x509";
 import { tryCreateTor } from "libs/circuits/circuits";
 import { DependencyList, useCallback, useEffect, useState } from "react";
 
@@ -72,41 +67,9 @@ export default function Page() {
       const tor = await tryCreateTor({}).then(r => r.unwrap())
       const circuit = await tor.tryCreate().then(r => r.unwrap())
 
-      {
-        const stream = await circuit.openDirOrThrow()
-        const response = await fetch(`http://localhost/tor/keys/all.z`, { stream: stream.outer })
-        const certificates = Consensus.Certificate.parseOrThrow(await response.text())
-        console.log(certificates)
+      const consensus = await Consensus.fetchOrThrow(circuit)
 
-        for (const cert of certificates) {
-          const signed = Bytes.fromUtf8(cert.preimage)
-          const hashed = new Uint8Array(await crypto.subtle.digest("SHA-1", signed))
-
-          const identityKey = Base64.get().decodeUnpaddedOrThrow(cert.identityKey).copyAndDispose()
-
-          const algorithmOid = ASN1.OID.newWithoutCheck("1.2.840.113549.1.1.1")
-          const algorithmAsn1 = ASN1.ObjectIdentifier.create(undefined, algorithmOid).toDER()
-          const algorithmId = new X509.AlgorithmIdentifier(algorithmAsn1, ASN1.Null.create(undefined).toDER())
-          const subjectPublicKey = ASN1.BitString.create(undefined, 0, identityKey).toDER()
-          const subject = new X509.SubjectPublicKeyInfo(algorithmId, subjectPublicKey)
-
-          const publicKey = X509.writeToBytesOrThrow(subject)
-
-          const signature = Base64.get().decodeUnpaddedOrThrow(cert.signature).copyAndDispose()
-
-          Paimon.initBundledOnce()
-
-          const publicKeyX = Paimon.RsaPublicKey.from_public_key_der(new Paimon.Memory(publicKey))
-          const verified = publicKeyX.verify_pkcs1v15_unprefixed(new Paimon.Memory(hashed), new Paimon.Memory(signature))
-
-          console.log(verified)
-        }
-
-      }
-
-      const stream = await circuit.openDirOrThrow()
-      const response = await fetch(`http://localhost/tor/status-vote/current/consensus-microdesc.z`, { stream: stream.outer })
-      const consensus = Consensus.parseOrThrow(await response.text())
+      console.log(consensus)
 
       const seconds = consensus.microdescs.filter(it => true
         && it.flags.includes("Fast")
@@ -121,17 +84,15 @@ export default function Page() {
 
       console.log(seconds.length, thirds.length)
 
-      {
-        const second = await circuit.unrefOrThrow(seconds[Math.floor(Math.random() * seconds.length)])
-        await circuit.extendToOrThrow(second)
+      const second = await circuit.unrefOrThrow(seconds[Math.floor(Math.random() * seconds.length)])
+      await circuit.extendToOrThrow(second)
 
-        const third = await circuit.unrefOrThrow(thirds[Math.floor(Math.random() * thirds.length)])
-        await circuit.extendToOrThrow(third)
+      const third = await circuit.unrefOrThrow(thirds[Math.floor(Math.random() * thirds.length)])
+      await circuit.extendToOrThrow(third)
 
-        const stream = await openAsOrThrow(circuit, `https://eth.llamarpc.com`)
+      const stream = await openAsOrThrow(circuit, `https://eth.llamarpc.com`)
 
-        setStream(stream)
-      }
+      setStream(stream)
     })().catch(e => console.error({ e }))
   }, [])
 

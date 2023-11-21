@@ -30,7 +30,7 @@ import { Cell } from "./binary/cells/cell.js";
 import { RelayCell } from "./binary/cells/direct/relay/cell.js";
 import { RelayEarlyCell } from "./binary/cells/direct/relay_early/cell.js";
 import { RelayBeginDirCell } from "./binary/cells/relayed/relay_begin_dir/cell.js";
-import { Consensus } from "./consensus/microdesc.js";
+import { Consensus } from "./consensus/consensus.js";
 import { HASH_LEN } from "./constants.js";
 
 export const IPv6 = {
@@ -138,7 +138,7 @@ export class Circuit {
     return await this.#secret.openDirOrThrow(params, signal)
   }
 
-  async unrefOrThrow(ref: Consensus.Microdesc.Ref) {
+  async unrefOrThrow(ref: Consensus.Microdesc.Head) {
     return await this.#secret.unrefOrThrow(ref)
   }
 
@@ -551,7 +551,7 @@ export class SecretCircuit {
     const text = await response.text()
   }
 
-  async unrefOrThrow(ref: Consensus.Microdesc.Ref) {
+  async unrefOrThrow(ref: Consensus.Microdesc.Head) {
     const stream = await this.openDirOrThrow()
     const url = `http://localhost/tor/micro/d/${ref.microdesc}.z`
 
@@ -577,7 +577,7 @@ export class SecretCircuit {
     return { ...ref, ...post } as Consensus.Microdesc
   }
 
-  async tryUnref(ref: Consensus.Microdesc.Ref): Promise<Result<Consensus.Microdesc, Error>> {
+  async tryUnref(ref: Consensus.Microdesc.Head): Promise<Result<Consensus.Microdesc, Error>> {
     return await Result.runAndWrap(async () => {
       return await this.unrefOrThrow(ref)
     }).then(r => r.mapErrSync(cause => new Error(`Could not unref`, { cause })))
