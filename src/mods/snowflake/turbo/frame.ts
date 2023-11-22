@@ -1,7 +1,6 @@
 import { Opaque, Writable } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Cursor } from "@hazae41/cursor";
-import { Result } from "@hazae41/result";
 
 export type TurboFrameError =
   | UnexpectedContinuationError
@@ -33,7 +32,6 @@ export interface TurboFrameParams<T extends Writable> {
 }
 
 export class TurboFrame<T extends Writable> {
-  readonly #class = TurboFrame
 
   private constructor(
     readonly padding: boolean,
@@ -50,10 +48,6 @@ export class TurboFrame<T extends Writable> {
       throw new FragmentOverflowError()
 
     return new TurboFrame(padding, fragment, fragmentSize)
-  }
-
-  static tryCreate<T extends Writable>(params: TurboFrameParams<T>): Result<TurboFrame<T>, Error> {
-    return Result.runAndDoubleWrapSync(() => TurboFrame.createOrThrow(params))
   }
 
   sizeOrThrow() {
@@ -160,4 +154,5 @@ export class TurboFrame<T extends Writable> {
 
     return TurboFrame.createOrThrow({ padding, fragment })
   }
+
 }

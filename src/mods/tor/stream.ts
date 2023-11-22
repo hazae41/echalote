@@ -120,13 +120,13 @@ export class SecretTorStreamDuplex {
       .pipeTo(postInputer.writable)
       .then(() => this.#onInputClose())
       .catch(e => this.#onInputError(e))
-      .catch(() => { })
+      .catch(console.error)
 
     preOutputer.readable
       .pipeTo(postOutputer)
       .then(() => this.#onOutputClose())
       .catch(e => this.#onOutputError(e))
-      .catch(() => { })
+      .catch(console.error)
   }
 
   [Symbol.dispose]() {
@@ -144,7 +144,7 @@ export class SecretTorStreamDuplex {
   }
 
   error(reason?: unknown) {
-    const relay_end_cell = new RelayEndCell(new RelayEndReasonOther(RelayEndCell.reasons.REASON_DONE))
+    const relay_end_cell = new RelayEndCell(new RelayEndReasonOther(RelayEndCell.reasons.REASON_MISC))
     const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_end_cell)
     this.circuit.tor.output.enqueue(relay_cell.cellOrThrow())
 

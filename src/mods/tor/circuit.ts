@@ -2,10 +2,9 @@ import { Base64 } from "@hazae41/base64";
 import { Opaque } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Bytes } from "@hazae41/bytes";
-import { fetch } from "@hazae41/fleche";
 import { Future } from "@hazae41/future";
 import { None, Option } from "@hazae41/option";
-import { CloseEvents, ClosedError, ErrorEvents, ErroredError, Plume, SuperEventTarget } from "@hazae41/plume";
+import { CloseEvents, ErrorEvents, Plume, SuperEventTarget } from "@hazae41/plume";
 import { Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
@@ -86,6 +85,48 @@ export class DestroyedError extends Error {
 
 }
 
+export class ExtendError extends Error {
+  readonly #class = ExtendError
+  readonly name = this.#class.name
+
+  constructor(options: ErrorOptions) {
+    super(`Could not extend`, options)
+  }
+
+  static from(cause: unknown) {
+    return new ExtendError({ cause })
+  }
+
+}
+
+export class OpenError extends Error {
+  readonly #class = OpenError
+  readonly name = this.#class.name
+
+  constructor(options: ErrorOptions) {
+    super(`Could not open`, options)
+  }
+
+  static from(cause: unknown) {
+    return new OpenError({ cause })
+  }
+
+}
+
+export class TruncateError extends Error {
+  readonly #class = TruncateError
+  readonly name = this.#class.name
+
+  constructor(options: ErrorOptions) {
+    super(`Could not truncate`, options)
+  }
+
+  static from(cause: unknown) {
+    return new TruncateError({ cause })
+  }
+
+}
+
 export class Circuit {
 
   readonly events = new SuperEventTarget<CloseEvents & ErrorEvents>()
@@ -118,12 +159,12 @@ export class Circuit {
     return await this.events.emit("error", [reason])
   }
 
-  async extendToOrThrow(microdesc: Consensus.Microdesc, signal?: AbortSignal) {
-    return await this.#secret.extendToOrThrow(microdesc, signal)
+  async extendOrThrow(microdesc: Consensus.Microdesc, signal?: AbortSignal) {
+    return await this.#secret.extendOrThrow(microdesc, signal)
   }
 
-  async tryExtendTo(microdesc: Consensus.Microdesc, signal?: AbortSignal) {
-    return await this.#secret.tryExtendTo(microdesc, signal)
+  async tryExtend(microdesc: Consensus.Microdesc, signal?: AbortSignal) {
+    return await this.#secret.tryExtend(microdesc, signal)
   }
 
   async openOrThrow(hostname: string, port: number, params?: CircuitOpenParams, signal?: AbortSignal) {
@@ -138,8 +179,8 @@ export class Circuit {
     return await this.#secret.openDirOrThrow(params, signal)
   }
 
-  async unrefOrThrow(ref: Consensus.Microdesc.Head) {
-    return await this.#secret.unrefOrThrow(ref)
+  async tryOpenDir(params?: CircuitOpenParams, signal?: AbortSignal) {
+    return await this.#secret.tryOpenDir(params, signal)
   }
 
   async close() {
@@ -358,11 +399,9 @@ export class SecretCircuit {
     return new None()
   }
 
-  async extendToOrThrow(microdesc: Consensus.Microdesc, signal = AbortSignals.never()) {
-    if (this.closed?.reason != null)
-      throw ErroredError.from(this.closed.reason)
+  async extendOrThrow(microdesc: Consensus.Microdesc, signal = AbortSignals.never()) {
     if (this.closed != null)
-      throw ClosedError.from(this.closed.reason)
+      throw this.closed.reason
 
     const relayid_rsa_x = Base64.get().decodeUnpaddedOrThrow(microdesc.identity).copyAndDispose()
     const relayid_rsa = Bytes.castOrThrow(relayid_rsa_x, HASH_LEN)
@@ -442,13 +481,16 @@ export class SecretCircuit {
     this.targets.push(target)
   }
 
-  async tryExtendTo(microdesc: Consensus.Microdesc, signal?: AbortSignal): Promise<Result<void, Error>> {
+  async tryExtend(microdesc: Consensus.Microdesc, signal?: AbortSignal): Promise<Result<void, ExtendError>> {
     return await Result.runAndWrap(async () => {
-      return await this.extendToOrThrow(microdesc, signal)
-    }).then(r => r.mapErrSync(cause => new Error(`Could not extend`, { cause })))
+      return await this.extendOrThrow(microdesc, signal)
+    }).then(r => r.mapErrSync(ExtendError.from))
   }
 
-  async truncateOrThrow(reason = RelayTruncateCell.reasons.NONE, signal = AbortSignals.never()) {
+  async truncateOrThrow(reason: number = RelayTruncateCell.reasons.NONE, signal = AbortSignals.never()) {
+    if (this.closed != null)
+      throw this.closed.reason
+
     const relay_truncate = new RelayTruncateCell(reason)
     const relay_truncate_cell = RelayCell.Streamless.from(this, undefined, relay_truncate)
     this.tor.output.enqueue(relay_truncate_cell.cellOrThrow())
@@ -459,17 +501,15 @@ export class SecretCircuit {
     }, signal)
   }
 
-  async tryTruncate(reason = RelayTruncateCell.reasons.NONE, signal?: AbortSignal): Promise<Result<void, Error>> {
+  async tryTruncate(reason?: number, signal?: AbortSignal): Promise<Result<void, TruncateError>> {
     return await Result.runAndWrap(async () => {
       return await this.truncateOrThrow(reason, signal)
-    }).then(r => r.mapErrSync(cause => new Error(`Could not truncate`, { cause })))
+    }).then(r => r.mapErrSync(TruncateError.from))
   }
 
   async openDirOrThrow(params: CircuitOpenParams = {}, signal = AbortSignals.never()) {
-    if (this.closed?.reason != null)
-      throw ErroredError.from(this.closed.reason)
     if (this.closed != null)
-      throw ClosedError.from(this.closed.reason)
+      throw this.closed.reason
 
     const stream = new SecretTorStreamDuplex("directory", this.#streamId++, this)
 
@@ -490,11 +530,15 @@ export class SecretCircuit {
     return new TorStreamDuplex(stream)
   }
 
+  async tryOpenDir(params?: CircuitOpenParams, signal?: AbortSignal): Promise<Result<TorStreamDuplex, OpenError>> {
+    return await Result.runAndWrap(async () => {
+      return await this.openDirOrThrow(params, signal)
+    }).then(r => r.mapErrSync(OpenError.from))
+  }
+
   async openOrThrow(hostname: string, port: number, params: CircuitOpenParams = {}, signal = AbortSignals.never()) {
-    if (this.closed?.reason != null)
-      throw ErroredError.from(this.closed.reason)
     if (this.closed != null)
-      throw ClosedError.from(this.closed.reason)
+      throw this.closed.reason
 
     const { ipv6 = "preferred" } = params
 
@@ -524,63 +568,10 @@ export class SecretCircuit {
     return new TorStreamDuplex(stream)
   }
 
-  async tryOpen(hostname: string, port: number, params: CircuitOpenParams = {}, signal = AbortSignals.never()): Promise<Result<TorStreamDuplex, Error>> {
+  async tryOpen(hostname: string, port: number, params?: CircuitOpenParams, signal?: AbortSignal): Promise<Result<TorStreamDuplex, OpenError>> {
     return await Result.runAndWrap(async () => {
       return await this.openOrThrow(hostname, port, params, signal)
-    }).then(r => r.mapErrSync(cause => new Error(`Could not open`, { cause })))
-  }
-
-  async fetchAuthoritiesOrThrow(signal = AbortSignals.never()) {
-    const stream = await this.openDirOrThrow()
-    const response = await fetch(`http://localhost/tor/keys/all.z`, { stream: stream.outer })
-
-    if (!response.ok)
-      throw new Error(`Could not fetch`)
-
-    const text = await response.text()
-
-  }
-
-  async fetchConsensusOrThrow(signal = AbortSignals.never()) {
-    const stream = await this.openDirOrThrow()
-    const response = await fetch(`http://localhost/tor/status-vote/current/consensus-microdesc.z`, { stream: stream.outer })
-
-    if (!response.ok)
-      throw new Error(`Could not fetch`)
-
-    const text = await response.text()
-  }
-
-  async unrefOrThrow(ref: Consensus.Microdesc.Head) {
-    const stream = await this.openDirOrThrow()
-    const url = `http://localhost/tor/micro/d/${ref.microdesc}.z`
-
-    const response = await fetch(url, { stream: stream.outer })
-
-    if (!response.ok)
-      throw new Error(`Could not fetch`)
-
-    const buffer = await response.arrayBuffer()
-    const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", buffer))
-
-    const digest64 = Base64.get().encodeUnpaddedOrThrow(digest)
-
-    if (digest64 !== ref.microdesc)
-      throw new Error(`Digest mismatch`)
-
-    const text = Bytes.toUtf8(new Uint8Array(buffer))
-    const [post] = Consensus.Microdesc.parseOrThrow(text)
-
-    if (post == null)
-      throw new Error(`Could not parse`)
-
-    return { ...ref, ...post } as Consensus.Microdesc
-  }
-
-  async tryUnref(ref: Consensus.Microdesc.Head): Promise<Result<Consensus.Microdesc, Error>> {
-    return await Result.runAndWrap(async () => {
-      return await this.unrefOrThrow(ref)
-    }).then(r => r.mapErrSync(cause => new Error(`Could not unref`, { cause })))
+    }).then(r => r.mapErrSync(OpenError.from))
   }
 
 }

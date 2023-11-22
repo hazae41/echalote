@@ -5,7 +5,7 @@ import { SecretTurboReader } from "./reader.js"
 import { SecretTurboWriter } from "./writer.js"
 
 export interface TurboDuplexParams {
-  clientID?: Uint8Array
+  readonly clientID?: Uint8Array
 }
 
 export class TurboDuplex {
@@ -52,10 +52,10 @@ export class SecretTurboDuplex {
     this.writer = new SecretTurboWriter(this)
 
     const preInputer = this.reader.stream.start()
-    const preOutputer = this.writer.stream.start()
+    const postOutputer = this.writer.stream.start()
 
     const postInputer = new TransformStream<Opaque, Opaque>({})
-    const postOutputer = new TransformStream<Writable, Writable>({})
+    const preOutputer = new TransformStream<Writable, Writable>({})
 
     /**
      * Inner protocol (UDP?)
@@ -77,13 +77,13 @@ export class SecretTurboDuplex {
       .pipeTo(postInputer.writable)
       .then(() => this.#onInputClose())
       .catch(e => this.#onInputError(e))
-      .catch(() => { })
+      .catch(console.error)
 
     preOutputer.readable
       .pipeTo(postOutputer.writable)
       .then(() => this.#onOutputClose())
       .catch(e => this.#onOutputError(e))
-      .catch(() => { })
+      .catch(console.error)
   }
 
   get class() {

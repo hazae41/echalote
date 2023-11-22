@@ -166,13 +166,13 @@ export class SecretTorClientDuplex {
       .pipeTo(inputer)
       .then(() => this.#onInputClose())
       .catch(e => this.#onInputError(e))
-      .catch(() => { })
+      .catch(console.error)
 
     outputer
       .pipeTo(tls.outer.writable)
       .then(() => this.#onOutputClose())
       .catch(e => this.#onOutputError(e))
-      .catch(() => { })
+      .catch(console.error)
   }
 
   [Symbol.dispose]() {

@@ -1,7 +1,6 @@
 import { Opaque, Writable } from "@hazae41/binary";
 import { SuperTransformStream } from "@hazae41/cascade";
 import { CloseEvents, ErrorEvents, SuperEventTarget } from "@hazae41/plume";
-import { Ok } from "@hazae41/result";
 import { TurboFrame } from "./frame.js";
 import { SecretTurboDuplex } from "./stream.js";
 
@@ -26,13 +25,10 @@ export class SecretTurboWriter {
 
     const clientID = this.parent.clientID
     this.stream.enqueue(new Opaque(clientID))
-
-    return Ok.void()
   }
 
   #onWrite(fragment: Writable) {
     this.stream.enqueue(TurboFrame.createOrThrow({ padding: false, fragment }))
-    return Ok.void()
   }
 
 }

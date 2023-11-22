@@ -82,13 +82,11 @@ export default function Page() {
         && it.flags.includes("Exit")
         && !it.flags.includes("BadExit"))
 
-      console.log(seconds.length, thirds.length)
+      const second = await Consensus.Microdesc.fetchOrThrow(circuit, seconds[Math.floor(Math.random() * seconds.length)])
+      await circuit.extendOrThrow(second)
 
-      const second = await circuit.unrefOrThrow(seconds[Math.floor(Math.random() * seconds.length)])
-      await circuit.extendToOrThrow(second)
-
-      const third = await circuit.unrefOrThrow(thirds[Math.floor(Math.random() * thirds.length)])
-      await circuit.extendToOrThrow(third)
+      const third = await Consensus.Microdesc.fetchOrThrow(circuit, thirds[Math.floor(Math.random() * thirds.length)])
+      await circuit.extendOrThrow(third)
 
       const stream = await openAsOrThrow(circuit, `https://eth.llamarpc.com`)
 
