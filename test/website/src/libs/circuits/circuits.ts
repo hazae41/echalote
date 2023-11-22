@@ -10,7 +10,7 @@ import { Ok, Result } from "@hazae41/result"
 export async function tryCreateTor(params: TorClientParams): Promise<Result<TorClientDuplex, Cancel<Error> | Retry<Error>>> {
   return await Result.unthrow(async t => {
     // const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
-    const tcp = await createMeekStream("https://meek.azureedge.net/")
+    const tcp = await createMeekStream("http://localhost:8080/")
 
     const tor = new TorClientDuplex(params)
 

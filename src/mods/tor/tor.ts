@@ -287,12 +287,10 @@ export class SecretTorClientDuplex {
           ? Readable.readOrRollbackAndThrow(OldCell.Raw, cursor)
           : Readable.readOrRollbackAndThrow(Cell.Raw, cursor)
       } catch (e: unknown) {
-        console.log("Error reading cell", e)
         this.#buffer.writeOrThrow(cursor.after)
         break
       }
 
-      console.log(raw)
       const cell = raw.unpackOrThrow(this)
       await this.#onCell(cell, this.#state)
     }

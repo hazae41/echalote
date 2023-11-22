@@ -1,24 +1,7 @@
 import { Opaque, Writable } from "@hazae41/binary"
 import { SuperReadableStream, SuperWritableStream } from "@hazae41/cascade"
 import { Cursor } from "@hazae41/cursor"
-import { Mutex } from "@hazae41/mutex"
 import { CloseEvents, ErrorEvents, SuperEventTarget } from "@hazae41/plume"
-
-export interface BatchedFetchStreamParams {
-  /**
-   * Minimum delay of interaction
-   * 
-   * Delay between a write and a fetch (in order to wait for more packets and batch them)
-   */
-  readonly lowDelay?: number
-
-  /**
-   * Maximum delay of interaction
-   * 
-   * Delay between each fetch when the batch is empty
-   */
-  readonly highDelay?: number
-}
 
 export class BatchedFetchStream {
 
@@ -32,16 +15,13 @@ export class BatchedFetchStream {
   readonly #input: SuperReadableStream<Opaque>
   readonly #output: SuperWritableStream<Writable>
 
-  readonly #mutex = new Mutex(undefined)
-
   readonly events = {
     input: new SuperEventTarget<CloseEvents & ErrorEvents>(),
     output: new SuperEventTarget<CloseEvents & ErrorEvents>()
   } as const
 
   constructor(
-    readonly request: RequestInfo,
-    readonly params: BatchedFetchStreamParams = {}
+    readonly request: RequestInfo
   ) {
     this.#input = new SuperReadableStream<Opaque>({})
 
@@ -74,6 +54,31 @@ export class BatchedFetchStream {
       .then(() => this.#onOutputClose())
       .catch(e => this.#onOutputError(e))
       .catch(console.error)
+
+    this.loop()
+  }
+
+  async loop() {
+    while (true) {
+      try {
+        const body = this.buffer.before
+        this.buffer.offset = 0
+
+        const res = await fetch(this.request, { method: "POST", body })
+        const data = new Uint8Array(await res.arrayBuffer())
+
+        const chunker = new Cursor(data)
+
+        for (const chunk of chunker.splitOrThrow(4096))
+          this.#input.enqueue(new Opaque(chunk))
+
+        continue
+      } catch (e: unknown) {
+        clearInterval(this.interval)
+        this.#output.error(e)
+        break
+      }
+    }
   }
 
   async #onInputClose() {
@@ -103,48 +108,7 @@ export class BatchedFetchStream {
   }
 
   async #onOutputWrite(chunk: Writable) {
-    const { lowDelay = 10, highDelay = 100 } = this.params
-
-    clearTimeout(this.timeout)
-    clearInterval(this.interval)
-
     this.buffer.writeOrThrow(Writable.writeToBytesOrThrow(chunk))
-
-    this.timeout = setTimeout(async () => {
-      try {
-        const body = this.buffer.before
-
-        const res = await fetch(this.request, { method: "POST", body })
-        const data = new Uint8Array(await res.arrayBuffer())
-
-        this.buffer.offset = 0
-
-        const chunker = new Cursor(data)
-
-        for (const chunk of chunker.splitOrThrow(128))
-          this.#input.enqueue(new Opaque(chunk))
-
-        this.interval = setInterval(async () => {
-          try {
-            const res = await fetch(this.request, { method: "POST" })
-            const data = new Uint8Array(await res.arrayBuffer())
-
-            const chunker = new Cursor(data)
-
-            for (const chunk of chunker.splitOrThrow(128))
-              this.#input.enqueue(new Opaque(chunk))
-
-            return
-          } catch (e: unknown) {
-            clearInterval(this.interval)
-            this.#output.error(e)
-          }
-        }, highDelay)
-      } catch (e: unknown) {
-        clearInterval(this.interval)
-        this.#output.error(e)
-      }
-    }, lowDelay)
   }
 
 }

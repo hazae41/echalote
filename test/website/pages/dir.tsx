@@ -1,4 +1,4 @@
-import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
+import { Cadenas, Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
 import { Disposer } from "@hazae41/cleaner";
 import { Circuit, Consensus, Echalote, TorClientDuplex } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
@@ -62,7 +62,7 @@ export default function Page() {
       Sha1.set(await Sha1.fromMorax())
 
       Echalote.Console.debugging = true
-      // Cadenas.Console.debugging = true
+      Cadenas.Console.debugging = true
 
       const tor = await tryCreateTor({}).then(r => r.unwrap())
       const circuit = await tor.tryCreate().then(r => r.unwrap())
