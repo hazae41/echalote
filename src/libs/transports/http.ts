@@ -69,7 +69,7 @@ export class BatchedFetchStream {
 
         const chunker = new Cursor(data)
 
-        for (const chunk of chunker.splitOrThrow(4096))
+        for (const chunk of chunker.splitOrThrow(16384))
           this.#input.enqueue(new Opaque(chunk))
 
         continue

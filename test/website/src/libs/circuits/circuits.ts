@@ -1,6 +1,6 @@
 import { Opaque, Writable } from "@hazae41/binary"
 import { Disposer } from "@hazae41/cleaner"
-import { Circuit, TorClientDuplex, TorClientParams, TorStreamDuplex, createMeekStream, createPooledCircuitDisposer, createPooledTorDisposer } from "@hazae41/echalote"
+import { Circuit, TorClientDuplex, TorClientParams, TorStreamDuplex, createPooledCircuitDisposer, createPooledTorDisposer, createWebSocketSnowflakeStream } from "@hazae41/echalote"
 import { Mutex } from "@hazae41/mutex"
 import { None } from "@hazae41/option"
 import { Cancel, Looped, Looper, Pool, PoolParams, Retry, TooManyRetriesError, tryLoop } from "@hazae41/piscine"
@@ -9,8 +9,8 @@ import { Ok, Result } from "@hazae41/result"
 
 export async function tryCreateTor(params: TorClientParams): Promise<Result<TorClientDuplex, Cancel<Error> | Retry<Error>>> {
   return await Result.unthrow(async t => {
-    // const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
-    const tcp = await createMeekStream("http://localhost:8080/")
+    const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
+    // const tcp = await createMeekStream("http://localhost:8080/")
 
     const tor = new TorClientDuplex(params)
 

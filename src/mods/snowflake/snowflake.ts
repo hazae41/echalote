@@ -4,19 +4,23 @@ import { SmuxDuplex } from "@hazae41/smux"
 import { createWebSocketStream } from "libs/transports/websocket.js"
 import { TurboDuplex } from "mods/snowflake/turbo/stream.js"
 
-export async function createWebSocketSnowflakeStream(url: string): Promise<ReadableWritablePair<Opaque<Uint8Array>, Writable>> {
+export interface InnerDuplex {
+  readonly outer: ReadableWritablePair<Opaque, Writable>
+}
+
+export async function createWebSocketSnowflakeStream(url: string): Promise<InnerDuplex> {
   const websocket = await createWebSocketStream(url)
 
   const turbo = new TurboDuplex()
   const kcp = new KcpDuplex()
   const smux = new SmuxDuplex()
 
-  websocket.readable
+  websocket.outer.readable
     .pipeTo(turbo.inner.writable)
     .catch(() => { })
 
   turbo.inner.readable
-    .pipeTo(websocket.writable)
+    .pipeTo(websocket.outer.writable)
     .catch(() => { })
 
   turbo.outer.readable
@@ -35,5 +39,5 @@ export async function createWebSocketSnowflakeStream(url: string): Promise<Reada
     .pipeTo(kcp.outer.writable)
     .catch(() => { })
 
-  return smux.outer
+  return smux
 }

@@ -1,7 +1,7 @@
 import { Opaque, Readable, Writable } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Bytes, Uint8Array } from "@hazae41/bytes";
-import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
+import { TlsClientDuplex } from "@hazae41/cadenas";
 import { SuperReadableStream, SuperWritableStream } from "@hazae41/cascade";
 import { Cursor } from "@hazae41/cursor";
 import { Future } from "@hazae41/future";
@@ -41,6 +41,7 @@ import { ExpectedStreamError, InvalidCellError, InvalidRelayCellDigestError, Inv
 import { OldCell } from "./binary/cells/old.js";
 import { RelaySendmeCircuitCell, RelaySendmeDigest, RelaySendmeStreamCell } from "./binary/cells/relayed/relay_sendme/cell.js";
 import { Certs } from "./certs/certs.js";
+import { TorCiphers } from "./ciphers.js";
 import { InvalidTorStateError, InvalidTorVersionError } from "./errors.js";
 import { TorHandshakingState, TorNoneState, TorState, TorVersionedState } from "./state.js";
 
@@ -49,18 +50,12 @@ export interface Guard {
   readonly certs: Certs
 }
 
-export interface TorClientParams {
-  readonly signal?: AbortSignal
-}
-
 export class TorClientDuplex {
 
   readonly #secret: SecretTorClientDuplex
 
-  constructor(
-    readonly params: TorClientParams
-  ) {
-    this.#secret = new SecretTorClientDuplex(params)
+  constructor() {
+    this.#secret = new SecretTorClientDuplex()
   }
 
   get events() {
@@ -128,16 +123,9 @@ export class SecretTorClientDuplex {
 
   #tlsCerts?: X509.Certificate[]
 
-  /**
-   * Create a new Tor client
-   * @param tcp Some TCP stream
-   * @param params Tor params
-   */
-  constructor(
-    readonly params: TorClientParams
-  ) {
-    // const ciphers = Object.values(TorCiphers)
-    const ciphers = [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
+  constructor() {
+    const ciphers = Object.values(TorCiphers)
+    // const ciphers = [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
     const tls = new TlsClientDuplex({ ciphers })
 
     tls.events.input.on("certificates", (certs) => {
@@ -146,7 +134,7 @@ export class SecretTorClientDuplex {
       /**
        * Accept all certificates as valid
        */
-      return new Some(Ok.void())
+      return new Some(undefined)
     })
 
     this.inner = tls.inner

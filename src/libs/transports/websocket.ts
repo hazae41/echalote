@@ -40,8 +40,7 @@ export class WebSocketStream {
   readonly reader: SuperReadableStream<Opaque>
   readonly writer: SuperWritableStream<Writable>
 
-  readonly readable: ReadableStream<Opaque>
-  readonly writable: WritableStream<Writable>
+  readonly outer: ReadableWritablePair<Opaque, Writable>
 
   /**
    * A WebSocket stream
@@ -54,8 +53,10 @@ export class WebSocketStream {
     this.reader = new SuperReadableStream(new WebSocketSource(socket, params))
     this.writer = new SuperWritableStream(new WebSocketSink(socket, params))
 
-    this.readable = this.reader.start()
-    this.writable = this.writer.start()
+    this.outer = {
+      readable: this.reader.start(),
+      writable: this.writer.start()
+    }
   }
 
   static fromOrThrow(socket: WebSocket, params?: WebSocketStreamParams) {
