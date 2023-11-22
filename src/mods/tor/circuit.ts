@@ -523,7 +523,7 @@ export class SecretCircuit {
       return new TorStreamDuplex(stream)
 
     await Plume.waitOrCloseOrErrorOrSignal(stream.events.input, "open", (future: Future<void>) => {
-      future.resolve(undefined)
+      future.resolve()
       return new None()
     }, signal)
 
@@ -561,7 +561,7 @@ export class SecretCircuit {
       return new TorStreamDuplex(stream)
 
     await Plume.waitOrCloseOrErrorOrSignal(stream.events.input, "open", (future: Future<void>) => {
-      future.resolve(undefined)
+      future.resolve()
       return new None()
     }, signal)
 

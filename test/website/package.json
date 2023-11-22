@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@hazae41/berith": "^1.2.6",
-    "@hazae41/cadenas": "^0.3.3",
+    "@hazae41/cadenas": "^0.3.4",
     "@hazae41/cleaner": "^2.0.3",
     "@hazae41/fleche": "^1.2.3",
     "@hazae41/morax": "^1.1.5",
@@ -24,9 +24,9 @@
     "react-dom": "18.2.0"
   },
   "devDependencies": {
-    "@types/node": "20.9.3",
+    "@types/node": "20.9.4",
     "@types/react": "18.2.38",
-    "@types/react-dom": "18.2.16",
+    "@types/react-dom": "18.2.17",
     "autoprefixer": "^10.4.16",
     "eslint": "8.54.0",
     "eslint-config-next": "14.0.3",

@@ -99,7 +99,7 @@ export class SecretTorStreamDuplex {
     this.#input = new SuperReadableStream({})
 
     this.#output = new SuperWritableStream({
-      write: this.#onWrite.bind(this)
+      write: this.#onOutputWrite.bind(this)
     })
 
     const preInputer = this.#input.start()
@@ -325,7 +325,7 @@ export class SecretTorStreamDuplex {
     return new None()
   }
 
-  #onWrite(writable: Writable) {
+  #onOutputWrite(writable: Writable) {
     if (writable.sizeOrThrow() > RelayCell.DATA_LEN)
       return this.#onWriteChunked(writable)
     return this.#onWriteDirect(writable)

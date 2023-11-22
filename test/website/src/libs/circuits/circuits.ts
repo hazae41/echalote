@@ -1,6 +1,6 @@
 import { Opaque, Writable } from "@hazae41/binary"
 import { Disposer } from "@hazae41/cleaner"
-import { Circuit, TorClientDuplex, TorClientParams, TorStreamDuplex, createPooledCircuitDisposer, createPooledTorDisposer, createWebSocketSnowflakeStream } from "@hazae41/echalote"
+import { Circuit, TorClientDuplex, TorClientParams, TorStreamDuplex, createMeekStream, createPooledCircuitDisposer, createPooledTorDisposer } from "@hazae41/echalote"
 import { Mutex } from "@hazae41/mutex"
 import { None } from "@hazae41/option"
 import { Cancel, Looped, Looper, Pool, PoolParams, Retry, TooManyRetriesError, tryLoop } from "@hazae41/piscine"
@@ -9,16 +9,17 @@ import { Ok, Result } from "@hazae41/result"
 
 export async function tryCreateTor(params: TorClientParams): Promise<Result<TorClientDuplex, Cancel<Error> | Retry<Error>>> {
   return await Result.unthrow(async t => {
-    const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
+    // const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
+    const tcp = await createMeekStream("https://meek.azureedge.net/")
 
     const tor = new TorClientDuplex(params)
 
-    tcp.readable
+    tcp.outer.readable
       .pipeTo(tor.inner.writable)
       .catch(console.error)
 
     tor.inner.readable
-      .pipeTo(tcp.writable)
+      .pipeTo(tcp.outer.writable)
       .catch(console.error)
 
     await tor.tryWait().then(r => r.mapErrSync(Retry.new).throw(t))
