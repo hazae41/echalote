@@ -70,17 +70,6 @@ export function createTorPool<CreateError extends Looped.Infer<CreateError>>(try
   }, params))
 }
 
-export async function fetchConsensus(tors: Mutex<Pool<Disposer<TorClientDuplex>, Error>>,) {
-  return await Result.unthrow<Result<Consensus, Error>>(async t => {
-    const tor = await tors.inner.tryGetCryptoRandom().then(r => r.throw(t).result.throw(t).inner)
-    using circuit = await tor.tryCreate(AbortSignal.timeout(5000)).then(r => r.throw(t))
-
-    const consensus = await Consensus.fetchOrThrow(circuit)
-
-    return new Ok(consensus)
-  })
-}
-
 export function createCircuitPool(tors: Mutex<Pool<Disposer<TorClientDuplex>, Error>>, consensus: Consensus, params: PoolParams) {
   const middles = consensus.microdescs.filter(it => true
     && it.flags.includes("Fast")
