@@ -164,23 +164,15 @@ export function createStreamPool(circuits: Mutex<Pool<Disposer<Circuit>, Error>>
 
       const circuit = await circuits.inner.tryGet(index % circuits.inner.capacity).then(r => r.throw(t).throw(t).inner)
 
-      console.log("Creating stream", { index })
-
       const stream = await tryOpenAs(circuit, "https://eth.llamarpc.com").then(r => r.throw(t))
 
       const controller = new AbortController()
       const { signal } = controller
 
-      let timeout: NodeJS.Timeout
-
       const onCloseOrError = async (reason?: unknown) => {
         if (signal.aborted) return
 
         controller.abort(reason)
-
-        clearTimeout(timeout)
-
-        console.error("Stream closed", index, reason)
         await pool.restart(index)
 
         return new None()
@@ -198,8 +190,6 @@ export function createStreamPool(circuits: Mutex<Pool<Disposer<Circuit>, Error>>
       } as const
 
       const mutex = new Mutex(outer)
-
-      console.log("Stream created", { index })
 
       return new Ok(new Disposer(mutex, () => controller.abort("Disposing")))
     })
