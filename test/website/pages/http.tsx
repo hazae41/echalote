@@ -55,7 +55,7 @@ export default function Page() {
 
     return createTorPool(async () => {
       return await tryCreateTor()
-    }, { capacity: 3 })
+    }, { capacity: 1 })
   }, [])
 
 
@@ -66,7 +66,7 @@ export default function Page() {
       const tor = await tors.inner.tryGetCryptoRandom().then(r => r.throw(t).result.throw(t).inner)
       using circuit = await tor.tryCreate(AbortSignal.timeout(5000)).then(r => r.throw(t))
 
-      const consensus = await Consensus.fetchOrThrow(circuit)
+      const consensus = await Consensus.tryFetch(circuit).then(r => r.throw(t))
 
       return new Ok(consensus)
     }).then(r => r.unwrap())
@@ -81,7 +81,8 @@ export default function Page() {
   const streams = useMemo(() => {
     if (!circuits) return
 
-    return createStreamPool(circuits, { capacity: 9 })
+    const url = new URL("https://eth.llamarpc.com")
+    return createStreamPool(url, circuits, { capacity: 9 })
   }, [circuits])
 
   const onClick = useCallback(async () => {

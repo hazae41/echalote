@@ -13,13 +13,13 @@ export async function openAsOrThrow(circuit: Circuit, input: RequestInfo | URL) 
   const req = new Request(input)
   const url = new URL(req.url)
 
-  if (url.protocol === "http:") {
+  if (url.protocol === "http:" || url.protocol === "ws:") {
     const tcp = await circuit.openOrThrow(url.hostname, Number(url.port) || 80)
 
     return tcp.outer
   }
 
-  if (url.protocol === "https:") {
+  if (url.protocol === "https:" || url.protocol === "wss:") {
     const tcp = await circuit.openOrThrow(url.hostname, Number(url.port) || 443)
 
     const ciphers = [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
@@ -65,6 +65,7 @@ export function createTorPool<CreateError extends Looped.Infer<CreateError>>(try
   return new Mutex(new Pool<Disposer<TorClientDuplex>, Cancel.Inner<CreateError> | AbortedError | TooManyRetriesError>(async (params) => {
     return await Result.unthrow(async t => {
       const tor = await tryLoop(tryCreate, params).then(r => r.throw(t))
+
       return new Ok(createPooledTorDisposer(tor, params))
     })
   }, params))
@@ -146,20 +147,22 @@ export function createCircuitPool(tors: Mutex<Pool<Disposer<TorClientDuplex>, Er
   }, params))
 }
 
-export function createStreamPool(circuits: Mutex<Pool<Disposer<Circuit>, Error>>, params: PoolParams) {
-  return new Mutex(new Pool<Disposer<Mutex<ReadableWritablePair<Opaque<Uint8Array>, Writable>>>, Error>(async (params) => {
+export function createStreamPool(url: URL, circuits: Mutex<Pool<Disposer<Circuit>, Error>>, params: PoolParams) {
+  return new Mutex(new Pool<Disposer<Mutex<ReadableWritablePair<Opaque, Writable>>>, Error>(async (params) => {
     return await Result.unthrow(async t => {
       const { pool, index } = params
 
       const circuit = await circuits.inner.tryGet(index % circuits.inner.capacity).then(r => r.throw(t).throw(t).inner)
 
-      const stream = await tryOpenAs(circuit, "https://eth.llamarpc.com").then(r => r.throw(t))
+      const stream = await tryOpenAs(circuit, url.origin).then(r => r.throw(t))
 
       const controller = new AbortController()
       const { signal } = controller
 
       const onCloseOrError = async (reason?: unknown) => {
         if (signal.aborted) return
+
+        console.error({ reason })
 
         controller.abort(reason)
         await pool.restart(index)

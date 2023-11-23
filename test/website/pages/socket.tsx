@@ -1,21 +1,19 @@
-import { Echalote } from "@hazae41/echalote";
+import { Consensus, Echalote } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
 import { None } from "@hazae41/option";
+import { Pool } from "@hazae41/piscine";
+import { Ok, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
-import { createCircuitPool, createTorPool, tryCreateTor } from "libs/circuits/circuits";
-import { Session, createSessionPool } from "libs/sockets/pool";
+import { createCircuitPool, createStreamPool, createTorPool, tryCreateTor } from "libs/circuits/circuits";
+import { createSocketPool } from "libs/sockets/pool";
 import { DependencyList, useCallback, useEffect, useMemo, useState } from "react";
 
 const eth_call = { "jsonrpc": "2.0", "id": 21, "method": "eth_call", "params": [{ "to": "0x1f98415757620b543a52e61c46b32eb19261f984", "data": "0x1749e1e30000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000700000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000260000000000000000000000000000000000000000000000000000000000000032000000000000000000000000000000000000000000000000000000000000003c00000000000000000000000000000000000000000000000000000000000000460000000000000000000000000000000000000000000000000000000000000052000000000000000000000000000000000000c2e074ec69a0dfb2997ba6c7d2e1e00000000000000000000000000000000000000000000000000000000000f4240000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000240178b8bfd4b63be5dc653a81f793311d472893a9fba1cf21a22bde8747ebf6af4a89cb910000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c2e074ec69a0dfb2997ba6c7d2e1e00000000000000000000000000000000000000000000000000000000000f4240000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000240178b8bfdac646d3c984f08aff3937648f4f95365e531e218e91a2bff2d6d798c30eb50000000000000000000000000000000000000000000000000000000000000000000000000000000000122eb74f9d0f1a5ed587f43d120c1c2bbdb9360b00000000000000000000000000000000000000000000000000000000000f4240000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000243b3b57ded4b63be5dc653a81f793311d472893a9fba1cf21a22bde8747ebf6af4a89cb9100000000000000000000000000000000000000000000000000000000000000000000000000000000169e633a2d1e6c10dd91238ba11c4a708dfef37c00000000000000000000000000000000000000000000000000000000000f42400000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000450d25bcd000000000000000000000000000000000000000000000000000000000000000000000000000000001f98415757620b543a52e61c46b32eb19261f98400000000000000000000000000000000000000000000000000000000000f4240000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000040f28c97d000000000000000000000000000000000000000000000000000000000000000000000000000000001f98415757620b543a52e61c46b32eb19261f98400000000000000000000000000000000000000000000000000000000000f4240000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000244d2301cc00000000000000000000000005cb48dd2b5911b90d464fc61d5febc2ce374fd40000000000000000000000000000000000000000000000000000000000000000000000000000000065770b5283117639760bea3f867b69b3697a91dd000000000000000000000000000000000000000000000000000000000002d2a80000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000002470a0823100000000000000000000000005cb48dd2b5911b90d464fc61d5febc2ce374fd400000000000000000000000000000000000000000000000000000000" }, "0x10b7963"] }
 
 // const irn_subscribe = { "jsonrpc": "2.0", "method": "irn_subscribe", "params": { topic: "01d4c9f7a4d83ac4e162d518c3e430cd58f392e831f099b4f81c85f367c3aa09" }, "id": "1692551207426770945" }
 
-async function superfetch(session: Session) {
-  const { sockets, circuit } = session
-
-  const socket = await sockets.inner.tryGet(0).then(r => r.unwrap().unwrap().inner)
-
+async function superfetch(socket: WebSocket) {
   const start = Date.now()
 
   socket.send(JSON.stringify({ "jsonrpc": "2.0", "method": "eth_blockNumber", "params": [], "id": 67 }))
@@ -45,7 +43,7 @@ function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
 
 export default function Page() {
 
-  const params = useAsyncMemo(async () => {
+  const tors = useAsyncMemo(async () => {
     // const ed25519 = Ed25519.fromNoble(noble_ed25519.ed25519)
     // const x25519 = X25519.fromNoble(noble_ed25519.x25519)
     // const sha1 = Sha1.fromNoble(noble_sha1.sha1)
@@ -55,54 +53,62 @@ export default function Page() {
     Sha1.set(await Sha1.fromMorax())
 
     Echalote.Console.debugging = true
-
-    const fallbacksUrl = "https://raw.githubusercontent.com/hazae41/echalote/master/tools/fallbacks/fallbacks.json"
-    const fallbacksRes = await fetch(fallbacksUrl)
-
-    if (!fallbacksRes.ok)
-      throw new Error(await fallbacksRes.text())
-
-    const fallbacks = await fallbacksRes.json()
-
-    return { fallbacks }
-  }, [])
-
-  const tors = useAsyncMemo(async () => {
-    if (!params) return
+    // Cadenas.Console.debugging = true
 
     return createTorPool(async () => {
-      return await tryCreateTor(params)
+      return await tryCreateTor()
     }, { capacity: 1 })
-  }, [params])
+  }, [])
 
-  const circuits = useMemo(() => {
+  const consensus = useAsyncMemo(async () => {
     if (!tors) return
 
-    return createCircuitPool(tors, { capacity: 1 })
+    return await Result.unthrow<Result<Consensus, Error>>(async t => {
+      const tor = await tors.inner.tryGetCryptoRandom().then(r => r.throw(t).result.throw(t).inner)
+      using circuit = await tor.tryCreate(AbortSignal.timeout(5000)).then(r => r.throw(t))
+
+      const consensus = await Consensus.tryFetch(circuit).then(r => r.throw(t))
+
+      return new Ok(consensus)
+    }).then(r => r.unwrap())
   }, [tors])
 
-  const sessions = useMemo(() => {
+  const circuits = useMemo(() => {
+    if (!tors || !consensus) return
+
+    return createCircuitPool(tors, consensus, { capacity: 1 })
+  }, [tors, consensus])
+
+  const streams = useMemo(() => {
     if (!circuits) return
 
-    return createSessionPool(circuits, { capacity: 1 })
+    const url = new URL("wss://ethereum.publicnode.com")
+    return createStreamPool(url, circuits, { capacity: 1 })
   }, [circuits])
+
+  const sockets = useMemo(() => {
+    if (!streams) return
+
+    const url = new URL("wss://ethereum.publicnode.com")
+    return createSocketPool(url, streams, { capacity: 1 })
+  }, [streams])
 
   const onClick = useCallback(async () => {
     try {
-      if (!sessions || sessions.locked) return
+      if (!sockets || sockets.locked) return
 
-      const session = await sessions.inner.tryGet(0).then(r => r.unwrap().unwrap().inner)
+      const socket = await Pool.takeCryptoRandom(sockets).then(r => r.unwrap().result.get().inner)
 
-      await superfetch(session)
+      await superfetch(socket)
     } catch (e: unknown) {
       console.error("onClick", { e })
     }
-  }, [sessions])
+  }, [sockets])
 
   const [_, setCounter] = useState(0)
 
   useEffect(() => {
-    if (!circuits || !sessions) return
+    if (!circuits || !sockets || !streams) return
 
     const onCreatedOrDeleted = () => {
       setCounter(c => c + 1)
@@ -112,17 +118,24 @@ export default function Page() {
     circuits.inner.events.on("created", onCreatedOrDeleted, { passive: true })
     circuits.inner.events.on("deleted", onCreatedOrDeleted, { passive: true })
 
-    sessions.inner.events.on("created", onCreatedOrDeleted, { passive: true })
-    sessions.inner.events.on("deleted", onCreatedOrDeleted, { passive: true })
+    sockets.inner.events.on("created", onCreatedOrDeleted, { passive: true })
+    sockets.inner.events.on("deleted", onCreatedOrDeleted, { passive: true })
+
+    streams.inner.events.on("created", onCreatedOrDeleted, { passive: true })
+    streams.inner.events.on("deleted", onCreatedOrDeleted, { passive: true })
 
     return () => {
       circuits.inner.events.off("created", onCreatedOrDeleted)
       circuits.inner.events.off("deleted", onCreatedOrDeleted)
 
-      sessions.inner.events.off("created", onCreatedOrDeleted)
-      sessions.inner.events.off("deleted", onCreatedOrDeleted)
+      sockets.inner.events.off("created", onCreatedOrDeleted)
+      sockets.inner.events.off("deleted", onCreatedOrDeleted)
+
+      streams.inner.events.off("created", onCreatedOrDeleted)
+      streams.inner.events.off("deleted", onCreatedOrDeleted)
+
     }
-  }, [circuits, sessions])
+  }, [circuits, sockets])
 
   return <>
     <button onClick={onClick}>
@@ -135,9 +148,16 @@ export default function Page() {
       : <div>
         Loading...
       </div>}
-    {sessions
+    {streams
       ? <div>
-        Socket pool size: {sessions.inner.size} / {sessions.inner.capacity}
+        Streams pool size: {streams.inner.size} / {streams.inner.capacity}
+      </div>
+      : <div>
+        Loading...
+      </div>}
+    {sockets
+      ? <div>
+        Socket pool size: {sockets.inner.size} / {sockets.inner.capacity}
       </div>
       : <div>
         Loading...
