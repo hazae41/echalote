@@ -559,7 +559,7 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async tryWait() {
+  async tryWait(): Promise<Result<void, Error>> {
     return await Result.runAndWrap(async () => {
       await this.waitOrThrow()
     }).then(r => r.mapErrSync(cause => new Error(`Could not wait`, { cause })))
