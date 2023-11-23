@@ -1,7 +1,6 @@
 import { Opaque, Writable } from "@hazae41/binary";
-import { Cadenas } from "@hazae41/cadenas";
 import { Disposer } from "@hazae41/cleaner";
-import { Circuit, Consensus, Echalote, TorClientDuplex } from "@hazae41/echalote";
+import { Circuit, Consensus, TorClientDuplex } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
 import { fetch } from "@hazae41/fleche";
 import { Mutex } from "@hazae41/mutex";
@@ -51,8 +50,8 @@ export default function Page() {
     X25519.set(await X25519.fromSafeOrBerith())
     Sha1.set(await Sha1.fromMorax())
 
-    Echalote.Console.debugging = true
-    Cadenas.Console.debugging = true
+    // Echalote.Console.debugging = true
+    // Cadenas.Console.debugging = true
 
     return createTorPool(async () => {
       return await tryCreateTor()

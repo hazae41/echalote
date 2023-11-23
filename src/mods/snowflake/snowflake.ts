@@ -12,7 +12,7 @@ export async function createWebSocketSnowflakeStream(url: string): Promise<Inner
   const websocket = await createWebSocketStream(url)
 
   const turbo = new TurboDuplex()
-  const kcp = new KcpDuplex()
+  const kcp = new KcpDuplex({ lowDelay: 100, highDelay: 1000 })
   const smux = new SmuxDuplex()
 
   websocket.outer.readable

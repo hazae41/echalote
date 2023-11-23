@@ -130,7 +130,7 @@ export function createCircuitPool(tors: Mutex<Pool<Disposer<TorClientDuplex>, Er
             /**
              * Speed test
              */
-            const signal = AbortSignal.timeout(500)
+            const signal = AbortSignal.timeout(1000)
 
             await Result.runAndDoubleWrap(async () => {
               await fetch("http://example.com/", { stream, signal, preventAbort: true, preventCancel: true, preventClose: true }).then(r => r.text())
