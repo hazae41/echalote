@@ -114,7 +114,7 @@ export function createCircuitPool(tors: Mutex<Pool<Disposer<TorClientDuplex>, Er
 
               return Ok.void()
             })
-          }, { init: 0, base: 1, max: 9 }).then(r => r.mapErrSync(Retry.new).throw(t))
+          }, { max: 9 }).then(r => r.mapErrSync(Retry.new).throw(t))
 
           /**
            * Try to extend to exit relay 9 times before giving up this circuit
@@ -127,7 +127,7 @@ export function createCircuitPool(tors: Mutex<Pool<Disposer<TorClientDuplex>, Er
 
               return Ok.void()
             })
-          }, { init: 0, base: 1, max: 9 }).then(r => r.mapErrSync(Retry.new).throw(t))
+          }, { max: 9 }).then(r => r.mapErrSync(Retry.new).throw(t))
 
           /**
            * Try to open a stream to a reliable endpoint
@@ -149,8 +149,8 @@ export function createCircuitPool(tors: Mutex<Pool<Disposer<TorClientDuplex>, Er
           }
 
           return new Ok(circuit)
-        }).then(r => r.inspectErrSync(e => console.warn("Failed", { e })))
-      }, { init: 0, base: 1, max: 9 }).then(r => r.inspectErrSync(e => console.warn("Giving up", { e })).throw(t))
+        })
+      }, { max: 9 }).then(r => r.throw(t))
 
       return new Ok(createPooledCircuitDisposer(circuit, params))
     })
@@ -163,6 +163,9 @@ export function createStreamPool(circuits: Mutex<Pool<Disposer<Circuit>, Error>>
       const { pool, index } = params
 
       const circuit = await circuits.inner.tryGet(index % circuits.inner.capacity).then(r => r.throw(t).throw(t).inner)
+
+      console.log("Creating stream", { index })
+
       const stream = await tryOpenAs(circuit, "https://eth.llamarpc.com").then(r => r.throw(t))
 
       const controller = new AbortController()
@@ -177,7 +180,7 @@ export function createStreamPool(circuits: Mutex<Pool<Disposer<Circuit>, Error>>
 
         clearTimeout(timeout)
 
-        console.error("Stream closed", reason)
+        console.error("Stream closed", index, reason)
         await pool.restart(index)
 
         return new None()
@@ -195,6 +198,8 @@ export function createStreamPool(circuits: Mutex<Pool<Disposer<Circuit>, Error>>
       } as const
 
       const mutex = new Mutex(outer)
+
+      console.log("Stream created", { index })
 
       return new Ok(new Disposer(mutex, () => controller.abort("Disposing")))
     })
