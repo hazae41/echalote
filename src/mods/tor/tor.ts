@@ -9,7 +9,7 @@ import { Mutex } from "@hazae41/mutex";
 import { None } from "@hazae41/option";
 import { Paimon } from "@hazae41/paimon";
 import { CloseEvents, ErrorEvents, Plume, SuperEventTarget } from "@hazae41/plume";
-import { Ok, Panic, Result } from "@hazae41/result";
+import { Panic, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X509 } from "@hazae41/x509";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
@@ -77,13 +77,16 @@ export class TorClientDuplex {
     return this.#secret.inner
   }
 
+  async waitOrThrow() {
+    return await this.#secret.waitOrThrow()
+  }
+
   async tryWait() {
-    if (this.#secret.state.type === "handshaked")
-      return Ok.void()
-    return await Plume.tryWaitOrCloseOrError(this.#secret.events, "handshaked", (future: Future<Ok<void>>) => {
-      future.resolve(Ok.void())
-      return new None()
-    })
+    return await this.#secret.tryWait()
+  }
+
+  async createOrThrow(signal?: AbortSignal) {
+    return await this.#secret.createOrThrow(signal)
   }
 
   async tryCreate(signal?: AbortSignal) {
@@ -543,6 +546,23 @@ export class SecretTorClientDuplex {
     Console.debug(cell2)
 
     cell2.stream.package += 50
+  }
+
+
+  async waitOrThrow() {
+    if (this.state.type === "handshaked")
+      return
+
+    await Plume.waitOrCloseOrError(this.events, "handshaked", (future: Future<void>) => {
+      future.resolve()
+      return new None()
+    })
+  }
+
+  async tryWait() {
+    return await Result.runAndWrap(async () => {
+      await this.waitOrThrow()
+    }).then(r => r.mapErrSync(cause => new Error(`Could not wait`, { cause })))
   }
 
   async #createCircuitOrThrow() {
