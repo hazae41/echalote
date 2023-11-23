@@ -138,8 +138,8 @@ export function createCircuitPool(tors: Mutex<Pool<Disposer<TorClientDuplex>, Er
           }
 
           return new Ok(circuit)
-        }).then(r => r.inspectErrSync(e => console.warn("Failed", e)))
-      }, { max: 9 }).then(r => r.inspectErrSync(e => console.warn("Giving up", e))).then(r => r.throw(t))
+        })
+      }, { max: 9 }).then(r => r.throw(t))
 
       return new Ok(createPooledCircuitDisposer(circuit, params))
     })
