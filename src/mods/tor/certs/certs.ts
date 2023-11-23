@@ -152,6 +152,10 @@ export namespace Certs {
     if (verified !== true)
       throw new InvalidSignatureError()
 
+    /**
+     * We don't verify the RSA identity on Snowflake / Meek
+     */
+
     return true
   }
 

@@ -1,12 +1,12 @@
 import { Opaque, Readable, Writable } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Bytes, Uint8Array } from "@hazae41/bytes";
-import { TlsClientDuplex } from "@hazae41/cadenas";
+import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
 import { SuperReadableStream, SuperWritableStream } from "@hazae41/cascade";
 import { Cursor } from "@hazae41/cursor";
 import { Future } from "@hazae41/future";
 import { Mutex } from "@hazae41/mutex";
-import { None, Some } from "@hazae41/option";
+import { None } from "@hazae41/option";
 import { Paimon } from "@hazae41/paimon";
 import { CloseEvents, ErrorEvents, Plume, SuperEventTarget } from "@hazae41/plume";
 import { Ok, Panic, Result } from "@hazae41/result";
@@ -41,7 +41,6 @@ import { ExpectedStreamError, InvalidCellError, InvalidRelayCellDigestError, Inv
 import { OldCell } from "./binary/cells/old.js";
 import { RelaySendmeCircuitCell, RelaySendmeDigest, RelaySendmeStreamCell } from "./binary/cells/relayed/relay_sendme/cell.js";
 import { Certs } from "./certs/certs.js";
-import { TorCiphers } from "./ciphers.js";
 import { InvalidTorStateError, InvalidTorVersionError } from "./errors.js";
 import { TorHandshakingState, TorNoneState, TorState, TorVersionedState } from "./state.js";
 
@@ -124,17 +123,15 @@ export class SecretTorClientDuplex {
   #tlsCerts?: X509.Certificate[]
 
   constructor() {
-    const ciphers = Object.values(TorCiphers)
-    // const ciphers = [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
-    const tls = new TlsClientDuplex({ ciphers })
+    const ciphers = [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
+    const tls = new TlsClientDuplex({ ciphers, authorized: true })
 
+    /**
+     * Grab TLS certificates
+     */
     tls.events.input.on("certificates", (certs) => {
       this.#tlsCerts = certs
-
-      /**
-       * Accept all certificates as valid
-       */
-      return new Some(undefined)
+      return new None()
     })
 
     this.inner = tls.inner
