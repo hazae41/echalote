@@ -1,4 +1,4 @@
-import { Cadenas, Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
+import { Cadenas } from "@hazae41/cadenas";
 import { Disposer } from "@hazae41/cleaner";
 import { Circuit, Consensus, Echalote, TorClientDuplex } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
@@ -7,7 +7,7 @@ import { Mutex } from "@hazae41/mutex";
 import { Pool } from "@hazae41/piscine";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
-import { tryCreateTor } from "libs/circuits/circuits";
+import { openAsOrThrow, tryCreateTor } from "libs/circuits/circuits";
 import { DependencyList, useCallback, useEffect, useState } from "react";
 
 function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
@@ -19,31 +19,6 @@ function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
   }, deps)
 
   return state
-}
-
-async function openAsOrThrow(circuit: Circuit, input: RequestInfo | URL) {
-  const req = new Request(input)
-  const url = new URL(req.url)
-
-  if (url.protocol === "http:") {
-    const tcp = await circuit.openOrThrow(url.hostname, Number(url.port) || 80)
-
-    return tcp.outer
-  }
-
-  if (url.protocol === "https:") {
-    const tcp = await circuit.openOrThrow(url.hostname, Number(url.port) || 443)
-
-    const ciphers = [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
-    const tls = new TlsClientDuplex({ host_name: url.hostname, ciphers })
-
-    tcp.outer.readable.pipeTo(tls.inner.writable).catch(() => { })
-    tls.inner.readable.pipeTo(tcp.outer.writable).catch(() => { })
-
-    return tls.outer
-  }
-
-  throw new Error(url.protocol)
 }
 
 export interface TorAndCircuits {
@@ -64,12 +39,10 @@ export default function Page() {
       Echalote.Console.debugging = true
       Cadenas.Console.debugging = true
 
-      const tor = await tryCreateTor({}).then(r => r.unwrap())
+      const tor = await tryCreateTor().then(r => r.unwrap())
       const circuit = await tor.tryCreate().then(r => r.unwrap())
 
       const consensus = await Consensus.fetchOrThrow(circuit)
-
-      console.log(consensus)
 
       const seconds = consensus.microdescs.filter(it => true
         && it.flags.includes("Fast")

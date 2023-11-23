@@ -1,17 +1,17 @@
 import { Opaque, Writable } from "@hazae41/binary";
 import { Cadenas } from "@hazae41/cadenas";
 import { Disposer } from "@hazae41/cleaner";
-import { Circuit, Echalote, TorClientDuplex } from "@hazae41/echalote";
+import { Circuit, Consensus, Echalote, TorClientDuplex } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
-import { tryFetch } from "@hazae41/fleche";
+import { fetch } from "@hazae41/fleche";
 import { Mutex } from "@hazae41/mutex";
 import { None } from "@hazae41/option";
 import { Pool } from "@hazae41/piscine";
+import { Ok, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
 import { createCircuitPool, createStreamPool, createTorPool, tryCreateTor } from "libs/circuits/circuits";
 import { DependencyList, useCallback, useEffect, useMemo, useState } from "react";
-import fallbacks from "../fallbacks.json";
 
 async function superfetch(stream: ReadableWritablePair<Opaque<Uint8Array>, Writable>) {
   const start = Date.now()
@@ -19,10 +19,9 @@ async function superfetch(stream: ReadableWritablePair<Opaque<Uint8Array>, Writa
   const body = JSON.stringify({ "jsonrpc": "2.0", "method": "eth_blockNumber", "params": [], "id": 67 })
   const headers = { "content-type": "application/json" }
 
-  const res = await tryFetch("https://eth.llamarpc.com", { method: "POST", headers, body, stream, preventClose: true, preventAbort: true, preventCancel: true }).then(r => r.unwrap())
+  const res = await fetch("https://eth.llamarpc.com", { method: "POST", headers, body, stream, preventClose: true, preventAbort: true, preventCancel: true })
 
-  console.log(res, Date.now() - start)
-  console.log(await res.text(), Date.now() - start)
+  console.log(await res.text(), `${Date.now() - start}ms`)
 }
 
 function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
@@ -43,7 +42,7 @@ export interface TorAndCircuits {
 
 export default function Page() {
 
-  const params = useAsyncMemo(async () => {
+  const tors = useAsyncMemo(async () => {
     // const ed25519 = Ed25519.fromNoble(noble_ed25519.ed25519)
     // const x25519 = X25519.fromNoble(noble_ed25519.x25519)
     // const sha1 = Sha1.fromNoble(noble_sha1.sha1)
@@ -55,31 +54,30 @@ export default function Page() {
     Echalote.Console.debugging = true
     Cadenas.Console.debugging = true
 
-    // const fallbacksUrl = "https://raw.githubusercontent.com/hazae41/echalote/master/tools/fallbacks/fallbacks.json"
-    // const fallbacksRes = await fetch(fallbacksUrl)
-
-    // if (!fallbacksRes.ok)
-    //   throw new Error(await fallbacksRes.text())
-
-    // const fallbacks = await fallbacksRes.json()
-
-    return { fallbacks }
+    return createTorPool(async () => {
+      return await tryCreateTor()
+    }, { capacity: 3 })
   }, [])
 
-  const tors = useAsyncMemo(async () => {
-    if (!params) return
 
-    return createTorPool(async () => {
-      return await tryCreateTor(params)
-    }, { capacity: 3 })
-  }, [params])
-
-
-  const circuits = useMemo(() => {
+  const consensus = useAsyncMemo(async () => {
     if (!tors) return
 
-    return createCircuitPool(tors, { capacity: 9 })
+    return await Result.unthrow<Result<Consensus, Error>>(async t => {
+      const tor = await tors.inner.tryGetCryptoRandom().then(r => r.throw(t).result.throw(t).inner)
+      using circuit = await tor.tryCreate(AbortSignal.timeout(5000)).then(r => r.throw(t))
+
+      const consensus = await Consensus.fetchOrThrow(circuit)
+
+      return new Ok(consensus)
+    }).then(r => r.unwrap())
   }, [tors])
+
+  const circuits = useMemo(() => {
+    if (!tors || !consensus) return
+
+    return createCircuitPool(tors, consensus, { capacity: 9 })
+  }, [tors, consensus])
 
   const streams = useMemo(() => {
     if (!circuits) return
@@ -97,7 +95,10 @@ export default function Page() {
 
       const stream = await streams.inner.tryGetRandom().then(r => r.unwrap().result.get().inner)
 
-      await superfetch(stream)
+      await stream.lock(async stream => {
+        await superfetch(stream)
+        // await new Promise(r => setTimeout(r, 100))
+      })
     } catch (e: unknown) {
       console.error("onClick", { e })
     }

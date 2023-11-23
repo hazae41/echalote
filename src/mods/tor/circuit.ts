@@ -143,6 +143,14 @@ export class Circuit {
     this.#secret.events.on("error", onError)
   }
 
+  [Symbol.dispose]() {
+    this.#secret[Symbol.dispose]()
+  }
+
+  async [Symbol.asyncDispose]() {
+    this.#secret[Symbol.asyncDispose]()
+  }
+
   get id() {
     return this.#secret.id
   }
@@ -265,6 +273,10 @@ export class SecretCircuit {
       this.#onClean = () => { }
     }
 
+  }
+
+  [Symbol.dispose]() {
+    this.close().catch(console.error)
   }
 
   async [Symbol.asyncDispose]() {
