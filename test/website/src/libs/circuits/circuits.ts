@@ -16,7 +16,7 @@ export async function openAsOrThrow(circuit: Circuit, input: RequestInfo | URL) 
   if (url.protocol === "http:" || url.protocol === "ws:") {
     const tcp = await circuit.openOrThrow(url.hostname, Number(url.port) || 80)
 
-    return tcp.outer
+    return new Disposer(tcp.outer, () => tcp)
   }
 
   if (url.protocol === "https:" || url.protocol === "wss:") {
