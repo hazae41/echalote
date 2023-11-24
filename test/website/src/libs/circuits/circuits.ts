@@ -155,6 +155,8 @@ export function createStreamPool(url: URL, circuits: Mutex<Pool<Circuit>>, param
 
       using stream = new Box(await tryOpenAs(circuit, url.origin).then(r => r.throw(t)))
 
+      console.log("stream opened...")
+
       const controller = new AbortController()
       const { signal } = controller
 
@@ -176,8 +178,8 @@ export function createStreamPool(url: URL, circuits: Mutex<Pool<Circuit>>, param
       const inputer = new TransformStream<Opaque, Opaque>({})
       const outputer = new TransformStream<Writable, Writable>({})
 
-      stream.inner.inner.readable.pipeTo(inputer.writable, { signal, preventCancel: true, preventAbort: true, preventClose: true }).then(onCloseOrError).catch(onCloseOrError)
-      outputer.readable.pipeTo(stream.inner.inner.writable, { signal, preventCancel: true, preventAbort: true, preventClose: true }).then(onCloseOrError).catch(onCloseOrError)
+      stream.inner.inner.readable.pipeTo(inputer.writable, { signal, preventCancel: true }).then(onCloseOrError).catch(onCloseOrError)
+      outputer.readable.pipeTo(stream.inner.inner.writable, { signal, preventAbort: true, preventClose: true }).then(onCloseOrError).catch(onCloseOrError)
 
       const outer = {
         readable: inputer.readable,
