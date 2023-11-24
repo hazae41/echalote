@@ -64,7 +64,7 @@ export default function Page() {
     if (!tors) return
 
     return await Result.unthrow<Result<Consensus, Error>>(async t => {
-      const tor = await tors.inner.tryGetCryptoRandom().then(r => r.throw(t).result.throw(t).inner)
+      const tor = await tors.inner.tryGetCryptoRandom().then(r => r.throw(t).value.inner)
       using circuit = await tor.tryCreate(AbortSignal.timeout(5000)).then(r => r.throw(t))
 
       const consensus = await Consensus.tryFetch(circuit).then(r => r.throw(t))
@@ -90,16 +90,17 @@ export default function Page() {
     if (!streams) return
 
     const url = new URL("wss://ethereum.publicnode.com")
-    return createSocketPool(url, streams, { capacity: 1 })
+    return createSocketPool(url, streams.inner, { capacity: 1 })
   }, [streams])
 
   const onClick = useCallback(async () => {
     try {
       if (!sockets || sockets.locked) return
 
-      const socket = await Pool.takeCryptoRandom(sockets).then(r => r.unwrap().result.get().inner)
+      using socket = await Pool.tryTakeCryptoRandom(sockets).then(r => r.unwrap().value)
+      // const socket = await sockets.inner.tryGetCryptoRandom().then(r => r.unwrap().value)
 
-      await superfetch(socket)
+      await superfetch(socket.inner)
     } catch (e: unknown) {
       console.error("onClick", { e })
     }

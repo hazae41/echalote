@@ -20,6 +20,10 @@ export class TorStreamDuplex {
     this.#secret = secret
   }
 
+  [Symbol.dispose]() {
+    this.close()
+  }
+
   get id() {
     return this.#secret.id
   }

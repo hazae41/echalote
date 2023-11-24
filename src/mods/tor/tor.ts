@@ -57,6 +57,10 @@ export class TorClientDuplex {
     this.#secret = new SecretTorClientDuplex()
   }
 
+  [Symbol.dispose]() {
+    this.close()
+  }
+
   get events() {
     return this.#secret.events
   }
@@ -182,6 +186,7 @@ export class SecretTorClientDuplex {
 
   close() {
     this.output.close()
+    this.input.error()
   }
 
   error(reason?: unknown) {

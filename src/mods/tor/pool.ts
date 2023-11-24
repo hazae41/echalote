@@ -1,10 +1,11 @@
+import { Box } from "@hazae41/box";
 import { Disposer } from "@hazae41/cleaner";
 import { None } from "@hazae41/option";
 import { PoolCreatorParams } from "@hazae41/piscine";
 import { Circuit } from "mods/tor/circuit.js";
 import { TorClientDuplex } from "mods/tor/tor.js";
 
-export function createPooledCircuitDisposer(circuit: Circuit, params: PoolCreatorParams<any, any>) {
+export function createPooledCircuitDisposer(circuit: Box<Circuit>, params: PoolCreatorParams<Circuit>) {
   const { pool, index } = params
 
   const onCloseOrError = async (reason?: unknown) => {
@@ -12,18 +13,18 @@ export function createPooledCircuitDisposer(circuit: Circuit, params: PoolCreato
     return new None()
   }
 
-  circuit.events.on("close", onCloseOrError, { passive: true })
-  circuit.events.on("error", onCloseOrError, { passive: true })
+  circuit.inner.events.on("close", onCloseOrError, { passive: true })
+  circuit.inner.events.on("error", onCloseOrError, { passive: true })
 
   const onClean = () => {
-    circuit.events.off("close", onCloseOrError)
-    circuit.events.off("error", onCloseOrError)
+    circuit.inner.events.off("close", onCloseOrError)
+    circuit.inner.events.off("error", onCloseOrError)
   }
 
   return new Disposer(circuit, onClean)
 }
 
-export function createPooledTorDisposer(tor: TorClientDuplex, params: PoolCreatorParams<any, any>) {
+export function createPooledTorDisposer(tor: Box<TorClientDuplex>, params: PoolCreatorParams<TorClientDuplex>) {
   const { pool, index } = params
 
   const onCloseOrError = async (reason?: unknown) => {
@@ -31,12 +32,12 @@ export function createPooledTorDisposer(tor: TorClientDuplex, params: PoolCreato
     return new None()
   }
 
-  tor.events.on("close", onCloseOrError, { passive: true })
-  tor.events.on("error", onCloseOrError, { passive: true })
+  tor.inner.events.on("close", onCloseOrError, { passive: true })
+  tor.inner.events.on("error", onCloseOrError, { passive: true })
 
   const onClean = () => {
-    tor.events.off("close", onCloseOrError)
-    tor.events.off("error", onCloseOrError)
+    tor.inner.events.off("close", onCloseOrError)
+    tor.inner.events.off("error", onCloseOrError)
   }
 
   return new Disposer(tor, onClean)

@@ -63,7 +63,7 @@ export default function Page() {
 
       const stream = await openAsOrThrow(circuit, `https://eth.llamarpc.com`)
 
-      setStream(stream)
+      setStream(stream.inner)
     })().catch(e => console.error({ e }))
   }, [])
 

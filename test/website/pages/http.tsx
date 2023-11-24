@@ -63,7 +63,7 @@ export default function Page() {
     if (!tors) return
 
     return await Result.unthrow<Result<Consensus, Error>>(async t => {
-      const tor = await tors.inner.tryGetCryptoRandom().then(r => r.throw(t).result.throw(t).inner)
+      const tor = await tors.inner.tryGetCryptoRandom().then(r => r.throw(t).value.inner)
       using circuit = await tor.tryCreate(AbortSignal.timeout(5000)).then(r => r.throw(t))
 
       const consensus = await Consensus.tryFetch(circuit).then(r => r.throw(t))
@@ -93,7 +93,7 @@ export default function Page() {
       // const circuit = await circuits.inner.tryGetRandom().then(r => r.unwrap().result.get().inner)
       // const stream = await circuit.openAsOrThrow("https://eth.llamarpc.com")
 
-      const stream = await streams.inner.tryGetRandom().then(r => r.unwrap().result.get().inner)
+      const stream = await streams.inner.tryGetRandom().then(r => r.unwrap().value.inner.inner)
 
       await stream.lock(async stream => {
         await superfetch(stream)
