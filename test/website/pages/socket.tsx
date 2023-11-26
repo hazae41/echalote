@@ -64,7 +64,7 @@ export default function Page() {
     if (!tors) return
 
     return await Result.unthrow<Result<Consensus, Error>>(async t => {
-      const tor = await tors.inner.tryGetCryptoRandom().then(r => r.throw(t).value.inner)
+      const tor = await tors.inner.tryGetCryptoRandom().then(r => r.throw(t).throw(t).inner.inner)
       using circuit = await tor.tryCreate(AbortSignal.timeout(5000)).then(r => r.throw(t))
 
       const consensus = await Consensus.tryFetch(circuit).then(r => r.throw(t))
@@ -97,7 +97,7 @@ export default function Page() {
     try {
       if (!sockets || sockets.locked) return
 
-      using socket = await Pool.tryTakeCryptoRandom(sockets).then(r => r.unwrap().value)
+      using socket = await Pool.tryTakeCryptoRandom(sockets).then(r => r.unwrap().unwrap().inner.inner)
       // const socket = await sockets.inner.tryGetCryptoRandom().then(r => r.unwrap().value)
 
       await superfetch(socket.inner)

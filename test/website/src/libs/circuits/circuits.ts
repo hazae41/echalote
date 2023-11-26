@@ -84,9 +84,7 @@ export function createCircuitPool(tors: Mutex<Pool<TorClientDuplex>>, consensus:
 
   return new Mutex(new Pool<Circuit>(async (params) => {
     return await Result.unthrow<Result<Disposer<Box<Circuit>>, Error>>(async t => {
-      const { index } = params
-
-      const tor = await tors.inner.tryGet(index % tors.inner.capacity).then(r => r.throw(t).throw(t).inner)
+      const tor = await tors.inner.trySync(params).then(r => r.throw(t).throw(t).inner.inner)
 
       using circuit = await tryLoop<Box<Circuit>, Looped<Error>>(async () => {
         return await Result.unthrow(async t => {
@@ -151,7 +149,7 @@ export function createStreamPool(url: URL, circuits: Mutex<Pool<Circuit>>, param
     return await Result.unthrow(async t => {
       const { pool, index } = params
 
-      const circuit = await circuits.inner.tryGet(index % circuits.inner.capacity).then(r => r.throw(t).throw(t).inner)
+      const circuit = await circuits.inner.trySync(params).then(r => r.throw(t).throw(t).inner.inner)
 
       using stream = new Box(await tryOpenAs(circuit, url.origin).then(r => r.throw(t)))
 
@@ -170,7 +168,7 @@ export function createStreamPool(url: URL, circuits: Mutex<Pool<Circuit>>, param
         console.error("stream closed", { reason })
         controller.abort(reason)
 
-        await pool.restart(index)
+        pool.restart(index)
 
         return new None()
       }
