@@ -54,25 +54,27 @@ export function createSocketPool(url: URL, streams: Pool<Disposer<Mutex<Readable
       const { pool, index, signal } = params
       const uuid = crypto.randomUUID()
 
-      console.log("waiting for stream...", uuid)
+      console.debug("waiting for stream...", uuid)
 
       using lock = new Box(await streams.trySync(params).then(r => r.throw(t).throw(t).inner.inner.inner.acquire()))
+
+      console.debug("creating websocket...", uuid)
 
       const socket = await tryCreateWebSocket(url, lock.getOrThrow().inner, signal).then(r => r.throw(t))
 
       const lock2 = lock.moveOrThrow()
 
-      console.log("websocket created...", uuid)
+      console.debug("websocket created...", uuid)
 
       const onSocketClean = () => {
-        console.log("closing websocket...", uuid)
+        console.debug("closing websocket...", uuid)
         if (socket.readyState <= socket.OPEN)
           socket.close()
         lock2.unwrapOrThrow().release()
       }
 
       const onCloseOrError = async (reason?: unknown) => {
-        console.error("websocket closed...", uuid, reason)
+        console.debug("websocket closed...", uuid, reason)
         pool.restart(index)
       }
 
@@ -80,7 +82,7 @@ export function createSocketPool(url: URL, streams: Pool<Disposer<Mutex<Readable
       socket.addEventListener("error", onCloseOrError, { passive: true })
 
       const onEntryClean = () => {
-        console.log("websocket entry closed...", uuid)
+        console.debug("websocket entry closed...", uuid)
         socket.removeEventListener("close", onCloseOrError)
         socket.removeEventListener("error", onCloseOrError)
       }

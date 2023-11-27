@@ -255,6 +255,9 @@ export class SecretCircuit {
     this.tor.events.on("RELAY_END", onRelayEndCell, { passive: true })
 
     this.#onClean = () => {
+      for (const stream of this.streams.values())
+        stream[Symbol.dispose]()
+
       for (const target of this.targets)
         target[Symbol.dispose]()
 
@@ -299,20 +302,20 @@ export class SecretCircuit {
 
     // TODO: send destroy cell
 
-    this.#onCloseOrError(error)
-
     if (reason === DestroyCell.reasons.NONE)
       await this.events.emit("close", [error])
     else
       await this.events.emit("error", [error])
+
+    this.#onCloseOrError(error)
   }
 
   async #onTorClose() {
     Console.debug(`${this.#class.name}.onTorClose`)
 
-    this.#onCloseOrError()
-
     await this.events.emit("close", [undefined])
+
+    this.#onCloseOrError()
 
     return new None()
   }
@@ -320,9 +323,9 @@ export class SecretCircuit {
   async #onTorError(reason?: unknown) {
     Console.debug(`${this.#class.name}.onReadError`, { reason })
 
-    this.#onCloseOrError(reason)
-
     await this.events.emit("error", [reason])
+
+    this.#onCloseOrError(reason)
 
     return new None()
   }
@@ -335,12 +338,12 @@ export class SecretCircuit {
 
     const error = new DestroyedError(cell.fragment.reason)
 
-    this.#onCloseOrError(error)
-
     if (cell.fragment.reason === DestroyCell.reasons.NONE)
       await this.events.emit("close", [error])
     else
       await this.events.emit("error", [error])
+
+    this.#onCloseOrError(error)
 
     return new None()
   }
@@ -364,14 +367,14 @@ export class SecretCircuit {
 
     const error = new DestroyedError(cell.fragment.reason)
 
-    this.#onCloseOrError(error)
-
     if (cell.fragment.reason === RelayTruncateCell.reasons.NONE)
       await this.events.emit("close", [error])
     else
       await this.events.emit("error", [error])
 
     await this.events.emit("RELAY_TRUNCATED", [cell])
+
+    this.#onCloseOrError(error)
 
     return new None()
   }

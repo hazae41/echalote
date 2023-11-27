@@ -153,7 +153,7 @@ export function createStreamPool(url: URL, circuits: Mutex<Pool<Circuit>>, param
 
       using stream = new Box(await tryOpenAs(circuit, url.origin).then(r => r.throw(t)))
 
-      console.log("stream opened...")
+      console.debug("stream opened...")
 
       const controller = new AbortController()
       const { signal } = controller
@@ -165,7 +165,7 @@ export function createStreamPool(url: URL, circuits: Mutex<Pool<Circuit>>, param
 
         closed = true
 
-        console.error("stream closed", { reason })
+        console.debug("stream closed", { reason })
         controller.abort(reason)
 
         pool.restart(index)
@@ -186,7 +186,7 @@ export function createStreamPool(url: URL, circuits: Mutex<Pool<Circuit>>, param
 
       const mutex = new Box(new Disposer(new Mutex(outer), stream.unwrapOrThrow().dispose))
 
-      return new Ok(new Disposer(mutex, () => console.log("closing stream entry...")))
+      return new Ok(new Disposer(mutex, () => controller.abort()))
     })
   }, params))
 }
