@@ -17,7 +17,7 @@
     "@hazae41/morax": "^1.1.5",
     "@hazae41/mutex": "^1.2.12",
     "@hazae41/option": "^1.0.27",
-    "@hazae41/piscine": "^1.1.23",
+    "@hazae41/piscine": "^1.1.25",
     "@hazae41/result": "^1.1.12",
     "@hazae41/symbol-dispose-polyfill": "^1.0.2",
     "@noble/curves": "^1.2.0",

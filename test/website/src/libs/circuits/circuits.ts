@@ -88,6 +88,15 @@ export function createCircuitPool(tors: Mutex<Pool<TorClientDuplex>>, consensus:
     const { index, pool, signal } = params
     const uuid = crypto.randomUUID()
 
+    const off = tors.inner.events.on("created", async e => {
+      if (e.index !== (index % tors.inner.capacity))
+        return new None()
+      if (e.isErr())
+        return new None()
+      pool.restart(index)
+      return new None()
+    }, { signal, passive: true, once: true })
+
     return await Result.unthrow<Result<Disposer<Box<Circuit>>, Error>>(async t => {
       console.log("waiting for tor...", uuid)
 
@@ -151,17 +160,7 @@ export function createCircuitPool(tors: Mutex<Pool<TorClientDuplex>>, consensus:
       console.log("circuit opened...", uuid)
 
       return new Ok(createPooledCircuitDisposer(circuit.moveOrThrow(), params))
-    }).then(r => r.inspectErrSync(() => {
-      tors.inner.events.on("created", async e => {
-        if (e.index !== (index % tors.inner.capacity))
-          return new None()
-        if (e.isErr())
-          return new None()
-        pool.restart(index)
-        return new None()
-      }, { signal, passive: true, once: true })
-    }))
-      .then(r => r.inspectErrSync(e => console.warn("circuit errored", uuid, { e })))
+    }).then(r => r.inspectSync(off).inspectErrSync(e => console.warn("circuit errored", uuid, { e })))
   }, params))
 }
 
@@ -170,60 +169,91 @@ export function createStreamPool(url: URL, circuits: Mutex<Pool<Circuit>>, param
     const { pool, index, signal } = params
     const uuid = crypto.randomUUID()
 
-    return await Result.unthrow<Result<Disposer<Box<Disposer<Mutex<ReadableWritablePair<Opaque, Writable>>>>>, Error>>(async t => {
-      console.log("waiting for circuit...", uuid)
+    let retry = false
+    let pooled = false
 
-      // const circuit = await circuits.inner.trySync(params).then(r => r.throw(t).throw(t).inner.inner)
+    const off = circuits.inner.events.on("created", async parent => {
+      if (parent.isErr())
+        return new None()
 
-      using circuit = await Pool.tryTakeCryptoRandom(circuits).then(r => r.throw(t).throw(t).inner)
-
-      console.log("creating stream...", uuid)
-      using stream = new Box(await tryOpenAs(circuit.inner, url.origin).then(r => r.throw(t)))
-
-      const circuit2 = circuit.moveOrThrow()
-      const stream2 = stream.moveOrThrow()
-
-      console.log("stream opened...", uuid)
-
-      const onStreamClean = () => {
-        stream2[Symbol.dispose]()
-        circuit2[Symbol.dispose]()
-        console.log("stream disposed", uuid)
-      }
-
-      let closed = false
-
-      const onCloseOrError = async (reason?: unknown) => {
-        if (closed) return
-        closed = true
-
-        console.log("stream closed", uuid, { reason })
-        pool.restart(index)
-
+      if (!pooled) {
+        retry = true
         return new None()
       }
 
-      const inputer = new TransformStream<Opaque, Opaque>({})
-      const outputer = new TransformStream<Writable, Writable>({})
+      const child = pool.tryGetSync(index)
 
-      stream.inner.inner.readable.pipeTo(inputer.writable, { signal, preventCancel: true }).then(onCloseOrError).catch(onCloseOrError)
-      outputer.readable.pipeTo(stream.inner.inner.writable, { signal, preventAbort: true, preventClose: true }).then(onCloseOrError).catch(onCloseOrError)
+      if (child.isErr())
+        return new None()
+      if (child.inner.isOk())
+        return new None()
+      pool.restart(index)
+      return new None()
+    }, { signal, passive: true, once: true })
 
-      const outer = {
-        readable: inputer.readable,
-        writable: outputer.writable
-      } as const
+    while (true) {
+      console.log("retrying...", uuid)
+      retry = false
 
-      const mutex = new Box(new Disposer(new Mutex(outer), onStreamClean))
+      const result = await Result.unthrow<Result<Disposer<Box<Disposer<Mutex<ReadableWritablePair<Opaque, Writable>>>>>, Error>>(async t => {
+        console.log("waiting for circuit...", uuid)
 
-      return new Ok(new Disposer(mutex, onCloseOrError))
-    }).then(r => r.inspectErrSync(() => {
-      circuits.inner.events.on("created", async e => {
-        if (e.isErr())
+        // const circuit = await circuits.inner.trySync(params).then(r => r.throw(t).throw(t).inner.inner)
+
+        using circuit = await Pool.tryTakeCryptoRandom(circuits).then(r => r.throw(t).throw(t).inner)
+
+        console.log("creating stream...", uuid)
+
+        using stream = new Box(await tryOpenAs(circuit.inner, url.origin).then(r => r.throw(t)))
+
+        const circuit2 = circuit.moveOrThrow()
+        const stream2 = stream.moveOrThrow()
+
+        console.log("stream opened...", uuid)
+
+        const onStreamClean = () => {
+          stream2[Symbol.dispose]()
+          circuit2[Symbol.dispose]()
+          console.log("stream disposed", uuid)
+        }
+
+        let closed = false
+
+        const onCloseOrError = async (reason?: unknown) => {
+          if (closed) return
+          closed = true
+
+          console.log("stream closed", uuid, { reason })
+          pool.restart(index)
+
           return new None()
-        pool.restart(index)
-        return new None()
-      }, { signal, passive: true, once: true })
-    })).then(r => r.inspectErrSync(e => console.warn("stream errored", uuid, { e })))
+        }
+
+        const inputer = new TransformStream<Opaque, Opaque>({})
+        const outputer = new TransformStream<Writable, Writable>({})
+
+        stream.inner.inner.readable.pipeTo(inputer.writable, { signal, preventCancel: true }).then(onCloseOrError).catch(onCloseOrError)
+        outputer.readable.pipeTo(stream.inner.inner.writable, { signal, preventAbort: true, preventClose: true }).then(onCloseOrError).catch(onCloseOrError)
+
+        const outer = {
+          readable: inputer.readable,
+          writable: outputer.writable
+        } as const
+
+        const mutex = new Box(new Disposer(new Mutex(outer), onStreamClean))
+        return new Ok(new Disposer(mutex, () => { }))
+      }).then(r => r.inspectSync(off).inspectErrSync(e => console.warn("stream errored", uuid, { e })))
+
+      if (result.isOk()) {
+        pooled = true
+        return result
+      }
+
+      if (retry)
+        continue
+
+      pooled = true
+      return result
+    }
   }, params))
 }

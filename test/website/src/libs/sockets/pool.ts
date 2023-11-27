@@ -54,6 +54,16 @@ export function createSocketPool(url: URL, streams: Pool<Disposer<Mutex<Readable
     const { pool, index, signal } = params
     const uuid = crypto.randomUUID()
 
+    const off = streams.events.on("created", async e => {
+      if (e.index !== (index % streams.capacity))
+        return new None()
+      if (e.isErr())
+        return new None()
+      console.warn("socket!!!", "restarting...", uuid)
+      pool.restart(index)
+      return new None()
+    }, { passive: true })
+
     return await Result.unthrow<Result<Disposer<Box<Disposer<WebSocket>>>, Error>>(async t => {
       console.log("socket!!!", "waiting for stream...", uuid)
 
@@ -92,17 +102,7 @@ export function createSocketPool(url: URL, streams: Pool<Disposer<Mutex<Readable
 
       using disposable = new Box(new Disposer(socket, onSocketClean))
       return new Ok(new Disposer(disposable.moveOrThrow(), onEntryClean))
-    }).then(r => r.inspectErrSync(e => {
-      streams.events.on("created", async e => {
-        if (e.index !== (index % streams.capacity))
-          return new None()
-        if (e.isErr())
-          return new None()
-        console.warn("socket!!!", "restarting...", uuid)
-        pool.restart(index)
-        return new None()
-      }, { signal, passive: true, once: true })
-    })).then(r => r.inspectErrSync(e => console.warn("socket!!!", "errored", uuid, { e })))
+    }).then(r => r.inspectSync(off).inspectErrSync(e => console.warn("socket!!!", "errored", uuid, { e })))
   }, params)
 
   return new Mutex(pool)
