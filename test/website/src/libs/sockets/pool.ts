@@ -4,6 +4,7 @@ import { Disposer } from "@hazae41/cleaner"
 import { WebSocket } from "@hazae41/fleche"
 import { Future } from "@hazae41/future"
 import { Mutex } from "@hazae41/mutex"
+import { None } from "@hazae41/option"
 import { Pool, PoolParams } from "@hazae41/piscine"
 import { AbortedError, ErroredError } from "@hazae41/plume"
 import { Err, Ok, Result } from "@hazae41/result"
@@ -56,7 +57,14 @@ export function createSocketPool(url: URL, streams: Pool<Disposer<Mutex<Readable
 
       console.debug("waiting for stream...", uuid)
 
-      using lock = new Box(await streams.trySync(params).then(r => r.throw(t).throw(t).inner.inner.inner.acquire()))
+      using lock = new Box(await streams.tryGetOrWait(index % streams.capacity, signal).then(r => r.throw(t).inspectErrSync(() => {
+        streams.events.on("started", async i => {
+          if (i !== (index % streams.capacity))
+            return new None()
+          pool.restart(index)
+          return new None()
+        }, { signal, passive: true, once: true })
+      }).throw(t).inner.inner.inner.acquire()))
       const socket = await tryCreateWebSocket(url, lock.getOrThrow().inner, signal).then(r => r.throw(t))
 
       const lock2 = lock.moveOrThrow()

@@ -83,8 +83,23 @@ export function createCircuitPool(tors: Mutex<Pool<TorClientDuplex>>, consensus:
     && !it.flags.includes("BadExit"))
 
   return new Mutex(new Pool<Circuit>(async (params) => {
+    const uuid = crypto.randomUUID()
+
     return await Result.unthrow<Result<Disposer<Box<Circuit>>, Error>>(async t => {
-      const tor = await tors.inner.trySync(params).then(r => r.throw(t).throw(t).inner.inner)
+      const { index, pool, signal } = params
+
+      console.log("waiting for tor...", uuid)
+
+      const tor = await tors.inner.tryGetOrWait(index % tors.inner.capacity, signal).then(r => r.throw(t).inspectErrSync(() => {
+        tors.inner.events.on("started", async i => {
+          if (i !== (index % tors.inner.capacity))
+            return new None()
+          pool.restart(index)
+          return new None()
+        }, { signal, passive: true, once: true })
+      }).throw(t).inner.inner)
+
+      console.log("creating circuit...", uuid)
 
       using circuit = await tryLoop<Box<Circuit>, Looped<Error>>(async () => {
         return await Result.unthrow(async t => {
@@ -139,6 +154,8 @@ export function createCircuitPool(tors: Mutex<Pool<TorClientDuplex>>, consensus:
         })
       }, { max: 9 }).then(r => r.throw(t))
 
+      console.log("circuit opened...", uuid)
+
       return new Ok(createPooledCircuitDisposer(circuit.moveOrThrow(), params))
     })
   }, params))
@@ -146,36 +163,43 @@ export function createCircuitPool(tors: Mutex<Pool<TorClientDuplex>>, consensus:
 
 export function createStreamPool(url: URL, circuits: Mutex<Pool<Circuit>>, params: PoolParams) {
   return new Mutex(new Pool<Disposer<Mutex<ReadableWritablePair<Opaque, Writable>>>>(async (params) => {
-    return await Result.unthrow(async t => {
-      const { pool, index } = params
+    const uuid = crypto.randomUUID()
+
+    return await Result.unthrow<Result<Disposer<Box<Disposer<Mutex<ReadableWritablePair<Opaque, Writable>>>>>, Error>>(async t => {
+      const { pool, index, signal } = params
+
+      console.log("waiting for circuit...", uuid)
 
       // const circuit = await circuits.inner.trySync(params).then(r => r.throw(t).throw(t).inner.inner)
-      using circuit = await Pool.tryTakeCryptoRandom(circuits).then(r => r.throw(t).throw(t).inner)
+
+      using circuit = await Pool.tryTakeCryptoRandom(circuits).then(r => r.throw(t).inspectErrSync(() => {
+        circuits.inner.events.on("started", async () => {
+          pool.restart(index)
+          return new None()
+        }, { signal, passive: true, once: true })
+      }).throw(t).inner)
+
+      console.log("creating stream...", uuid)
       using stream = new Box(await tryOpenAs(circuit.inner, url.origin).then(r => r.throw(t)))
 
       const circuit2 = circuit.moveOrThrow()
       const stream2 = stream.moveOrThrow()
 
-      console.debug("stream opened...")
-
-      const controller = new AbortController()
-      const { signal } = controller
-
-      let closed = false
+      console.debug("stream opened...", uuid)
 
       const onStreamClean = () => {
         stream2[Symbol.dispose]()
         circuit2[Symbol.dispose]()
+        console.log("stream disposed", uuid)
       }
+
+      let closed = false
 
       const onCloseOrError = async (reason?: unknown) => {
         if (closed) return
-
         closed = true
 
-        console.debug("stream closed", { reason })
-        controller.abort(reason)
-
+        console.debug("stream closed", uuid, { reason })
         pool.restart(index)
 
         return new None()
@@ -194,7 +218,7 @@ export function createStreamPool(url: URL, circuits: Mutex<Pool<Circuit>>, param
 
       const mutex = new Box(new Disposer(new Mutex(outer), onStreamClean))
 
-      return new Ok(new Disposer(mutex, () => controller.abort()))
-    })
+      return new Ok(new Disposer(mutex, onCloseOrError))
+    }).then(r => r.inspectErrSync(e => console.warn("stream errored", uuid, { e })))
   }, params))
 }

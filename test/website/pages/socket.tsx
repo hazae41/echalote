@@ -1,4 +1,4 @@
-import { Consensus } from "@hazae41/echalote";
+import { Consensus, Echalote } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
 import { None } from "@hazae41/option";
 import { Pool } from "@hazae41/piscine";
@@ -52,7 +52,7 @@ export default function Page() {
     X25519.set(await X25519.fromSafeOrBerith())
     Sha1.set(await Sha1.fromMorax())
 
-    // Echalote.Console.debugging = true
+    Echalote.Console.debugging = true
     // Cadenas.Console.debugging = true
 
     return createTorPool(async () => {

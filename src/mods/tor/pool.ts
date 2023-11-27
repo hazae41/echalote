@@ -9,7 +9,7 @@ export function createPooledCircuitDisposer(circuit: Box<Circuit>, params: PoolC
   const { pool, index } = params
 
   const onCloseOrError = async (reason?: unknown) => {
-    await pool.restart(index)
+    pool.restart(index)
     return new None()
   }
 
@@ -28,7 +28,7 @@ export function createPooledTorDisposer(tor: Box<TorClientDuplex>, params: PoolC
   const { pool, index } = params
 
   const onCloseOrError = async (reason?: unknown) => {
-    await pool.restart(index)
+    pool.restart(index)
     return new None()
   }
 

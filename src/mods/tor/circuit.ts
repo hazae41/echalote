@@ -302,20 +302,20 @@ export class SecretCircuit {
 
     // TODO: send destroy cell
 
+    this.#onCloseOrError(error)
+
     if (reason === DestroyCell.reasons.NONE)
       await this.events.emit("close", [error])
     else
       await this.events.emit("error", [error])
-
-    this.#onCloseOrError(error)
   }
 
   async #onTorClose() {
     Console.debug(`${this.#class.name}.onTorClose`)
 
-    await this.events.emit("close", [undefined])
-
     this.#onCloseOrError()
+
+    await this.events.emit("close", [undefined])
 
     return new None()
   }
@@ -338,12 +338,12 @@ export class SecretCircuit {
 
     const error = new DestroyedError(cell.fragment.reason)
 
+    this.#onCloseOrError(error)
+
     if (cell.fragment.reason === DestroyCell.reasons.NONE)
       await this.events.emit("close", [error])
     else
       await this.events.emit("error", [error])
-
-    this.#onCloseOrError(error)
 
     return new None()
   }
@@ -367,14 +367,14 @@ export class SecretCircuit {
 
     const error = new DestroyedError(cell.fragment.reason)
 
+    this.#onCloseOrError(error)
+
     if (cell.fragment.reason === RelayTruncateCell.reasons.NONE)
       await this.events.emit("close", [error])
     else
       await this.events.emit("error", [error])
 
     await this.events.emit("RELAY_TRUNCATED", [cell])
-
-    this.#onCloseOrError(error)
 
     return new None()
   }
