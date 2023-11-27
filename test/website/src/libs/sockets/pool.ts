@@ -51,35 +51,33 @@ export async function tryCreateWebSocket(url: URL, stream: ReadableWritablePair<
 
 export function createSocketPool(url: URL, streams: Pool<Disposer<Mutex<ReadableWritablePair<Opaque, Writable>>>>, params: PoolParams = {}) {
   const pool = new Pool<Disposer<WebSocket>>(async (params) => {
+    const { pool, index, signal } = params
+    const uuid = crypto.randomUUID()
+
     return await Result.unthrow<Result<Disposer<Box<Disposer<WebSocket>>>, Error>>(async t => {
-      const { pool, index, signal } = params
-      const uuid = crypto.randomUUID()
+      console.log("socket!!!", "waiting for stream...", uuid)
 
-      console.debug("waiting for stream...", uuid)
+      using lock = new Box(await streams.tryGetOrWait(index % streams.capacity, signal).then(r => r.throw(t).throw(t).inner.inner.inner.acquire()))
 
-      using lock = new Box(await streams.tryGetOrWait(index % streams.capacity, signal).then(r => r.throw(t).inspectErrSync(() => {
-        streams.events.on("started", async i => {
-          if (i !== (index % streams.capacity))
-            return new None()
-          pool.restart(index)
-          return new None()
-        }, { signal, passive: true, once: true })
-      }).throw(t).inner.inner.inner.acquire()))
+      console.log("socket!!!", "creating...", uuid)
+
       const socket = await tryCreateWebSocket(url, lock.getOrThrow().inner, signal).then(r => r.throw(t))
 
       const lock2 = lock.moveOrThrow()
 
-      console.debug("websocket created...", uuid)
+      console.log("socket!!!", "created...", uuid)
 
-      const onSocketClean = () => {
-        console.debug("closing websocket...", uuid)
+      const onSocketClean = async () => {
+        console.log("socket!!!", "closing...", uuid)
         if (socket.readyState <= socket.OPEN)
           socket.close()
+        await new Promise(ok => setTimeout(ok, 1000))
+        console.log("socket!!!", "unlokcing...", uuid)
         lock2.unwrapOrThrow().release()
       }
 
       const onCloseOrError = async (reason?: unknown) => {
-        console.debug("websocket closed...", uuid, reason)
+        console.log("socket!!!", "closed...", uuid, reason)
         pool.restart(index)
       }
 
@@ -87,14 +85,24 @@ export function createSocketPool(url: URL, streams: Pool<Disposer<Mutex<Readable
       socket.addEventListener("error", onCloseOrError, { passive: true })
 
       const onEntryClean = () => {
-        console.debug("websocket entry closed...", uuid)
+        console.log("socket!!!", "entry closed...", uuid)
         socket.removeEventListener("close", onCloseOrError)
         socket.removeEventListener("error", onCloseOrError)
       }
 
       using disposable = new Box(new Disposer(socket, onSocketClean))
       return new Ok(new Disposer(disposable.moveOrThrow(), onEntryClean))
-    })
+    }).then(r => r.inspectErrSync(e => {
+      streams.events.on("created", async e => {
+        if (e.index !== (index % streams.capacity))
+          return new None()
+        if (e.isErr())
+          return new None()
+        console.warn("socket!!!", "restarting...", uuid)
+        pool.restart(index)
+        return new None()
+      }, { signal, passive: true, once: true })
+    })).then(r => r.inspectErrSync(e => console.warn("socket!!!", "errored", uuid, { e })))
   }, params)
 
   return new Mutex(pool)

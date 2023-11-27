@@ -273,6 +273,8 @@ export class SecretCircuit {
       this.tor.events.off("RELAY_DATA", onRelayDataCell)
       this.tor.events.off("RELAY_END", onRelayEndCell)
 
+      this.tor.circuits.inner.delete(this.id)
+
       this.#onClean = () => { }
     }
 
