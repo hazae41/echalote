@@ -149,8 +149,12 @@ export class SecretTorStreamDuplex {
     this.close()
   }
 
+  get closed() {
+    return Boolean(this.#input.closed) && Boolean(this.#output.closed)
+  }
+
   close() {
-    if (!this.#input.closed || !this.#output.closed) {
+    if (!this.closed && !this.circuit.closed) {
       const relay_end_cell = new RelayEndCell(new RelayEndReasonOther(RelayEndCell.reasons.REASON_DONE))
       const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_end_cell)
       this.circuit.tor.output.enqueue(relay_cell.cellOrThrow())
@@ -162,7 +166,7 @@ export class SecretTorStreamDuplex {
   }
 
   error(reason?: unknown) {
-    if (!this.#input.closed || !this.#output.closed) {
+    if (!this.closed && !this.circuit.closed) {
       const relay_end_cell = new RelayEndCell(new RelayEndReasonOther(RelayEndCell.reasons.REASON_MISC))
       const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_end_cell)
       this.circuit.tor.output.enqueue(relay_cell.cellOrThrow())
@@ -190,7 +194,7 @@ export class SecretTorStreamDuplex {
   async #onInputClose() {
     Console.debug(`${this.#class.name}.onReadClose`)
 
-    if (this.#output.closed) {
+    if (this.#output.closed && !this.circuit.closed) {
       const relay_end_cell = new RelayEndCell(new RelayEndReasonOther(RelayEndCell.reasons.REASON_DONE))
       const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_end_cell)
       this.circuit.tor.output.enqueue(relay_cell.cellOrThrow())
@@ -208,7 +212,7 @@ export class SecretTorStreamDuplex {
   async #onOutputClose() {
     Console.debug(`${this.#class.name}.onWriteClose`)
 
-    if (this.#input.closed) {
+    if (this.#input.closed && !this.circuit.closed) {
       const relay_end_cell = new RelayEndCell(new RelayEndReasonOther(RelayEndCell.reasons.REASON_DONE))
       const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_end_cell)
       this.circuit.tor.output.enqueue(relay_cell.cellOrThrow())
@@ -226,7 +230,7 @@ export class SecretTorStreamDuplex {
   async #onInputError(reason?: unknown) {
     Console.debug(`${this.#class.name}.onReadError`, { reason })
 
-    if (this.#output.closed) {
+    if (this.#output.closed && !this.circuit.closed) {
       const relay_end_cell = new RelayEndCell(new RelayEndReasonOther(RelayEndCell.reasons.REASON_MISC))
       const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_end_cell)
       this.circuit.tor.output.enqueue(relay_cell.cellOrThrow())
@@ -245,7 +249,7 @@ export class SecretTorStreamDuplex {
   async #onOutputError(reason?: unknown) {
     Console.debug(`${this.#class.name}.onWriteError`, { reason })
 
-    if (this.#input.closed) {
+    if (this.#input.closed && !this.circuit.closed) {
       const relay_end_cell = new RelayEndCell(new RelayEndReasonOther(RelayEndCell.reasons.REASON_MISC))
       const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_end_cell)
       this.circuit.tor.output.enqueue(relay_cell.cellOrThrow())
