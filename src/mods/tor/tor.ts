@@ -185,12 +185,13 @@ export class SecretTorClientDuplex {
   }
 
   close() {
-    this.output.close()
-    this.input.error()
+    try { this.output.close() } catch { }
+    try { this.input.error() } catch { }
   }
 
   error(reason?: unknown) {
-    this.output.error(reason)
+    try { this.output.error(reason) } catch { }
+    try { this.input.error(reason) } catch { }
   }
 
   async #onInputClose() {

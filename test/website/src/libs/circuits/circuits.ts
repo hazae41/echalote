@@ -149,9 +149,12 @@ export function createStreamPool(url: URL, circuits: Mutex<Pool<Circuit>>, param
     return await Result.unthrow(async t => {
       const { pool, index } = params
 
-      const circuit = await circuits.inner.trySync(params).then(r => r.throw(t).throw(t).inner.inner)
+      // const circuit = await circuits.inner.trySync(params).then(r => r.throw(t).throw(t).inner.inner)
+      using circuit = await Pool.tryTakeCryptoRandom(circuits).then(r => r.throw(t).throw(t).inner)
+      using stream = new Box(await tryOpenAs(circuit.inner, url.origin).then(r => r.throw(t)))
 
-      using stream = new Box(await tryOpenAs(circuit, url.origin).then(r => r.throw(t)))
+      const circuit2 = circuit.moveOrThrow()
+      const stream2 = stream.moveOrThrow()
 
       console.debug("stream opened...")
 
@@ -159,6 +162,11 @@ export function createStreamPool(url: URL, circuits: Mutex<Pool<Circuit>>, param
       const { signal } = controller
 
       let closed = false
+
+      const onStreamClean = () => {
+        stream2[Symbol.dispose]()
+        circuit2[Symbol.dispose]()
+      }
 
       const onCloseOrError = async (reason?: unknown) => {
         if (closed) return
@@ -184,7 +192,7 @@ export function createStreamPool(url: URL, circuits: Mutex<Pool<Circuit>>, param
         writable: outputer.writable
       } as const
 
-      const mutex = new Box(new Disposer(new Mutex(outer), stream.unwrapOrThrow().dispose))
+      const mutex = new Box(new Disposer(new Mutex(outer), onStreamClean))
 
       return new Ok(new Disposer(mutex, () => controller.abort()))
     })

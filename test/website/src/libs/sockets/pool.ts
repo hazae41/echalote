@@ -57,9 +57,6 @@ export function createSocketPool(url: URL, streams: Pool<Disposer<Mutex<Readable
       console.debug("waiting for stream...", uuid)
 
       using lock = new Box(await streams.trySync(params).then(r => r.throw(t).throw(t).inner.inner.inner.acquire()))
-
-      console.debug("creating websocket...", uuid)
-
       const socket = await tryCreateWebSocket(url, lock.getOrThrow().inner, signal).then(r => r.throw(t))
 
       const lock2 = lock.moveOrThrow()

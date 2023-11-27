@@ -174,29 +174,15 @@ export class SecretTorStreamDuplex {
   }
 
   #onClose() {
-    if (!this.#input.closed) {
-      this.#input.close()
-      this.#input.closed = {}
-    }
-
-    if (!this.#output.closed) {
-      this.#output.error()
-      this.#output.closed = {}
-    }
+    try { this.#output.error() } catch { }
+    try { this.#input.close() } catch { }
 
     this.#onClean()
   }
 
   #onError(reason?: unknown) {
-    if (!this.#input.closed) {
-      this.#input.error(reason)
-      this.#input.closed = { reason }
-    }
-
-    if (!this.#output.closed) {
-      this.#output.error(reason)
-      this.#output.closed = { reason }
-    }
+    try { this.#output.error(reason) } catch { }
+    try { this.#input.error(reason) } catch { }
 
     this.#onClean()
   }
