@@ -75,7 +75,6 @@ export function createSocketPool(url: URL, streams: Pool<Disposer<Mutex<Readable
         const onSocketClean = async () => {
           console.log("socket!!!", "closing...", uuid)
           try { socket.close() } catch { }
-          await new Promise(ok => setTimeout(ok, 1000))
           console.log("socket!!!", "unlokcing...", uuid)
           lock2.unwrapOrThrow().release()
         }
