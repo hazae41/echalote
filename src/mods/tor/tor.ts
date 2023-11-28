@@ -285,7 +285,11 @@ export class SecretTorClientDuplex {
         break
       }
 
-      const cell = raw.unpackOrThrow(this)
+      const cell = raw.unpackOrNull(this)
+
+      if (cell == null)
+        continue
+
       await this.#onCell(cell, this.#state)
     }
   }

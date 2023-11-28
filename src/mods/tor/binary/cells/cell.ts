@@ -2,7 +2,7 @@ import { Opaque, Readable, Writable } from "@hazae41/binary";
 import { Cursor } from "@hazae41/cursor";
 import { SecretCircuit } from "mods/tor/circuit.js";
 import { SecretTorClientDuplex } from "mods/tor/tor.js";
-import { ExpectedCircuitError, InvalidCommandError, UnexpectedCircuitError, UnknownCircuitError } from "./errors.js";
+import { ExpectedCircuitError, InvalidCommandError, UnexpectedCircuitError } from "./errors.js";
 
 export interface Cellable {
   readonly old: false
@@ -43,14 +43,14 @@ export namespace Cell {
       readonly fragment: T
     ) { }
 
-    unpackOrThrow(tor: SecretTorClientDuplex) {
+    unpackOrNull(tor: SecretTorClientDuplex) {
       if (this.circuit === 0)
         return new Circuitless(undefined, this.command, this.fragment)
 
       const circuit = tor.circuits.inner.get(this.circuit)
 
       if (circuit == null)
-        throw new UnknownCircuitError()
+        return undefined
 
       return new Circuitful(circuit, this.command, this.fragment)
     }

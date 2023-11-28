@@ -83,7 +83,7 @@ export default function Page() {
     if (!circuits) return
 
     const url = new URL("wss://ethereum.publicnode.com")
-    return createStreamPool(url, circuits, { capacity: 1 })
+    return createStreamPool(url, circuits, { capacity: 3 })
   }, [circuits])
 
   const sockets = useMemo(() => {
