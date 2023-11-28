@@ -82,7 +82,7 @@ export default function Page() {
     if (!circuits) return
 
     const url = new URL("https://eth.llamarpc.com")
-    return createStreamPool(url, circuits, { capacity: 9 })
+    return createStreamPool(url, circuits, { capacity: 3 })
   }, [circuits])
 
   const onClick = useCallback(async () => {
@@ -92,6 +92,7 @@ export default function Page() {
 
       // const circuit = await circuits.inner.tryGetRandom().then(r => r.unwrap().result.get().inner)
       // const stream = await circuit.openAsOrThrow("https://eth.llamarpc.com")
+      const start = Date.now()
 
       const stream = await streams.inner.tryGetRandom().then(r => r.unwrap().unwrap().inner.inner.inner)
 
@@ -99,6 +100,8 @@ export default function Page() {
         await superfetch(stream)
         // await new Promise(r => setTimeout(r, 100))
       })
+
+      console.log(Date.now() - start)
     } catch (e: unknown) {
       console.error("onClick", { e })
     }

@@ -203,8 +203,6 @@ export function createStreamPool(url: URL, circuits: Mutex<Pool<Circuit>>, param
       const result = await Result.unthrow<Result<Disposer<Box<Disposer<Mutex<ReadableWritablePair<Opaque, Writable>>>>>, Error>>(async t => {
         console.log("waiting for circuit...", uuid)
 
-        // const circuit = await circuits.inner.trySync(params).then(r => r.throw(t).throw(t).inner.inner)
-
         using circuit = await Pool.tryTakeCryptoRandom(circuits).then(r => r.throw(t).throw(t).inner)
 
         console.log("creating stream...", uuid)

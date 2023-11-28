@@ -62,7 +62,7 @@ export function createSocketPool(url: URL, streams: Pool<Disposer<Mutex<Readable
       const result = await Result.unthrow<Result<Disposer<Box<Disposer<WebSocket>>>, Error>>(async t => {
         console.log("socket!!!", "waiting for stream...", uuid)
 
-        using lock = new Box(await streams.tryGetOrWait(index % streams.capacity, signal).then(r => r.throw(t).throw(t).inner.inner.inner.acquire()))
+        using lock = new Box(await streams.tryGetCryptoRandom().then(r => r.throw(t).throw(t).inner.inner.inner.acquire()))
 
         console.log("socket!!!", "creating...", uuid)
 

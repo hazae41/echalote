@@ -90,7 +90,7 @@ export default function Page() {
     if (!streams) return
 
     const url = new URL("wss://ethereum.publicnode.com")
-    return createSocketPool(url, streams.inner, { capacity: 1 })
+    return createSocketPool(url, streams.inner, { capacity: 3 })
   }, [streams])
 
   const onClick = useCallback(async () => {
