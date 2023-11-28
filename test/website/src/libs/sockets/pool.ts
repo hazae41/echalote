@@ -50,60 +50,79 @@ export async function tryCreateWebSocket(url: URL, stream: ReadableWritablePair<
 }
 
 export function createSocketPool(url: URL, streams: Pool<Disposer<Mutex<ReadableWritablePair<Opaque, Writable>>>>, params: PoolParams = {}) {
+  let updates = new Array(params.capacity).fill(new Date(0))
+
   const pool = new Pool<Disposer<WebSocket>>(async (params) => {
     const { pool, index, signal } = params
     const uuid = crypto.randomUUID()
 
-    const off = streams.events.on("created", async e => {
-      if (e.index !== (index % streams.capacity))
-        return new None()
-      if (e.isErr())
-        return new None()
-      console.warn("socket!!!", "restarting...", uuid)
-      pool.restart(index)
-      return new None()
-    }, { passive: true })
+    while (true) {
+      const start = Date.now()
 
-    return await Result.unthrow<Result<Disposer<Box<Disposer<WebSocket>>>, Error>>(async t => {
-      console.log("socket!!!", "waiting for stream...", uuid)
+      const result = await Result.unthrow<Result<Disposer<Box<Disposer<WebSocket>>>, Error>>(async t => {
+        console.log("socket!!!", "waiting for stream...", uuid)
 
-      using lock = new Box(await streams.tryGetOrWait(index % streams.capacity, signal).then(r => r.throw(t).throw(t).inner.inner.inner.acquire()))
+        using lock = new Box(await streams.tryGetOrWait(index % streams.capacity, signal).then(r => r.throw(t).throw(t).inner.inner.inner.acquire()))
 
-      console.log("socket!!!", "creating...", uuid)
+        console.log("socket!!!", "creating...", uuid)
 
-      const socket = await tryCreateWebSocket(url, lock.getOrThrow().inner, signal).then(r => r.throw(t))
+        const socket = await tryCreateWebSocket(url, lock.getOrThrow().inner, signal).then(r => r.throw(t))
 
-      const lock2 = lock.moveOrThrow()
+        const lock2 = lock.moveOrThrow()
 
-      console.log("socket!!!", "created...", uuid)
+        console.log("socket!!!", "created...", uuid)
 
-      const onSocketClean = async () => {
-        console.log("socket!!!", "closing...", uuid)
-        if (socket.readyState <= socket.OPEN)
-          socket.close()
-        await new Promise(ok => setTimeout(ok, 1000))
-        console.log("socket!!!", "unlokcing...", uuid)
-        lock2.unwrapOrThrow().release()
-      }
+        const onSocketClean = async () => {
+          console.log("socket!!!", "closing...", uuid)
+          try { socket.close() } catch { }
+          await new Promise(ok => setTimeout(ok, 1000))
+          console.log("socket!!!", "unlokcing...", uuid)
+          lock2.unwrapOrThrow().release()
+        }
 
-      const onCloseOrError = async (reason?: unknown) => {
-        console.log("socket!!!", "closed...", uuid, reason)
-        pool.restart(index)
-      }
+        const onCloseOrError = async (reason?: unknown) => {
+          console.log("socket!!!", "closed...", uuid, reason)
+          pool.restart(index)
+        }
 
-      socket.addEventListener("close", onCloseOrError, { passive: true })
-      socket.addEventListener("error", onCloseOrError, { passive: true })
+        socket.addEventListener("close", onCloseOrError, { passive: true })
+        socket.addEventListener("error", onCloseOrError, { passive: true })
 
-      const onEntryClean = () => {
-        console.log("socket!!!", "entry closed...", uuid)
-        socket.removeEventListener("close", onCloseOrError)
-        socket.removeEventListener("error", onCloseOrError)
-      }
+        const onEntryClean = () => {
+          console.log("socket!!!", "entry closed...", uuid)
+          socket.removeEventListener("close", onCloseOrError)
+          socket.removeEventListener("error", onCloseOrError)
+        }
 
-      using disposable = new Box(new Disposer(socket, onSocketClean))
-      return new Ok(new Disposer(disposable.moveOrThrow(), onEntryClean))
-    }).then(r => r.inspectSync(off).inspectErrSync(e => console.warn("socket!!!", "errored", uuid, { e })))
+        using disposable = new Box(new Disposer(socket, onSocketClean))
+        return new Ok(new Disposer(disposable.moveOrThrow(), onEntryClean))
+      }).then(r => r.inspectErrSync(e => console.warn("socket!!!", "errored", uuid, { e })))
+
+      if (result.isOk())
+        return result
+
+      if (start < updates[index])
+        continue
+
+      return result
+    }
   }, params)
+
+  streams.events.on("started", async i => {
+    const index = i % streams.capacity
+
+    updates[index] = Date.now()
+
+    const child = pool.tryGetSync(index)
+
+    if (child.isErr())
+      return new None()
+
+    if (child.inner.isErr())
+      pool.restart(i)
+
+    return new None()
+  }, { passive: true })
 
   return new Mutex(pool)
 }

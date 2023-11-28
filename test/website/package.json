@@ -11,7 +11,7 @@
   "dependencies": {
     "@hazae41/berith": "^1.2.6",
     "@hazae41/box": "^1.0.13",
-    "@hazae41/cadenas": "^0.3.7",
+    "@hazae41/cadenas": "^0.3.10",
     "@hazae41/cleaner": "^2.0.7",
     "@hazae41/fleche": "^1.2.8",
     "@hazae41/morax": "^1.1.5",
@@ -29,7 +29,7 @@
   "devDependencies": {
     "@babel/eslint-parser": "^7.23.3",
     "@types/node": "20.10.0",
-    "@types/react": "18.2.38",
+    "@types/react": "18.2.39",
     "@types/react-dom": "18.2.17",
     "autoprefixer": "^10.4.16",
     "eslint": "8.54.0",
