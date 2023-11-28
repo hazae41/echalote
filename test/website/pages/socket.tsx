@@ -1,11 +1,10 @@
 import { Consensus, Echalote } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
 import { None } from "@hazae41/option";
-import { Pool } from "@hazae41/piscine";
 import { Ok, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
-import { createCircuitPool, createStreamPool, createTorPool, tryCreateTor } from "libs/circuits/circuits";
+import { createCircuitPool, createTorPool, tryCreateTor } from "libs/circuits/circuits";
 import { createSocketPool } from "libs/sockets/pool";
 import { DependencyList, useCallback, useEffect, useMemo, useState } from "react";
 
@@ -79,28 +78,25 @@ export default function Page() {
     return createCircuitPool(tors, consensus, { capacity: 9 })
   }, [tors, consensus])
 
-  const streams = useMemo(() => {
+  const sockets = useMemo(() => {
     if (!circuits) return
 
     const url = new URL("wss://ethereum.publicnode.com")
-    return createStreamPool(url, circuits, { capacity: 3 })
+    return createSocketPool(url, circuits, { capacity: 3 })
   }, [circuits])
-
-  const sockets = useMemo(() => {
-    if (!streams) return
-
-    const url = new URL("wss://ethereum.publicnode.com")
-    return createSocketPool(url, streams.inner, { capacity: 3 })
-  }, [streams])
 
   const onClick = useCallback(async () => {
     try {
       if (!sockets || sockets.locked) return
 
-      using socket = await Pool.tryTakeCryptoRandom(sockets).then(r => r.unwrap().unwrap().inner.inner)
-      // const socket = await sockets.inner.tryGetCryptoRandom().then(r => r.unwrap().value)
+      const start = Date.now()
+
+      // using socket = await Pool.tryTakeCryptoRandom(sockets).then(r => r.unwrap().unwrap().inner.inner)
+      const socket = await sockets.inner.tryGetCryptoRandom().then(r => r.unwrap().unwrap().inner.inner)
 
       await superfetch(socket.inner)
+
+      console.log("superfetch", Date.now() - start)
     } catch (e: unknown) {
       console.error("onClick", { e })
     }
@@ -109,7 +105,7 @@ export default function Page() {
   const [_, setCounter] = useState(0)
 
   useEffect(() => {
-    if (!circuits || !sockets || !streams) return
+    if (!circuits || !sockets) return
 
     const onCreatedOrDeleted = () => {
       setCounter(c => c + 1)
@@ -122,18 +118,12 @@ export default function Page() {
     sockets.inner.events.on("created", onCreatedOrDeleted, { passive: true })
     sockets.inner.events.on("deleted", onCreatedOrDeleted, { passive: true })
 
-    streams.inner.events.on("created", onCreatedOrDeleted, { passive: true })
-    streams.inner.events.on("deleted", onCreatedOrDeleted, { passive: true })
-
     return () => {
       circuits.inner.events.off("created", onCreatedOrDeleted)
       circuits.inner.events.off("deleted", onCreatedOrDeleted)
 
       sockets.inner.events.off("created", onCreatedOrDeleted)
       sockets.inner.events.off("deleted", onCreatedOrDeleted)
-
-      streams.inner.events.off("created", onCreatedOrDeleted)
-      streams.inner.events.off("deleted", onCreatedOrDeleted)
 
     }
   }, [circuits, sockets])
@@ -145,13 +135,6 @@ export default function Page() {
     {circuits
       ? <div>
         Circuit pool size: {circuits.inner.size} / {circuits.inner.capacity}
-      </div>
-      : <div>
-        Loading...
-      </div>}
-    {streams
-      ? <div>
-        Streams pool size: {streams.inner.size} / {streams.inner.capacity}
       </div>
       : <div>
         Loading...

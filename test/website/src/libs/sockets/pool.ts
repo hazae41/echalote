@@ -1,6 +1,7 @@
 import { Opaque, Writable } from "@hazae41/binary"
 import { Box } from "@hazae41/box"
 import { Disposer } from "@hazae41/cleaner"
+import { Circuit } from "@hazae41/echalote"
 import { WebSocket } from "@hazae41/fleche"
 import { Future } from "@hazae41/future"
 import { Mutex } from "@hazae41/mutex"
@@ -8,6 +9,7 @@ import { None } from "@hazae41/option"
 import { Pool, PoolParams } from "@hazae41/piscine"
 import { AbortedError, ErroredError } from "@hazae41/plume"
 import { Err, Ok, Result } from "@hazae41/result"
+import { tryOpenAs } from "libs/circuits/circuits"
 import { AbortSignals } from "libs/signals/signals"
 
 export async function tryCreateWebSocket(url: URL, stream: ReadableWritablePair<Opaque, Writable>, signal?: AbortSignal): Promise<Result<WebSocket, Error>> {
@@ -49,7 +51,7 @@ export async function tryCreateWebSocket(url: URL, stream: ReadableWritablePair<
   }
 }
 
-export function createSocketPool(url: URL, streams: Pool<Disposer<Mutex<ReadableWritablePair<Opaque, Writable>>>>, params: PoolParams = {}) {
+export function createSocketPool(url: URL, circuits: Mutex<Pool<Circuit>>, params: PoolParams = {}) {
   let update = Date.now()
 
   const pool = new Pool<Disposer<WebSocket>>(async (params) => {
@@ -62,13 +64,18 @@ export function createSocketPool(url: URL, streams: Pool<Disposer<Mutex<Readable
       const result = await Result.unthrow<Result<Disposer<Box<Disposer<WebSocket>>>, Error>>(async t => {
         console.log("socket!!!", "waiting for stream...", uuid)
 
-        using lock = new Box(await streams.tryGetCryptoRandom().then(r => r.throw(t).throw(t).inner.inner.inner.acquire()))
+        using circuit = await Pool.tryTakeCryptoRandom(circuits).then(r => r.throw(t).throw(t).inner)
+
+        console.log("creating stream...", uuid)
+
+        using stream = new Box(await tryOpenAs(circuit.inner, url.origin).then(r => r.throw(t)))
 
         console.log("socket!!!", "creating...", uuid)
 
-        const socket = await tryCreateWebSocket(url, lock.getOrThrow().inner, signal).then(r => r.throw(t))
+        const socket = await tryCreateWebSocket(url, stream.getOrThrow().inner, signal).then(r => r.throw(t))
 
-        const lock2 = lock.moveOrThrow()
+        const circuit2 = circuit.moveOrThrow()
+        const stream2 = stream.moveOrThrow()
 
         console.log("socket!!!", "created...", uuid)
 
@@ -76,7 +83,8 @@ export function createSocketPool(url: URL, streams: Pool<Disposer<Mutex<Readable
           console.log("socket!!!", "closing...", uuid)
           try { socket.close() } catch { }
           console.log("socket!!!", "unlokcing...", uuid)
-          lock2.unwrapOrThrow().release()
+          stream2[Symbol.dispose]()
+          circuit2[Symbol.dispose]()
         }
 
         const onCloseOrError = async (reason?: unknown) => {
@@ -107,7 +115,7 @@ export function createSocketPool(url: URL, streams: Pool<Disposer<Mutex<Readable
     }
   }, params)
 
-  streams.events.on("started", async i => {
+  circuits.inner.events.on("started", async i => {
     update = Date.now()
 
     for (let i = 0; i < pool.capacity; i++) {
