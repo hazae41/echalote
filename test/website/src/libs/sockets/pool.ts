@@ -50,7 +50,7 @@ export async function tryCreateWebSocket(url: URL, stream: ReadableWritablePair<
 }
 
 export function createSocketPool(url: URL, streams: Pool<Disposer<Mutex<ReadableWritablePair<Opaque, Writable>>>>, params: PoolParams = {}) {
-  let updates = new Array(params.capacity).fill(new Date(0))
+  let update = Date.now()
 
   const pool = new Pool<Disposer<WebSocket>>(async (params) => {
     const { pool, index, signal } = params
@@ -101,7 +101,7 @@ export function createSocketPool(url: URL, streams: Pool<Disposer<Mutex<Readable
       if (result.isOk())
         return result
 
-      if (start < updates[index])
+      if (start < update)
         continue
 
       return result
@@ -109,17 +109,19 @@ export function createSocketPool(url: URL, streams: Pool<Disposer<Mutex<Readable
   }, params)
 
   streams.events.on("started", async i => {
-    const index = i % streams.capacity
+    update = Date.now()
 
-    updates[index] = Date.now()
+    for (let i = 0; i < pool.capacity; i++) {
+      const child = pool.tryGetSync(i)
 
-    const child = pool.tryGetSync(index)
+      if (child.isErr())
+        continue
 
-    if (child.isErr())
-      return new None()
+      if (child.inner.isErr())
+        pool.restart(i)
 
-    if (child.inner.isErr())
-      pool.restart(i)
+      continue
+    }
 
     return new None()
   }, { passive: true })

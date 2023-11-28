@@ -76,7 +76,7 @@ export default function Page() {
   const circuits = useMemo(() => {
     if (!tors || !consensus) return
 
-    return createCircuitPool(tors, consensus, { capacity: 1 })
+    return createCircuitPool(tors, consensus, { capacity: 9 })
   }, [tors, consensus])
 
   const streams = useMemo(() => {

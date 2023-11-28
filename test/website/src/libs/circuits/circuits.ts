@@ -84,7 +84,7 @@ export function createCircuitPool(tors: Mutex<Pool<TorClientDuplex>>, consensus:
     && it.flags.includes("Exit")
     && !it.flags.includes("BadExit"))
 
-  const updates = new Array(params.capacity).fill(Date.now())
+  let update = Date.now()
 
   const pool = new Pool<Circuit>(async (params) => {
     const { index, pool, signal } = params
@@ -161,7 +161,7 @@ export function createCircuitPool(tors: Mutex<Pool<TorClientDuplex>>, consensus:
       if (result.isOk())
         return result
 
-      if (start < updates[index])
+      if (start < update)
         continue
 
       return result
@@ -169,17 +169,19 @@ export function createCircuitPool(tors: Mutex<Pool<TorClientDuplex>>, consensus:
   }, params)
 
   tors.inner.events.on("started", async i => {
-    const index = i % tors.inner.capacity
+    update = Date.now()
 
-    updates[index] = Date.now()
+    for (let i = 0; i < pool.capacity; i++) {
+      const child = pool.tryGetSync(i)
 
-    const child = pool.tryGetSync(index)
+      if (child.isErr())
+        continue
 
-    if (child.isErr())
-      return new None()
+      if (child.inner.isErr())
+        pool.restart(i)
 
-    if (child.inner.isErr())
-      pool.restart(i)
+      continue
+    }
 
     return new None()
   }, { passive: true })
