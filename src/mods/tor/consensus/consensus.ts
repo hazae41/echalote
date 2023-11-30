@@ -428,8 +428,7 @@ export namespace Consensus {
 
         using signingKey = Base64.get().decodeUnpaddedOrThrow(certificate.signingKey)
 
-        const algorithmOid = ASN1.OID.newWithoutCheck(OIDs.keys.rsaEncryption)
-        const algorithmAsn1 = ASN1.ObjectIdentifier.create(undefined, algorithmOid).toDER()
+        const algorithmAsn1 = ASN1.ObjectIdentifier.create(undefined, OIDs.keys.rsaEncryption).toDER()
         const algorithmId = new X509.AlgorithmIdentifier(algorithmAsn1, ASN1.Null.create().toDER())
         const subjectPublicKey = ASN1.BitString.create(undefined, 0, signingKey.bytes).toDER()
         const subjectPublicKeyInfo = new X509.SubjectPublicKeyInfo(algorithmId, subjectPublicKey)
@@ -526,8 +525,7 @@ export namespace Consensus {
       const signed = Bytes.fromUtf8(cert.preimage)
       const hashed = new Uint8Array(await crypto.subtle.digest("SHA-1", signed))
 
-      const algorithmOid = ASN1.OID.newWithoutCheck(OIDs.keys.rsaEncryption)
-      const algorithmAsn1 = ASN1.ObjectIdentifier.create(undefined, algorithmOid).toDER()
+      const algorithmAsn1 = ASN1.ObjectIdentifier.create(undefined, OIDs.keys.rsaEncryption).toDER()
       const algorithmId = new X509.AlgorithmIdentifier(algorithmAsn1, ASN1.Null.create().toDER())
       const subjectPublicKey = ASN1.BitString.create(undefined, 0, identityKey.bytes).toDER()
       const subjectPublicKeyInfo = new X509.SubjectPublicKeyInfo(algorithmId, subjectPublicKey)

@@ -5,7 +5,7 @@ import { PoolCreatorParams } from "@hazae41/piscine";
 import { Circuit } from "mods/tor/circuit.js";
 import { TorClientDuplex } from "mods/tor/tor.js";
 
-export function createPooledCircuitDisposer(circuit: Box<Circuit>, params: PoolCreatorParams<Circuit>) {
+export function createCircuitEntry(circuit: Box<Circuit>, params: PoolCreatorParams<Circuit>) {
   const { pool, index } = params
 
   const onCloseOrError = async (reason?: unknown) => {
@@ -16,15 +16,17 @@ export function createPooledCircuitDisposer(circuit: Box<Circuit>, params: PoolC
   circuit.inner.events.on("close", onCloseOrError, { passive: true })
   circuit.inner.events.on("error", onCloseOrError, { passive: true })
 
-  const onClean = () => {
+  const onEntryClean = () => {
+    using postcircuit = circuit
+
     circuit.inner.events.off("close", onCloseOrError)
     circuit.inner.events.off("error", onCloseOrError)
   }
 
-  return new Disposer(circuit, onClean)
+  return new Disposer(circuit, onEntryClean)
 }
 
-export function createPooledTorDisposer(tor: Box<TorClientDuplex>, params: PoolCreatorParams<TorClientDuplex>) {
+export function createTorEntry(tor: Box<TorClientDuplex>, params: PoolCreatorParams<TorClientDuplex>) {
   const { pool, index } = params
 
   const onCloseOrError = async (reason?: unknown) => {
@@ -36,6 +38,8 @@ export function createPooledTorDisposer(tor: Box<TorClientDuplex>, params: PoolC
   tor.inner.events.on("error", onCloseOrError, { passive: true })
 
   const onClean = () => {
+    using posttor = tor
+
     tor.inner.events.off("close", onCloseOrError)
     tor.inner.events.off("error", onCloseOrError)
   }
