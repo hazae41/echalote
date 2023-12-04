@@ -514,8 +514,6 @@ export namespace Consensus {
     export async function verifyOrThrow(cert: Certificate) {
       await Paimon.initBundledOnce()
 
-      console.log(cert)
-
       using identityKey = Base64.get().decodePaddedOrThrow(cert.identityKey)
 
       const identity = new Uint8Array(await crypto.subtle.digest("SHA-1", identityKey.bytes))
