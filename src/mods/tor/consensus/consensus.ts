@@ -689,7 +689,7 @@ export namespace Consensus {
       const buffer = await response.arrayBuffer()
       const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", buffer))
 
-      const digest64 = Base64.get().encodePaddedOrThrow(digest)
+      const digest64 = Base64.get().encodeUnpaddedOrThrow(digest)
 
       if (digest64 !== ref.microdesc)
         throw new Error(`Digest mismatch`)
