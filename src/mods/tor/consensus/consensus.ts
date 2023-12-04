@@ -426,7 +426,7 @@ export namespace Consensus {
         const signed = Bytes.fromUtf8(consensus.preimage)
         const hashed = new Uint8Array(await crypto.subtle.digest("SHA-256", signed))
 
-        using signingKey = Base64.get().decodeUnpaddedOrThrow(certificate.signingKey)
+        using signingKey = Base64.get().decodePaddedOrThrow(certificate.signingKey)
 
         const algorithmAsn1 = ASN1.ObjectIdentifier.create(undefined, OIDs.keys.rsaEncryption).toDER()
         const algorithmId = new X509.AlgorithmIdentifier(algorithmAsn1, ASN1.Null.create().toDER())
@@ -435,7 +435,7 @@ export namespace Consensus {
 
         const publicKey = X509.writeToBytesOrThrow(subjectPublicKeyInfo)
 
-        using signature = Base64.get().decodeUnpaddedOrThrow(it.signature)
+        using signature = Base64.get().decodePaddedOrThrow(it.signature)
 
         using signatureM = new Paimon.Memory(signature.bytes)
         using hashedM = new Paimon.Memory(hashed)
@@ -516,7 +516,7 @@ export namespace Consensus {
 
       console.log(cert)
 
-      using identityKey = Base64.get().decodeUnpaddedOrThrow(cert.identityKey)
+      using identityKey = Base64.get().decodePaddedOrThrow(cert.identityKey)
 
       const identity = new Uint8Array(await crypto.subtle.digest("SHA-1", identityKey.bytes))
       const fingerprint = Base16.get().encodeOrThrow(identity)
@@ -534,7 +534,7 @@ export namespace Consensus {
 
       const publicKey = X509.writeToBytesOrThrow(subjectPublicKeyInfo)
 
-      using signature = Base64.get().decodeUnpaddedOrThrow(cert.signature)
+      using signature = Base64.get().decodePaddedOrThrow(cert.signature)
 
       using hashedM = new Paimon.Memory(hashed)
       using publicKeyM = new Paimon.Memory(publicKey)
@@ -691,7 +691,7 @@ export namespace Consensus {
       const buffer = await response.arrayBuffer()
       const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", buffer))
 
-      const digest64 = Base64.get().encodeUnpaddedOrThrow(digest)
+      const digest64 = Base64.get().encodePaddedOrThrow(digest)
 
       if (digest64 !== ref.microdesc)
         throw new Error(`Digest mismatch`)
