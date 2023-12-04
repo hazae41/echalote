@@ -420,13 +420,13 @@ export class SecretCircuit {
     if (this.closed != null)
       throw this.closed.reason
 
-    const relayid_rsa_x = Base64.get().decodePaddedOrThrow(microdesc.identity).copyAndDispose()
+    const relayid_rsa_x = Base64.get().decodeUnpaddedOrThrow(microdesc.identity).copyAndDispose()
     const relayid_rsa = Bytes.castOrThrow(relayid_rsa_x, HASH_LEN)
 
-    const ntor_key_x = Base64.get().decodePaddedOrThrow(microdesc.ntorOnionKey).copyAndDispose()
+    const ntor_key_x = Base64.get().decodeUnpaddedOrThrow(microdesc.ntorOnionKey).copyAndDispose()
     const ntor_key = Bytes.castOrThrow(ntor_key_x, 32)
 
-    const relayid_ed = Option.mapSync(microdesc.idEd25519, Base64.get().decodePaddedOrThrow)?.copyAndDispose()
+    const relayid_ed = Option.mapSync(microdesc.idEd25519, Base64.get().decodeUnpaddedOrThrow)?.copyAndDispose()
 
     const links = new Array<RelayExtend2Link>()
 
