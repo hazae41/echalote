@@ -13,6 +13,7 @@ import { Panic, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X509 } from "@hazae41/x509";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
+import { Resizer } from "libs/resizer/resizer.js";
 import { AbortSignals } from "libs/signals/signals.js";
 import { Console } from "mods/console/index.js";
 import { TypedAddress } from "mods/tor/binary/address.js";
@@ -123,7 +124,7 @@ export class SecretTorClientDuplex {
 
   readonly circuits = new Mutex(new Map<number, SecretCircuit>())
 
-  #buffer = new Cursor(new Uint8Array())
+  readonly #buffer = new Resizer()
 
   #state: TorState = { type: "none" }
 
@@ -244,7 +245,7 @@ export class SecretTorClientDuplex {
   async #onInputWrite(chunk: Opaque) {
     // Console.debug(this.#class.name, "<-", chunk)
 
-    if (this.#buffer.offset)
+    if (this.#buffer.inner.offset)
       await this.#onReadBuffered(chunk.bytes)
     else
       await this.#onReadDirect(chunk.bytes)
@@ -256,18 +257,10 @@ export class SecretTorClientDuplex {
    * @returns 
    */
   async #onReadBuffered(chunk: Uint8Array) {
-    const length = chunk.length
-
-    if (this.#buffer.offset + length > this.#buffer.length) {
-      const resized = new Cursor(new Uint8Array(this.#buffer.length + length))
-      resized.writeOrThrow(this.#buffer.bytes)
-      this.#buffer = resized
-    }
-
     this.#buffer.writeOrThrow(chunk)
-    const full = new Uint8Array(this.#buffer.before)
+    const full = new Uint8Array(this.#buffer.inner.before)
 
-    this.#buffer.offset = 0
+    this.#buffer.inner.offset = 0
     await this.#onReadDirect(full)
   }
 
@@ -289,16 +282,7 @@ export class SecretTorClientDuplex {
           ? Readable.readOrRollbackAndThrow(OldCell.Raw, cursor)
           : Readable.readOrRollbackAndThrow(Cell.Raw, cursor)
       } catch (e: unknown) {
-        const chunk = cursor.after
-        const length = chunk.length
-
-        if (this.#buffer.offset + length > this.#buffer.length) {
-          const resized = new Cursor(new Uint8Array(this.#buffer.length + length))
-          resized.writeOrThrow(this.#buffer.bytes)
-          this.#buffer = resized
-        }
-
-        this.#buffer.writeOrThrow(chunk)
+        this.#buffer.writeOrThrow(cursor.after)
         break
       }
 

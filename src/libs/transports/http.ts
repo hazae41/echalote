@@ -2,12 +2,13 @@ import { Opaque, Writable } from "@hazae41/binary"
 import { SuperReadableStream, SuperWritableStream } from "@hazae41/cascade"
 import { Cursor } from "@hazae41/cursor"
 import { CloseEvents, ErrorEvents, SuperEventTarget } from "@hazae41/plume"
+import { Resizer } from "libs/resizer/resizer.js"
 
 export class BatchedFetchStream {
 
   readonly outer: ReadableWritablePair<Opaque, Writable>
 
-  #buffer = new Cursor(new Uint8Array())
+  readonly #buffer = new Resizer()
 
   timeout?: NodeJS.Timeout
   interval?: NodeJS.Timeout
@@ -61,8 +62,8 @@ export class BatchedFetchStream {
   async loop() {
     while (true) {
       try {
-        const body = this.#buffer.before
-        this.#buffer.offset = 0
+        const body = this.#buffer.inner.before
+        this.#buffer.inner.offset = 0
 
         const res = await fetch(this.request, { method: "POST", body })
         const data = new Uint8Array(await res.arrayBuffer())
@@ -108,15 +109,7 @@ export class BatchedFetchStream {
   }
 
   async #onOutputWrite(writable: Writable) {
-    const length = writable.sizeOrThrow()
-
-    if (this.#buffer.offset + length > this.#buffer.length) {
-      const resized = new Cursor(new Uint8Array(this.#buffer.length + length))
-      resized.writeOrThrow(this.#buffer.bytes)
-      this.#buffer = resized
-    }
-
-    writable.writeOrThrow(this.#buffer)
+    this.#buffer.writeFromOrThrow(writable)
   }
 
 }
