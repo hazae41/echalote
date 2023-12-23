@@ -58,7 +58,6 @@ export default function Page() {
     }, { capacity: 1 })
   }, [])
 
-
   const consensus = useAsyncMemo(async () => {
     if (!tors) return
 

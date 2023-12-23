@@ -123,7 +123,7 @@ export class SecretTorClientDuplex {
 
   readonly circuits = new Mutex(new Map<number, SecretCircuit>())
 
-  readonly #buffer = new Cursor(new Uint8Array(2 ** 16))
+  #buffer = new Cursor(new Uint8Array(0))
 
   #state: TorState = { type: "none" }
 
@@ -256,10 +256,14 @@ export class SecretTorClientDuplex {
    * @returns 
    */
   async #onReadBuffered(chunk: Uint8Array) {
-    this.#buffer.writeOrThrow(chunk)
-    const full = new Uint8Array(this.#buffer.before)
+    if (this.#buffer.offset + chunk.length > this.#buffer.length)
+      this.#buffer = new Cursor(Bytes.concat([this.#buffer.bytes, chunk]))
+    else
+      this.#buffer.writeOrThrow(chunk)
 
+    const full = new Uint8Array(this.#buffer.before)
     this.#buffer.offset = 0
+
     await this.#onReadDirect(full)
   }
 
@@ -269,6 +273,7 @@ export class SecretTorClientDuplex {
    * @returns 
    */
   async #onReadDirect(chunk: Uint8Array) {
+    console.log(this.#buffer.length)
     const cursor = new Cursor(chunk)
 
     while (cursor.remaining) {
@@ -281,7 +286,13 @@ export class SecretTorClientDuplex {
           ? Readable.readOrRollbackAndThrow(OldCell.Raw, cursor)
           : Readable.readOrRollbackAndThrow(Cell.Raw, cursor)
       } catch (e: unknown) {
-        this.#buffer.writeOrThrow(cursor.after)
+        const chunk = cursor.after
+
+        if (this.#buffer.offset + chunk.length > this.#buffer.length)
+          this.#buffer = new Cursor(Bytes.concat([this.#buffer.bytes, chunk]))
+        else
+          this.#buffer.writeOrThrow(chunk)
+
         break
       }
 

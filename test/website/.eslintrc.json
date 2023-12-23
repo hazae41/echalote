@@ -1,4 +1,17 @@
 {
   "parser": "@babel/eslint-parser",
-  "extends": "next/core-web-vitals"
+  "extends": "next/core-web-vitals",
+  "parserOptions": {
+    "requireConfigFile": false,
+    "babelOptions": {
+      "babelrc": false,
+      "configFile": false,
+      "presets": [
+        "next/babel"
+      ],
+      "plugins": [
+        "@babel/plugin-proposal-explicit-resource-management"
+      ]
+    }
+  }
 }

@@ -51,16 +51,6 @@ export interface CircuitOpenParams {
   readonly ipv6?: keyof typeof IPv6
 }
 
-export class EmptyFallbacksError extends Error {
-  readonly #class = EmptyFallbacksError
-  readonly name = this.#class.name
-
-  constructor() {
-    super(`Empty fallbacks`)
-  }
-
-}
-
 export class UnknownProtocolError extends Error {
   readonly #class = UnknownProtocolError
   readonly name = this.#class.name

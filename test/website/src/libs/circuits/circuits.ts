@@ -2,7 +2,7 @@ import { Opaque, Writable } from "@hazae41/binary"
 import { Box } from "@hazae41/box"
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas"
 import { Disposer } from "@hazae41/cleaner"
-import { Circuit, Consensus, TorClientDuplex, createPooledCircuitDisposer, createPooledTorDisposer, createWebSocketSnowflakeStream } from "@hazae41/echalote"
+import { Circuit, Consensus, TorClientDuplex, createCircuitEntry, createTorEntry, createWebSocketSnowflakeStream } from "@hazae41/echalote"
 import { fetch } from "@hazae41/fleche"
 import { Mutex } from "@hazae41/mutex"
 import { None } from "@hazae41/option"
@@ -67,7 +67,7 @@ export function createTorPool(tryCreate: Looper<TorClientDuplex, Looped<Error>>,
 
     return await Result.unthrow<Result<Disposer<Box<TorClientDuplex>>, Error>>(async t => {
       using tor = new Box(await tryLoop(tryCreate).then(r => r.throw(t)))
-      return new Ok(createPooledTorDisposer(tor.moveOrThrow(), params))
+      return new Ok(createTorEntry(tor.moveOrThrow(), params))
     }).then(r => r.inspectErrSync(e => console.warn("tor errored", uuid, { e })))
   }, params))
 }
@@ -96,7 +96,7 @@ export function createCircuitPool(tors: Mutex<Pool<TorClientDuplex>>, consensus:
       const result = await Result.unthrow<Result<Disposer<Box<Circuit>>, Error>>(async t => {
         console.log("waiting for tor...", uuid)
 
-        const tor = await tors.inner.tryGetOrWait(index % tors.inner.capacity, signal).then(r => r.throw(t).throw(t).inner.inner)
+        const tor = await tors.inner.tryGet(index % tors.inner.capacity, signal).then(r => r.throw(t).throw(t).inner.inner)
 
         console.log("creating circuit...", uuid)
 
@@ -155,7 +155,7 @@ export function createCircuitPool(tors: Mutex<Pool<TorClientDuplex>>, consensus:
 
         console.log("circuit opened...", uuid)
 
-        return new Ok(createPooledCircuitDisposer(circuit.moveOrThrow(), params))
+        return new Ok(createCircuitEntry(circuit.moveOrThrow(), params))
       }).then(r => r.inspectErrSync(e => console.warn("circuit errored", uuid, { e })))
 
       if (result.isOk())
