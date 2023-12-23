@@ -7,7 +7,7 @@ export class BatchedFetchStream {
 
   readonly outer: ReadableWritablePair<Opaque, Writable>
 
-  readonly buffer = new Cursor(new Uint8Array(2 ** 16))
+  #buffer = new Cursor(new Uint8Array())
 
   timeout?: NodeJS.Timeout
   interval?: NodeJS.Timeout
@@ -61,8 +61,8 @@ export class BatchedFetchStream {
   async loop() {
     while (true) {
       try {
-        const body = this.buffer.before
-        this.buffer.offset = 0
+        const body = this.#buffer.before
+        this.#buffer.offset = 0
 
         const res = await fetch(this.request, { method: "POST", body })
         const data = new Uint8Array(await res.arrayBuffer())
@@ -107,8 +107,16 @@ export class BatchedFetchStream {
     await this.events.output.emit("error", [reason])
   }
 
-  async #onOutputWrite(chunk: Writable) {
-    this.buffer.writeOrThrow(Writable.writeToBytesOrThrow(chunk))
+  async #onOutputWrite(writable: Writable) {
+    const length = writable.sizeOrThrow()
+
+    if (this.#buffer.offset + length > this.#buffer.length) {
+      const resized = new Cursor(new Uint8Array(this.#buffer.length + length))
+      resized.writeOrThrow(this.#buffer.bytes)
+      this.#buffer = resized
+    }
+
+    writable.writeOrThrow(this.#buffer)
   }
 
 }
