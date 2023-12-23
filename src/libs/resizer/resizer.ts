@@ -19,6 +19,7 @@ export class Resizer {
       throw new Error(`Maximum size exceeded`)
 
     if (length > this.inner.length) {
+      console.debug("Resizing", length, this.inner.length)
       const resized = new Cursor(new Uint8Array(length))
       resized.writeOrThrow(this.inner.inner)
       this.inner = resized
