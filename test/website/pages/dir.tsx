@@ -1,10 +1,7 @@
 import { Cadenas } from "@hazae41/cadenas";
-import { Disposer } from "@hazae41/cleaner";
-import { Circuit, Consensus, Echalote, TorClientDuplex } from "@hazae41/echalote";
+import { Consensus, Echalote } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
 import { fetch } from "@hazae41/fleche";
-import { Mutex } from "@hazae41/mutex";
-import { Pool } from "@hazae41/piscine";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
 import { openAsOrThrow, tryCreateTor } from "libs/circuits/circuits";
@@ -19,11 +16,6 @@ function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
   }, deps)
 
   return state
-}
-
-export interface TorAndCircuits {
-  tor: TorClientDuplex
-  circuits: Mutex<Pool<Disposer<Circuit>>>
 }
 
 export default function Page() {

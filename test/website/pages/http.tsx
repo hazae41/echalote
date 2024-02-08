@@ -1,5 +1,5 @@
 import { Opaque, Writable } from "@hazae41/binary";
-import { Disposer } from "@hazae41/cleaner";
+import { Disposer } from "@hazae41/disposer";
 import { Circuit, Consensus, TorClientDuplex } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
 import { fetch } from "@hazae41/fleche";
@@ -62,9 +62,13 @@ export default function Page() {
     if (!tors) return
 
     return await Result.unthrow<Result<Consensus, Error>>(async t => {
-      const tor = await tors.inner.tryGetCryptoRandom().then(r => r.throw(t).throw(t).inner.inner)
+      await new Promise(r => setTimeout(r, 1000))
+      console.log("Getting Tor...")
+      const tor = await tors.inner.getCryptoRandomOrThrow().then(r => r.throw(t).inner.inner)
+      console.log("Creating circuit...")
       using circuit = await tor.tryCreate(AbortSignal.timeout(5000)).then(r => r.throw(t))
 
+      console.log("Fetching consensus...")
       const consensus = await Consensus.tryFetch(circuit).then(r => r.throw(t))
 
       return new Ok(consensus)

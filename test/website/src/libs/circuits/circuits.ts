@@ -1,13 +1,15 @@
 import { Opaque, Writable } from "@hazae41/binary"
 import { Box } from "@hazae41/box"
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas"
-import { Disposer } from "@hazae41/cleaner"
-import { Circuit, Consensus, TorClientDuplex, createCircuitEntry, createTorEntry, createWebSocketSnowflakeStream } from "@hazae41/echalote"
+import { Disposer } from "@hazae41/disposer"
+import { Circuit, Consensus, TorClientDuplex, createSnowflakeStream } from "@hazae41/echalote"
 import { fetch } from "@hazae41/fleche"
 import { Mutex } from "@hazae41/mutex"
 import { None } from "@hazae41/option"
 import { Cancel, Looped, Looper, Pool, PoolParams, Retry, tryLoop } from "@hazae41/piscine"
 import { Catched, Ok, Result } from "@hazae41/result"
+import { createCircuitEntry, createTorEntry } from "libs/pool"
+import { createWebSocketStream } from "libs/transport/socket"
 
 export async function openAsOrThrow(circuit: Circuit, input: RequestInfo | URL) {
   const req = new Request(input)
@@ -42,7 +44,9 @@ export async function tryOpenAs(circuit: Circuit, input: RequestInfo | URL) {
 
 export async function tryCreateTor(): Promise<Result<TorClientDuplex, Cancel<Error> | Retry<Error>>> {
   return await Result.unthrow(async t => {
-    const tcp = await createWebSocketSnowflakeStream("wss://snowflake.torproject.net/")
+    const ws = await createWebSocketStream("wss://snowflake.torproject.net/")
+    console.log("ws..")
+    const tcp = await createSnowflakeStream(ws)
     // const tcp = await createMeekStream("http://localhost:8080/")
 
     const tor = new TorClientDuplex()
@@ -57,6 +61,7 @@ export async function tryCreateTor(): Promise<Result<TorClientDuplex, Cancel<Err
 
     await tor.tryWait().then(r => r.mapErrSync(Retry.new).throw(t))
 
+    console.log("tor created")
     return new Ok(tor)
   })
 }

@@ -1,6 +1,6 @@
 import { Opaque, Writable } from "@hazae41/binary"
 import { Box } from "@hazae41/box"
-import { Disposer } from "@hazae41/cleaner"
+import { Disposer } from "@hazae41/disposer"
 import { Circuit } from "@hazae41/echalote"
 import { WebSocket } from "@hazae41/fleche"
 import { Future } from "@hazae41/future"
