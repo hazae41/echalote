@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "@hazae41/echalote",
-  "version": "0.3.10",
+  "version": "0.3.11",
   "author": "hazae41",
   "license": "MIT",
   "description": "Zero-copy Tor protocol for the web",
