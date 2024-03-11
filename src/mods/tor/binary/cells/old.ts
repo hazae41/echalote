@@ -1,7 +1,7 @@
 import { Opaque, Readable, Writable } from "@hazae41/binary";
 import { Cursor } from "@hazae41/cursor";
 import { SecretCircuit } from "mods/tor/circuit.js";
-import { SecretTorClientDuplex } from "mods/tor/tor.js";
+import { SecretTorClientDuplex } from "mods/tor/client.js";
 import { ExpectedCircuitError, InvalidCommandError, UnexpectedCircuitError } from "./errors.js";
 
 export interface OldCellable {
