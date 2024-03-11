@@ -222,14 +222,22 @@ export class SecretTorStreamDuplex {
   async #onRelayConnectedCell(cell: RelayCell.Streamful<Opaque>) {
     if (cell.stream !== this)
       return new None()
-    if (this.type === "directory")
+
+    if (this.type === "directory") {
+      await this.events.emit("open")
+
       return new None()
+    }
 
-    const cell2 = RelayCell.Streamful.intoOrThrow(cell, RelayConnectedCell)
+    if (this.type === "external") {
+      const cell2 = RelayCell.Streamful.intoOrThrow(cell, RelayConnectedCell)
 
-    Console.debug(`${this.#class.name}.onRelayConnectedCell`, cell2)
+      Console.debug(`${this.#class.name}.onRelayConnectedCell`, cell2)
 
-    await this.events.emit("open")
+      await this.events.emit("open")
+
+      return new None()
+    }
 
     return new None()
   }

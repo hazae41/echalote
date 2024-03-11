@@ -1,3 +1,12 @@
+export class Unimplemented extends Error {
+  readonly #class = Unimplemented
+  readonly name = this.#class.name
+
+  constructor() {
+    super(`Unimplemented`)
+  }
+}
+
 export type TorClientError =
   | InvalidTorStateError
   | InvalidTorVersionError

@@ -1,30 +1,26 @@
 import { Opaque } from "@hazae41/binary"
-import { SuperTransformStream } from "@hazae41/cascade"
-import { CloseEvents, ErrorEvents, SuperEventTarget } from "@hazae41/plume"
+import { None } from "@hazae41/option"
 import { TurboFrame } from "./frame.js"
 import { SecretTurboDuplex } from "./stream.js"
 
 export class SecretTurboReader {
 
-  readonly events = new SuperEventTarget<CloseEvents & ErrorEvents>()
-
-  readonly stream: SuperTransformStream<Opaque, Opaque>
-
   constructor(
     readonly parent: SecretTurboDuplex
   ) {
-    this.stream = new SuperTransformStream({
-      transform: this.#onRead.bind(this)
+    this.parent.input.events.on("message", async chunk => {
+      await this.#onMessage(chunk)
+      return new None()
     })
   }
 
-  #onRead(chunk: Opaque) {
+  async #onMessage(chunk: Opaque) {
     const frame = chunk.readIntoOrThrow(TurboFrame)
 
     if (frame.padding)
       return
 
-    this.stream.enqueue(frame.fragment)
+    await this.parent.input.enqueue(frame.fragment)
   }
 
 }

@@ -4,7 +4,7 @@ import { Base64 } from "@hazae41/base64"
 import { Bytes } from "@hazae41/bytes"
 import { fetch } from "@hazae41/fleche"
 import { Paimon } from "@hazae41/paimon"
-import { Catched, Result } from "@hazae41/result"
+import { Result } from "@hazae41/result"
 import { OIDs, X509 } from "@hazae41/x509"
 import { Mutable } from "libs/typescript/typescript.js"
 import { Circuit } from "../circuit.js"
@@ -76,9 +76,7 @@ export namespace Consensus {
   }
 
   export async function tryFetch(circuit: Circuit): Promise<Result<Consensus, Error>> {
-    return await Result.runAndWrap(async () => {
-      return await fetchOrThrow(circuit)
-    }).then(r => r.mapErrSync(Catched.from))
+    return await Result.runAndDoubleWrap(() => fetchOrThrow(circuit))
   }
 
   export async function fetchOrThrow(circuit: Circuit) {
@@ -674,9 +672,7 @@ export namespace Consensus {
     }
 
     export async function tryFetch(circuit: Circuit, ref: Head): Promise<Result<Microdesc, Error>> {
-      return await Result.runAndWrap(async () => {
-        return await fetchOrThrow(circuit, ref)
-      }).then(r => r.mapErrSync(Catched.from))
+      return await Result.runAndDoubleWrap(() => fetchOrThrow(circuit, ref))
     }
 
     export async function fetchOrThrow(circuit: Circuit, ref: Head) {

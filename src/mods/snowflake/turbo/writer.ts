@@ -1,34 +1,35 @@
 import { Opaque, Writable } from "@hazae41/binary";
-import { SuperTransformStream } from "@hazae41/cascade";
-import { CloseEvents, ErrorEvents, SuperEventTarget } from "@hazae41/plume";
+import { None } from "@hazae41/option";
 import { TurboFrame } from "./frame.js";
 import { SecretTurboDuplex } from "./stream.js";
 
 export class SecretTurboWriter {
 
-  readonly events = new SuperEventTarget<CloseEvents & ErrorEvents>()
-
-  readonly stream: SuperTransformStream<Writable, Writable>
-
   constructor(
     readonly parent: SecretTurboDuplex
   ) {
-    this.stream = new SuperTransformStream({
-      start: this.#onStart.bind(this),
-      transform: this.#onWrite.bind(this)
+    this.parent.output.events.on("open", async () => {
+      await this.#onStart()
+      return new None()
+    })
+
+    this.parent.output.events.on("message", async chunk => {
+      await this.#onMessage(chunk)
+      return new None()
     })
   }
 
-  #onStart() {
+  async #onStart() {
     const token = this.parent.class.token
-    this.stream.enqueue(new Opaque(token))
+    await this.parent.output.enqueue(new Opaque(token))
 
-    const clientID = this.parent.clientID
-    this.stream.enqueue(new Opaque(clientID))
+    const client = this.parent.client
+    await this.parent.output.enqueue(new Opaque(client))
   }
 
-  #onWrite(fragment: Writable) {
-    this.stream.enqueue(TurboFrame.createOrThrow({ padding: false, fragment }))
+  async #onMessage(fragment: Writable) {
+    const frame = TurboFrame.createOrThrow({ padding: false, fragment })
+    await this.parent.output.enqueue(frame)
   }
 
 }

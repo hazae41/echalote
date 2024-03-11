@@ -1,5 +1,5 @@
 import { Cursor } from "@hazae41/cursor"
-import { Unimplemented } from "@hazae41/result"
+import { Unimplemented } from "mods/tor/errors.js"
 
 export class PaddingCell {
   readonly #class = PaddingCell

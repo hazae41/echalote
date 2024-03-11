@@ -1,7 +1,7 @@
 import { Uint8Array } from "@hazae41/bytes"
 import { Cursor } from "@hazae41/cursor"
-import { Unimplemented } from "@hazae41/result"
 import { ExpiredCertError } from "mods/tor/certs/certs.js"
+import { Unimplemented } from "mods/tor/errors.js"
 
 export class CrossCert {
   readonly #class = CrossCert

@@ -1,11 +1,11 @@
 import { Readable } from "@hazae41/binary"
 import { Cursor } from "@hazae41/cursor"
-import { Unimplemented } from "@hazae41/result"
 import { Mutable } from "libs/typescript/typescript.js"
 import { CrossCert } from "mods/tor/binary/certs/cross/cert.js"
 import { Ed25519Cert } from "mods/tor/binary/certs/ed25519/cert.js"
 import { RsaCert } from "mods/tor/binary/certs/rsa/cert.js"
 import { Certs, DuplicatedCertError, UnknownCertError } from "mods/tor/certs/certs.js"
+import { Unimplemented } from "mods/tor/errors.js"
 
 export class CertsCell {
   readonly #class = CertsCell

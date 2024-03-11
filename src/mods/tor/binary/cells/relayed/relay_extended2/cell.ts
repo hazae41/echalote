@@ -1,6 +1,6 @@
 import { Opaque, Writable } from "@hazae41/binary";
 import { Cursor } from "@hazae41/cursor";
-import { Unimplemented } from "@hazae41/result";
+import { Unimplemented } from "mods/tor/errors.js";
 
 export class RelayExtended2Cell<T extends Writable> {
   readonly #class = RelayExtended2Cell

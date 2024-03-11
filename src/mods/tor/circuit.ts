@@ -346,7 +346,7 @@ export class SecretCircuit {
 
     Console.debug(`${this.#class.name}.onRelayExtended2Cell`, cell)
 
-    await this.events.emit("RELAY_EXTENDED2", [cell])
+    await this.events.emit("RELAY_EXTENDED2", cell)
 
     return new None()
   }
@@ -366,7 +366,7 @@ export class SecretCircuit {
     else
       await this.events.emit("error", [error])
 
-    await this.events.emit("RELAY_TRUNCATED", [cell])
+    await this.events.emit("RELAY_TRUNCATED", cell)
 
     return new None()
   }
@@ -377,7 +377,7 @@ export class SecretCircuit {
 
     Console.debug(`${this.#class.name}.onRelayConnectedCell`, cell)
 
-    await this.events.emit("RELAY_CONNECTED", [cell])
+    await this.events.emit("RELAY_CONNECTED", cell)
 
     return new None()
   }
@@ -388,7 +388,7 @@ export class SecretCircuit {
 
     Console.debug(`${this.#class.name}.onRelayDataCell`, cell)
 
-    await this.events.emit("RELAY_DATA", [cell])
+    await this.events.emit("RELAY_DATA", cell)
 
     return new None()
   }
@@ -401,7 +401,7 @@ export class SecretCircuit {
 
     this.streams.delete(cell.stream.id)
 
-    await this.events.emit("RELAY_END", [cell])
+    await this.events.emit("RELAY_END", cell)
 
     return new None()
   }
@@ -529,7 +529,7 @@ export class SecretCircuit {
     if (!params.wait)
       return new TorStreamDuplex(stream)
 
-    await Plume.waitOrCloseOrErrorOrSignal(stream.events.input, "open", (future: Future<void>) => {
+    await Plume.waitOrCloseOrErrorOrSignal(stream.events, "open", (future: Future<void>) => {
       future.resolve()
       return new None()
     }, signal)
@@ -567,7 +567,7 @@ export class SecretCircuit {
     if (!params.wait)
       return new TorStreamDuplex(stream)
 
-    await Plume.waitOrCloseOrErrorOrSignal(stream.events.input, "open", (future: Future<void>) => {
+    await Plume.waitOrCloseOrErrorOrSignal(stream.events, "open", (future: Future<void>) => {
       future.resolve()
       return new None()
     }, signal)

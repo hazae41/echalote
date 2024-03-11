@@ -1,21 +1,43 @@
 import { Opaque, Writable } from "@hazae41/binary"
 import { Bytes } from "@hazae41/bytes"
-import { Console } from "mods/console/index.js"
+import { CloseEvents, ErrorEvents, FullDuplex } from "@hazae41/cascade"
+import { SuperEventTarget } from "@hazae41/plume"
 import { SecretTurboReader } from "./reader.js"
 import { SecretTurboWriter } from "./writer.js"
 
 export interface TurboDuplexParams {
-  readonly clientID?: Uint8Array
+  readonly client?: Uint8Array
 }
+
+export type TurboDuplexEvents =
+  & CloseEvents
+  & ErrorEvents
 
 export class TurboDuplex {
 
   readonly #secret: SecretTurboDuplex
 
+  readonly events = new SuperEventTarget<TurboDuplexEvents>()
+
   constructor(
     readonly params: TurboDuplexParams = {}
   ) {
     this.#secret = new SecretTurboDuplex(params)
+
+    this.#secret.events.on("close", () => this.events.emit("close"))
+    this.#secret.events.on("error", e => this.events.emit("error", e))
+  }
+
+  [Symbol.dispose]() {
+    this.close().catch(console.error)
+  }
+
+  async [Symbol.asyncDispose]() {
+    await this.close()
+  }
+
+  get client() {
+    return this.#secret.client
   }
 
   get inner() {
@@ -26,103 +48,97 @@ export class TurboDuplex {
     return this.#secret.outer
   }
 
+  get closing() {
+    return this.#secret.closing
+  }
+
+  get closed() {
+    return this.#secret.closed
+  }
+
+  async error(reason?: unknown) {
+    await this.#secret.error(reason)
+  }
+
+  async close() {
+    await this.#secret.close()
+  }
+
 }
+
+export type SecretTurboDuplexEvents =
+  & CloseEvents
+  & ErrorEvents
 
 export class SecretTurboDuplex {
   readonly #class = SecretTurboDuplex
 
   static readonly token = new Uint8Array([0x12, 0x93, 0x60, 0x5d, 0x27, 0x81, 0x75, 0xf5])
 
+  readonly duplex = new FullDuplex<Opaque, Writable>()
+  readonly events = new SuperEventTarget<SecretTurboDuplexEvents>()
+
   readonly reader: SecretTurboReader
   readonly writer: SecretTurboWriter
 
-  readonly inner: ReadableWritablePair<Writable, Opaque>
-  readonly outer: ReadableWritablePair<Opaque, Writable>
-
-  readonly clientID: Uint8Array
+  readonly client: Uint8Array
 
   constructor(
     readonly params: TurboDuplexParams = {}
   ) {
-    const { clientID = Bytes.random(8) } = params
+    this.duplex.events.on("close", () => this.events.emit("close"))
+    this.duplex.events.on("error", e => this.events.emit("error", e))
 
-    this.clientID = clientID
+    const { client = Bytes.random(8) } = params
+
+    this.client = client
 
     this.reader = new SecretTurboReader(this)
     this.writer = new SecretTurboWriter(this)
-
-    const preInputer = this.reader.stream.start()
-    const postOutputer = this.writer.stream.start()
-
-    const postInputer = new TransformStream<Opaque, Opaque>({})
-    const preOutputer = new TransformStream<Writable, Writable>({})
-
-    /**
-     * Inner protocol (UDP?)
-     */
-    this.inner = {
-      readable: postOutputer.readable,
-      writable: preInputer.writable
-    }
-
-    /**
-     * Outer protocol (SMUX?)
-     */
-    this.outer = {
-      readable: postInputer.readable,
-      writable: preOutputer.writable
-    }
-
-    preInputer.readable
-      .pipeTo(postInputer.writable)
-      .then(() => this.#onInputClose())
-      .catch(e => this.#onInputError(e))
-      .catch(console.error)
-
-    preOutputer.readable
-      .pipeTo(postOutputer.writable)
-      .then(() => this.#onOutputClose())
-      .catch(e => this.#onOutputError(e))
-      .catch(console.error)
   }
 
   get class() {
     return this.#class
   }
 
-  async #onInputClose() {
-    Console.debug(`${this.#class.name}.onReadClose`)
-
-    this.reader.stream.closed = {}
-
-    await this.reader.events.emit("close", [undefined])
+  [Symbol.dispose]() {
+    this.close().catch(console.error)
   }
 
-
-  async #onOutputClose() {
-    Console.debug(`${this.#class.name}.onWriteClose`)
-
-    this.writer.stream.closed = {}
-
-    await this.writer.events.emit("close", [undefined])
+  async [Symbol.asyncDispose]() {
+    await this.close()
   }
 
-  async #onInputError(reason?: unknown) {
-    Console.debug(`${this.#class.name}.onReadError`, { reason })
-
-    this.reader.stream.closed = { reason }
-    this.writer.stream.error(reason)
-
-    await this.reader.events.emit("error", [reason])
+  get inner() {
+    return this.duplex.inner
   }
 
-  async #onOutputError(reason?: unknown) {
-    Console.debug(`${this.#class.name}.onWriteError`, { reason })
+  get outer() {
+    return this.duplex.outer
+  }
 
-    this.writer.stream.closed = { reason }
-    this.reader.stream.error(reason)
+  get input() {
+    return this.duplex.input
+  }
 
-    await this.writer.events.emit("error", [reason])
+  get output() {
+    return this.duplex.output
+  }
+
+  get closing() {
+    return this.duplex.closing
+  }
+
+  get closed() {
+    return this.duplex.closed
+  }
+
+  async error(reason?: unknown) {
+    await this.duplex.error(reason)
+  }
+
+  async close() {
+    await this.duplex.close()
   }
 
 }

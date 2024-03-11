@@ -1,7 +1,7 @@
 import { Cursor } from "@hazae41/cursor"
-import { Unimplemented } from "@hazae41/result"
 import { Dates } from "libs/dates/dates.js"
 import { Address4, Address6 } from "mods/tor/binary/address.js"
+import { Unimplemented } from "mods/tor/errors.js"
 
 export class UnknownAddressType extends Error {
   readonly #class = UnknownAddressType
