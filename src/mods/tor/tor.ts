@@ -2,13 +2,13 @@ import { Opaque, Readable, Writable } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Bytes, Uint8Array } from "@hazae41/bytes";
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
-import { SuperReadableStream, SuperWritableStream } from "@hazae41/cascade";
+import { CloseEvents, ErrorEvents, HalfDuplex, OpenEvents } from "@hazae41/cascade";
 import { Cursor } from "@hazae41/cursor";
 import { Future } from "@hazae41/future";
 import { Mutex } from "@hazae41/mutex";
 import { None } from "@hazae41/option";
 import { Paimon } from "@hazae41/paimon";
-import { CloseEvents, ErrorEvents, Plume, SuperEventTarget } from "@hazae41/plume";
+import { Plume, SuperEventTarget } from "@hazae41/plume";
 import { Panic, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X509 } from "@hazae41/x509";
@@ -100,7 +100,7 @@ export class TorClientDuplex {
 
 }
 
-export type SecretTorEvents = CloseEvents & ErrorEvents & {
+export type SecretTorEvents = OpenEvents & CloseEvents & ErrorEvents & {
   "handshaked": () => void
 
   "CREATED_FAST": (cell: Cell.Circuitful<CreatedFastCell>) => void
@@ -113,14 +113,14 @@ export type SecretTorEvents = CloseEvents & ErrorEvents & {
 }
 
 export class SecretTorClientDuplex {
-  readonly #class = SecretTorClientDuplex
+
+  readonly ciphers = [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
+
+  readonly tls = new TlsClientDuplex({ ciphers: this.ciphers, authorized: true })
+
+  readonly tor = new HalfDuplex<Opaque, Writable>()
 
   readonly events = new SuperEventTarget<SecretTorEvents>()
-
-  readonly input: SuperWritableStream<Opaque>
-  readonly output: SuperReadableStream<Writable>
-
-  readonly inner: ReadableWritablePair<Writable, Opaque>
 
   readonly circuits = new Mutex(new Map<number, SecretCircuit>())
 
@@ -131,41 +131,26 @@ export class SecretTorClientDuplex {
   #tlsCerts?: X509.Certificate[]
 
   constructor() {
-    const ciphers = [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
-    const tls = new TlsClientDuplex({ ciphers, authorized: true })
+    this.tor.events.on("close", () => this.events.emit("close"))
+    this.tor.events.on("error", e => this.events.emit("error", e))
 
-    /**
-     * Grab TLS certificates
-     */
-    tls.events.input.on("certificates", (certs) => {
+    this.tls.events.on("certificates", (certs) => {
       this.#tlsCerts = certs
       return new None()
     })
 
-    this.inner = tls.inner
-
-    this.input = new SuperWritableStream({
-      write: this.#onInputWrite.bind(this)
+    this.tor.output.events.on("open", async () => {
+      await this.#onOutputStart()
+      return new None()
     })
 
-    this.output = new SuperReadableStream({
-      start: this.#onOutputStart.bind(this)
+    this.tor.input.events.on("message", async chunk => {
+      await this.#onInputWrite(chunk)
+      return new None()
     })
 
-    const inputer = this.input.start()
-    const outputer = this.output.start()
-
-    tls.outer.readable
-      .pipeTo(inputer)
-      .then(() => this.#onInputClose())
-      .catch(e => this.#onInputError(e))
-      .catch(console.error)
-
-    outputer
-      .pipeTo(tls.outer.writable)
-      .then(() => this.#onOutputClose())
-      .catch(e => this.#onOutputError(e))
-      .catch(console.error)
+    this.tls.outer.readable.pipeTo(this.tor.inner.writable).catch(() => { })
+    this.tor.inner.readable.pipeTo(this.tls.outer.writable).catch(() => { })
   }
 
   [Symbol.dispose]() {
@@ -181,60 +166,41 @@ export class SecretTorClientDuplex {
     return this.#state
   }
 
+  /**
+   * TLS inner pair
+   */
+  get inner() {
+    return this.tls.inner
+  }
+
+  get outer() {
+    return this.tor.outer
+  }
+
+  get input() {
+    return this.tor.input
+  }
+
+  get output() {
+    return this.tor.output
+  }
+
   get closed() {
-    return this.output.closed
+    return this.tor.closed
   }
 
-  close() {
-    try { this.output.close() } catch { }
-    try { this.input.error() } catch { }
+  async error(reason?: unknown) {
+    await this.tor.error(reason)
   }
 
-  error(reason?: unknown) {
-    try { this.output.error(reason) } catch { }
-    try { this.input.error(reason) } catch { }
-  }
-
-  async #onInputClose() {
-    Console.debug(`${this.#class.name}.onReadClose`)
-
-    this.input.closed = {}
-    this.output.close()
-
-    await this.events.emit("close", [undefined])
-  }
-
-  async #onOutputClose() {
-    Console.debug(`${this.#class.name}.onWriteClose`)
-
-    this.output.closed = {}
-    this.input.error()
-
-    await this.events.emit("close", [undefined])
-  }
-
-  async #onInputError(reason?: unknown) {
-    Console.debug(`${this.#class.name}.onReadError`, { reason })
-
-    this.input.closed = { reason }
-    this.output.error(reason)
-
-    await this.events.emit("error", [reason])
-  }
-
-  async #onOutputError(reason?: unknown) {
-    Console.debug(`${this.#class.name}.onWriteError`, { reason })
-
-    this.output.closed = { reason }
-    this.input.error(reason)
-
-    await this.events.emit("error", [reason])
+  async close() {
+    await this.tor.close()
   }
 
   async #onOutputStart() {
     await this.#init()
 
-    this.output.enqueue(OldCell.Circuitless.from(undefined, new VersionsCell([5])))
+    await this.output.enqueue(OldCell.Circuitless.from(undefined, new VersionsCell([5])))
 
     await Plume.waitOrCloseOrError(this.events, "handshaked", (future: Future<void>) => {
       future.resolve()
@@ -407,7 +373,7 @@ export class SecretTorClientDuplex {
 
     this.#state = { ...state, type: "handshaked" }
 
-    await this.events.emit("handshaked", [])
+    await this.events.emit("handshaked")
   }
 
   async #onCreatedFastCell(cell: Cell<Opaque>) {
@@ -415,7 +381,7 @@ export class SecretTorClientDuplex {
 
     Console.debug(cell2)
 
-    await this.events.emit("CREATED_FAST", [cell2])
+    await this.events.emit("CREATED_FAST", cell2)
   }
 
   async #onDestroyCell(cell: Cell<Opaque>) {
@@ -425,7 +391,7 @@ export class SecretTorClientDuplex {
 
     this.circuits.inner.delete(cell2.circuit.id)
 
-    await this.events.emit("DESTROY", [cell2])
+    await this.events.emit("DESTROY", cell2)
   }
 
   async #onRelayCell(parent: Cell<Opaque>) {
@@ -460,14 +426,14 @@ export class SecretTorClientDuplex {
 
     Console.debug(cell2)
 
-    await this.events.emit("RELAY_EXTENDED2", [cell2])
+    await this.events.emit("RELAY_EXTENDED2", cell2)
   }
 
   async #onRelayConnectedCell(cell: RelayCell<Opaque>) {
     if (cell.stream == null)
       throw new ExpectedStreamError()
 
-    await this.events.emit("RELAY_CONNECTED", [cell])
+    await this.events.emit("RELAY_CONNECTED", cell)
   }
 
   async #onRelayDataCell(cell: RelayCell<Opaque>) {
@@ -492,7 +458,7 @@ export class SecretTorClientDuplex {
       this.output.enqueue(sendme_cell.cellOrThrow())
     }
 
-    await this.events.emit("RELAY_DATA", [cell2])
+    await this.events.emit("RELAY_DATA", cell2)
   }
 
   async #onRelayEndCell(cell: RelayCell<Opaque>) {
@@ -500,7 +466,7 @@ export class SecretTorClientDuplex {
 
     Console.debug(cell2)
 
-    await this.events.emit("RELAY_END", [cell2])
+    await this.events.emit("RELAY_END", cell2)
   }
 
   async #onRelayDropCell(cell: RelayCell<Opaque>) {
@@ -514,7 +480,7 @@ export class SecretTorClientDuplex {
 
     cell2.circuit.targets.pop()
 
-    await this.events.emit("RELAY_TRUNCATED", [cell2])
+    await this.events.emit("RELAY_TRUNCATED", cell2)
   }
 
   async #onRelaySendmeCircuitCell(cell: RelayCell<Opaque>) {
