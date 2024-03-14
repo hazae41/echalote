@@ -1,5 +1,5 @@
 import { Opaque, Writable } from "@hazae41/binary";
-import { FullDuplex, OpenEvents } from "@hazae41/cascade";
+import { FullDuplex } from "@hazae41/cascade";
 import { Cursor } from "@hazae41/cursor";
 import { None } from "@hazae41/option";
 import { CloseEvents, ErrorEvents, SuperEventTarget } from "@hazae41/plume";
@@ -21,11 +21,7 @@ export class TorStreamDuplex {
   }
 
   [Symbol.dispose]() {
-    this.close().catch(console.error)
-  }
-
-  async [Symbol.asyncDispose]() {
-    await this.close()
+    this.close()
   }
 
   get id() {
@@ -44,12 +40,12 @@ export class TorStreamDuplex {
     return this.#secret.outer
   }
 
-  async error(reason?: unknown) {
-    await this.#secret.error(reason)
+  error(reason?: unknown) {
+    this.#secret.error(reason)
   }
 
-  async close() {
-    await this.#secret.close()
+  close() {
+    this.#secret.close()
   }
 
 }
@@ -67,9 +63,9 @@ export class RelayEndedError extends Error {
 }
 
 export type TorStreamEvents =
-  & OpenEvents
   & CloseEvents
   & ErrorEvents
+  & { connected: () => void }
 
 export type SecretTorStreamDuplexType =
   | "external"
@@ -78,7 +74,8 @@ export type SecretTorStreamDuplexType =
 export class SecretTorStreamDuplex {
   readonly #class = SecretTorStreamDuplex
 
-  readonly duplex = new FullDuplex<Opaque, Writable>()
+  readonly duplex: FullDuplex<Opaque, Writable>
+
   readonly events = new SuperEventTarget<TorStreamEvents>()
 
   delivery = 500
@@ -91,22 +88,12 @@ export class SecretTorStreamDuplex {
     readonly id: number,
     readonly circuit: SecretCircuit
   ) {
-    this.duplex.events.on("close", () => this.events.emit("close"))
-    this.duplex.events.on("error", e => this.events.emit("error", e))
-
-    this.duplex.events.on("close", async () => {
-      await this.#onDuplexClose()
-      return new None()
-    })
-
-    this.duplex.events.on("error", async e => {
-      await this.#onDuplexError(e)
-      return new None()
-    })
-
-    this.duplex.output.events.on("message", async chunk => {
-      await this.#onOutputWrite(chunk)
-      return new None()
+    this.duplex = new FullDuplex<Opaque, Writable>({
+      output: {
+        write: c => this.#onOutputWrite(c),
+      },
+      error: e => this.#onDuplexError(e),
+      close: () => this.#onDuplexClose()
     })
 
     const onCircuitClose = this.#onCircuitClose.bind(this)
@@ -138,11 +125,7 @@ export class SecretTorStreamDuplex {
   }
 
   [Symbol.dispose]() {
-    this.close().catch(console.error)
-  }
-
-  async [Symbol.asyncDispose]() {
-    await this.close()
+    this.close()
   }
 
   get inner() {
@@ -165,22 +148,24 @@ export class SecretTorStreamDuplex {
     return this.duplex.closed
   }
 
-  async close() {
-    await this.duplex.close()
+  close() {
+    this.duplex.close()
   }
 
-  async error(reason?: unknown) {
-    await this.duplex.error(reason)
+  error(reason?: unknown) {
+    this.duplex.error(reason)
   }
 
   async #onDuplexClose() {
     if (!this.circuit.closed) {
       const relay_end_cell = new RelayEndCell(new RelayEndReasonOther(RelayEndCell.reasons.REASON_DONE))
       const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_end_cell)
-      await this.circuit.tor.output.enqueue(relay_cell.cellOrThrow())
+      this.circuit.tor.output.enqueue(relay_cell.cellOrThrow())
 
       this.package--
     }
+
+    await this.events.emit("close")
 
     this.#onClean()
   }
@@ -189,10 +174,12 @@ export class SecretTorStreamDuplex {
     if (!this.circuit.closed) {
       const relay_end_cell = new RelayEndCell(new RelayEndReasonOther(RelayEndCell.reasons.REASON_MISC))
       const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_end_cell)
-      await this.circuit.tor.output.enqueue(relay_cell.cellOrThrow())
+      this.circuit.tor.output.enqueue(relay_cell.cellOrThrow())
 
       this.package--
     }
+
+    await this.events.emit("error", reason)
 
     this.#onClean()
   }
@@ -203,7 +190,7 @@ export class SecretTorStreamDuplex {
     if (this.duplex.closing)
       return new None()
 
-    await this.duplex.close()
+    this.duplex.close()
 
     return new None()
   }
@@ -214,7 +201,7 @@ export class SecretTorStreamDuplex {
     if (this.duplex.closing)
       return new None()
 
-    await this.duplex.error(reason)
+    this.duplex.error(reason)
 
     return new None()
   }
@@ -224,7 +211,7 @@ export class SecretTorStreamDuplex {
       return new None()
 
     if (this.type === "directory") {
-      await this.events.emit("open")
+      await this.events.emit("connected")
 
       return new None()
     }
@@ -234,7 +221,7 @@ export class SecretTorStreamDuplex {
 
       Console.debug(`${this.#class.name}.onRelayConnectedCell`, cell2)
 
-      await this.events.emit("open")
+      await this.events.emit("connected")
 
       return new None()
     }
@@ -255,10 +242,10 @@ export class SecretTorStreamDuplex {
 
       const sendme = new RelaySendmeStreamCell()
       const sendme_cell = RelayCell.Streamful.from(this.circuit, this, sendme)
-      await this.circuit.tor.output.enqueue(sendme_cell.cellOrThrow())
+      this.circuit.tor.output.enqueue(sendme_cell.cellOrThrow())
     }
 
-    await this.input.enqueue(cell.fragment.fragment)
+    this.input.enqueue(cell.fragment.fragment)
 
     return new None()
   }
@@ -273,9 +260,9 @@ export class SecretTorStreamDuplex {
       return new None()
 
     if (cell.fragment.reason.id === RelayEndCell.reasons.REASON_DONE)
-      await this.duplex.close()
+      this.duplex.close()
     else
-      await this.duplex.error(new RelayEndedError(cell.fragment.reason))
+      this.duplex.error(new RelayEndedError(cell.fragment.reason))
 
     return new None()
   }
@@ -291,7 +278,7 @@ export class SecretTorStreamDuplex {
     const relay_data_cell = new RelayDataCell(writable)
     const relay_cell = RelayCell.Streamful.from(this.circuit, this, relay_data_cell)
 
-    await this.circuit.tor.output.enqueue(relay_cell.cellOrThrow())
+    this.circuit.tor.output.enqueue(relay_cell.cellOrThrow())
 
     this.package--
   }

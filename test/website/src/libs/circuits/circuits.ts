@@ -7,9 +7,9 @@ import { fetch } from "@hazae41/fleche"
 import { Mutex } from "@hazae41/mutex"
 import { None } from "@hazae41/option"
 import { Cancel, Looped, Looper, Pool, PoolParams, Retry, tryLoop } from "@hazae41/piscine"
-import { Catched, Ok, Result } from "@hazae41/result"
+import { Ok, Result } from "@hazae41/result"
 import { createCircuitEntry, createTorEntry } from "libs/pool"
-import { createWebSocketStream } from "libs/transport/socket"
+import { createWebSocketDuplex } from "libs/transport/socket"
 
 export async function openAsOrThrow(circuit: Circuit, input: RequestInfo | URL) {
   const req = new Request(input)
@@ -37,14 +37,12 @@ export async function openAsOrThrow(circuit: Circuit, input: RequestInfo | URL) 
 }
 
 export async function tryOpenAs(circuit: Circuit, input: RequestInfo | URL) {
-  return await Result.runAndWrap(async () => {
-    return await openAsOrThrow(circuit, input)
-  }).then(r => r.mapErrSync(Catched.from))
+  return await Result.runAndDoubleWrap(() => openAsOrThrow(circuit, input))
 }
 
 export async function tryCreateTor(): Promise<Result<TorClientDuplex, Cancel<Error> | Retry<Error>>> {
   return await Result.unthrow(async t => {
-    const ws = await createWebSocketStream("wss://snowflake.torproject.net/")
+    const ws = await createWebSocketDuplex("wss://snowflake.torproject.net/")
     console.log("ws..")
     const tcp = await createSnowflakeStream(ws)
     // const tcp = await createMeekStream("http://localhost:8080/")
@@ -73,7 +71,7 @@ export function createTorPool(tryCreate: Looper<TorClientDuplex, Looped<Error>>,
     return await Result.unthrow<Result<Disposer<Box<TorClientDuplex>>, Error>>(async t => {
       using tor = new Box(await tryLoop(tryCreate).then(r => r.throw(t)))
       return new Ok(createTorEntry(tor.moveOrThrow(), params))
-    }).then(r => r.inspectErrSync(e => console.warn("tor errored", uuid, { e })))
+    }).then(r => r.inspectErrSync(e => console.warn("tor errored", uuid, { e })).unwrap())
   }, params))
 }
 
@@ -164,12 +162,12 @@ export function createCircuitPool(tors: Mutex<Pool<TorClientDuplex>>, consensus:
       }).then(r => r.inspectErrSync(e => console.warn("circuit errored", uuid, { e })))
 
       if (result.isOk())
-        return result
+        return result.get()
 
       if (start < update)
         continue
 
-      return result
+      throw result.getErr()
     }
   }, params)
 
@@ -253,12 +251,12 @@ export function createStreamPool(url: URL, circuits: Mutex<Pool<Circuit>>, param
       }).then(r => r.inspectErrSync(e => console.warn("stream errored", uuid, { e })))
 
       if (result.isOk())
-        return result
+        return result.get()
 
       if (start < update)
         continue
 
-      return result
+      throw result.getErr()
     }
   }, params)
 

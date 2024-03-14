@@ -2,13 +2,13 @@ import { Opaque, Readable, Writable } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Bytes, Uint8Array } from "@hazae41/bytes";
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
-import { CloseEvents, ErrorEvents, HalfDuplex } from "@hazae41/cascade";
+import { HalfDuplex } from "@hazae41/cascade";
 import { Cursor } from "@hazae41/cursor";
 import { Future } from "@hazae41/future";
 import { Mutex } from "@hazae41/mutex";
 import { None } from "@hazae41/option";
 import { Paimon } from "@hazae41/paimon";
-import { Plume, SuperEventTarget } from "@hazae41/plume";
+import { CloseEvents, ErrorEvents, Plume, SuperEventTarget } from "@hazae41/plume";
 import { Panic, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X509 } from "@hazae41/x509";
@@ -135,40 +135,46 @@ export class SecretTorClientDuplex {
 
   readonly ciphers = [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
 
-  readonly tls = new TlsClientDuplex({ ciphers: this.ciphers, authorized: true })
+  readonly tls: TlsClientDuplex
 
-  readonly duplex = new HalfDuplex<Opaque, Writable>()
+  readonly duplex: HalfDuplex<Opaque, Writable>
+
   readonly events = new SuperEventTarget<SecretTorEvents>()
 
   readonly circuits = new Mutex(new Map<number, SecretCircuit>())
 
   readonly #buffer = new Resizer()
 
+  readonly #resolveOnStart = new Future<void>()
+  readonly #resolveOnTlsCertificates = new Future<X509.Certificate[]>()
+
   #state: TorState = { type: "none" }
 
-  #tlsCerts?: X509.Certificate[]
-
   constructor() {
-    this.duplex.events.on("close", () => this.events.emit("close"))
-    this.duplex.events.on("error", e => this.events.emit("error", e))
-
-    this.tls.events.on("certificates", (certs) => {
-      this.#tlsCerts = certs
-      return new None()
+    this.tls = new TlsClientDuplex({
+      /**
+       * Do not validate root certificates
+       */
+      authorized: true,
+      ciphers: [Ciphers.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384],
+      certificates: c => this.#resolveOnTlsCertificates.resolve(c)
     })
 
-    this.duplex.output.events.on("open", async () => {
-      await this.#onOutputStart()
-      return new None()
-    })
-
-    this.duplex.input.events.on("message", async chunk => {
-      await this.#onInputWrite(chunk)
-      return new None()
+    this.duplex = new HalfDuplex<Opaque, Writable>({
+      output: {
+        start: () => this.#onOutputStart(),
+      },
+      input: {
+        write: c => this.#onInputWrite(c),
+      },
+      close: async () => void await this.events.emit("close"),
+      error: async e => void await this.events.emit("error", e)
     })
 
     this.tls.outer.readable.pipeTo(this.duplex.inner.writable).catch(() => { })
     this.duplex.inner.readable.pipeTo(this.tls.outer.writable).catch(() => { })
+
+    this.#resolveOnStart.resolve()
   }
 
   [Symbol.dispose]() {
@@ -211,18 +217,20 @@ export class SecretTorClientDuplex {
     return this.duplex.closed
   }
 
-  async error(reason?: unknown) {
-    await this.duplex.error(reason)
+  error(reason?: unknown) {
+    this.duplex.error(reason)
   }
 
-  async close() {
-    await this.duplex.close()
+  close() {
+    this.duplex.close()
   }
 
   async #onOutputStart() {
+    await this.#resolveOnStart.promise
+
     await this.#init()
 
-    await this.output.enqueue(OldCell.Circuitless.from(undefined, new VersionsCell([5])))
+    this.output.enqueue(OldCell.Circuitless.from(undefined, new VersionsCell([5])))
 
     await Plume.waitOrCloseOrError(this.events, "handshaked", (future: Future<void>) => {
       future.resolve()
@@ -367,10 +375,11 @@ export class SecretTorClientDuplex {
 
     Console.debug(cell2)
 
-    const certs = await Certs.verifyOrThrow(cell2.fragment.certs, this.#tlsCerts)
+    const tlsCerts = await this.#resolveOnTlsCertificates.promise
+    const torCerts = await Certs.verifyOrThrow(cell2.fragment.certs, tlsCerts)
 
-    const identity = await certs.rsa_self.sha1OrThrow()
-    const guard: Guard = { certs, identity }
+    const identity = await torCerts.rsa_self.sha1OrThrow()
+    const guard: Guard = { certs: torCerts, identity }
 
     this.#state = { ...state, type: "handshaking", guard }
   }

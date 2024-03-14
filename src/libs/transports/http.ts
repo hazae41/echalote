@@ -1,21 +1,21 @@
 import { Opaque, Writable } from "@hazae41/binary"
 import { FullDuplex } from "@hazae41/cascade"
 import { Cursor } from "@hazae41/cursor"
-import { None } from "@hazae41/option"
 import { Resizer } from "libs/resizer/resizer.js"
 
 export class BatchedFetchStream {
 
-  readonly duplex = new FullDuplex<Opaque, Writable>()
+  readonly duplex: FullDuplex<Opaque, Writable>
 
   readonly #buffer = new Resizer()
 
   constructor(
     readonly request: RequestInfo
   ) {
-    this.duplex.output.events.on("message", async chunk => {
-      this.#buffer.writeFromOrThrow(chunk)
-      return new None()
+    this.duplex = new FullDuplex({
+      output: {
+        write: c => this.#buffer.writeFromOrThrow(c),
+      }
     })
 
     this.loop()
@@ -33,7 +33,7 @@ export class BatchedFetchStream {
         const chunker = new Cursor(data)
 
         for (const chunk of chunker.splitOrThrow(16384))
-          await this.duplex.input.enqueue(new Opaque(chunk))
+          this.duplex.input.enqueue(new Opaque(chunk))
 
         continue
       } catch (e: unknown) {
