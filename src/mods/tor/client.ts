@@ -4,6 +4,7 @@ import { Bytes, Uint8Array } from "@hazae41/bytes";
 import { Ciphers, TlsClientDuplex } from "@hazae41/cadenas";
 import { HalfDuplex } from "@hazae41/cascade";
 import { Cursor } from "@hazae41/cursor";
+import { Ed25519 } from "@hazae41/ed25519";
 import { Future } from "@hazae41/future";
 import { Mutex } from "@hazae41/mutex";
 import { None } from "@hazae41/option";
@@ -182,6 +183,7 @@ export class SecretTorClientDuplex {
   }
 
   async #init() {
+    console.log(Ed25519)
     await Paimon.initBundledOnce()
     await Zepar.initBundledOnce()
   }

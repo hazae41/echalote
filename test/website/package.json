@@ -12,6 +12,7 @@
     "@hazae41/berith": "^1.2.6",
     "@hazae41/box": "^1.0.14",
     "@hazae41/cadenas": "^0.3.28",
+    "@hazae41/echalote": "^0.4.1",
     "@hazae41/ed25519": "^2.1.10",
     "@hazae41/fleche": "^1.4.0",
     "@hazae41/morax": "^1.1.5",

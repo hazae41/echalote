@@ -45,6 +45,7 @@ export default function Page() {
     // const ed25519 = Ed25519.fromNoble(noble_ed25519.ed25519)
     // const x25519 = X25519.fromNoble(noble_ed25519.x25519)
     // const sha1 = Sha1.fromNoble(noble_sha1.sha1)
+    console.log("ed25519", Ed25519)
 
     Ed25519.set(await Ed25519.fromSafeOrBerith())
     X25519.set(await X25519.fromSafeOrBerith())
