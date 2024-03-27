@@ -12,10 +12,10 @@ import { Paimon } from "@hazae41/paimon";
 import { CloseEvents, ErrorEvents, Plume, SuperEventTarget } from "@hazae41/plume";
 import { Panic, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
+import { Signals } from "@hazae41/signals";
 import { X509 } from "@hazae41/x509";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
 import { Resizer } from "libs/resizer/resizer.js";
-import { AbortSignals } from "libs/signals/signals.js";
 import { Console } from "mods/console/index.js";
 import { TypedAddress } from "mods/tor/binary/address.js";
 import { Cell } from "mods/tor/binary/cells/cell.js";
@@ -600,7 +600,7 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async #waitCreatedFast(circuit: SecretCircuit, signal = AbortSignals.never()): Promise<Cell.Circuitful<CreatedFastCell>> {
+  async #waitCreatedFast(circuit: SecretCircuit, signal = Signals.never()): Promise<Cell.Circuitful<CreatedFastCell>> {
     return await Plume.waitOrCloseOrErrorOrSignal(this.events, "CREATED_FAST", async (future: Future<Cell.Circuitful<CreatedFastCell>>, e) => {
       if (e.circuit !== circuit)
         return new None()
@@ -609,7 +609,7 @@ export class SecretTorClientDuplex {
     }, signal)
   }
 
-  async createOrThrow(signal = AbortSignals.never()) {
+  async createOrThrow(signal = Signals.never()) {
     if (this.#state.type !== "handshaked")
       throw new InvalidTorStateError()
 
@@ -649,7 +649,7 @@ export class SecretTorClientDuplex {
     return new Circuit(circuit)
   }
 
-  async tryCreate(signal: AbortSignal = AbortSignals.never()): Promise<Result<Circuit, Error>> {
+  async tryCreate(signal: AbortSignal = Signals.never()): Promise<Result<Circuit, Error>> {
     return await Result.runAndWrap(async () => {
       return await this.createOrThrow(signal)
     }).then(r => r.mapErrSync(cause => new Error(`Could not create`, { cause })))

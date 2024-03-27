@@ -7,9 +7,9 @@ import { None, Option } from "@hazae41/option";
 import { CloseEvents, ErrorEvents, Plume, SuperEventTarget } from "@hazae41/plume";
 import { Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
+import { Signals } from "@hazae41/signals";
 import { X25519 } from "@hazae41/x25519";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
-import { AbortSignals } from "libs/signals/signals.js";
 import { Console } from "mods/console/index.js";
 import { Ntor } from "mods/tor/algorithms/ntor/index.js";
 import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
@@ -406,7 +406,7 @@ export class SecretCircuit {
     return new None()
   }
 
-  async extendOrThrow(microdesc: Consensus.Microdesc, signal = AbortSignals.never()) {
+  async extendOrThrow(microdesc: Consensus.Microdesc, signal = Signals.never()) {
     if (this.closed != null)
       throw this.closed.reason
 
@@ -494,7 +494,7 @@ export class SecretCircuit {
     }).then(r => r.mapErrSync(ExtendError.from))
   }
 
-  async truncateOrThrow(reason: number = RelayTruncateCell.reasons.NONE, signal = AbortSignals.never()) {
+  async truncateOrThrow(reason: number = RelayTruncateCell.reasons.NONE, signal = Signals.never()) {
     if (this.closed != null)
       throw this.closed.reason
 
@@ -514,7 +514,7 @@ export class SecretCircuit {
     }).then(r => r.mapErrSync(TruncateError.from))
   }
 
-  async openDirOrThrow(params: CircuitOpenParams = {}, signal = AbortSignals.never()) {
+  async openDirOrThrow(params: CircuitOpenParams = {}, signal = Signals.never()) {
     if (this.closed != null)
       throw this.closed.reason
 
@@ -543,7 +543,7 @@ export class SecretCircuit {
     }).then(r => r.mapErrSync(OpenError.from))
   }
 
-  async openOrThrow(hostname: string, port: number, params: CircuitOpenParams = {}, signal = AbortSignals.never()) {
+  async openOrThrow(hostname: string, port: number, params: CircuitOpenParams = {}, signal = Signals.never()) {
     if (this.closed != null)
       throw this.closed.reason
 
