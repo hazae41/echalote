@@ -5,6 +5,7 @@ import { Bytes } from "@hazae41/bytes"
 import { fetch } from "@hazae41/fleche"
 import { Paimon } from "@hazae41/paimon"
 import { Result } from "@hazae41/result"
+import { Signals } from "@hazae41/signals"
 import { OIDs, X509 } from "@hazae41/x509"
 import { Mutable } from "libs/typescript/typescript.js"
 import { Circuit } from "../circuit.js"
@@ -79,12 +80,12 @@ export namespace Consensus {
     return await Result.runAndDoubleWrap(() => fetchOrThrow(circuit))
   }
 
-  export async function fetchOrThrow(circuit: Circuit) {
-    const stream = await circuit.openDirOrThrow()
-    const response = await fetch(`http://localhost/tor/status-vote/current/consensus-microdesc.z`, { stream: stream.outer })
+  export async function fetchOrThrow(circuit: Circuit, signal = Signals.never()) {
+    const stream = await circuit.openDirOrThrow({}, signal)
+    const response = await fetch(`http://localhost/tor/status-vote/current/consensus-microdesc.z`, { stream: stream.outer, signal })
     const consensus = Consensus.parseOrThrow(await response.text())
 
-    if (await Consensus.verifyOrThrow(circuit, consensus) !== true)
+    if (await Consensus.verifyOrThrow(circuit, consensus, signal) !== true)
       throw new Error(`Could not verify`)
 
     return consensus
@@ -408,7 +409,7 @@ export namespace Consensus {
     return consensus as Consensus
   }
 
-  export async function verifyOrThrow(circuit: Circuit, consensus: Consensus) {
+  export async function verifyOrThrow(circuit: Circuit, consensus: Consensus, signal = Signals.never()) {
     let count = 0
 
     for (const it of consensus.signatures) {
@@ -416,7 +417,7 @@ export namespace Consensus {
         if (!Authority.trusteds.has(it.identity))
           continue
 
-        const certificate = await Certificate.fetchOrThrow(circuit, it.identity)
+        const certificate = await Certificate.fetchOrThrow(circuit, it.identity, signal)
 
         if (certificate == null)
           throw new Error(`Missing certificate for ${it.identity}`)
@@ -474,9 +475,9 @@ export namespace Consensus {
 
   export namespace Certificate {
 
-    export async function fetchAllOrThrow(circuit: Circuit) {
-      const stream = await circuit.openDirOrThrow()
-      const response = await fetch(`http://localhost/tor/keys/fp/all.z`, { stream: stream.outer })
+    export async function fetchAllOrThrow(circuit: Circuit, signal = Signals.never()) {
+      const stream = await circuit.openDirOrThrow({}, signal)
+      const response = await fetch(`http://localhost/tor/keys/fp/all.z`, { stream: stream.outer, signal })
 
       if (!response.ok)
         throw new Error(`Could not fetch`)
@@ -491,9 +492,9 @@ export namespace Consensus {
       return certificates
     }
 
-    export async function fetchOrThrow(circuit: Circuit, fingerprint: string) {
-      const stream = await circuit.openDirOrThrow()
-      const response = await fetch(`http://localhost/tor/keys/fp/${fingerprint}.z`, { stream: stream.outer })
+    export async function fetchOrThrow(circuit: Circuit, fingerprint: string, signal = Signals.never()) {
+      const stream = await circuit.openDirOrThrow(undefined, signal)
+      const response = await fetch(`http://localhost/tor/keys/fp/${fingerprint}.z`, { stream: stream.outer, signal })
 
       if (!response.ok)
         throw new Error(`Could not fetch`)
@@ -675,9 +676,9 @@ export namespace Consensus {
       return await Result.runAndDoubleWrap(() => fetchOrThrow(circuit, ref))
     }
 
-    export async function fetchOrThrow(circuit: Circuit, ref: Head) {
-      const stream = await circuit.openDirOrThrow()
-      const response = await fetch(`http://localhost/tor/micro/d/${ref.microdesc}.z`, { stream: stream.outer })
+    export async function fetchOrThrow(circuit: Circuit, ref: Head, signal = Signals.never()) {
+      const stream = await circuit.openDirOrThrow({}, signal)
+      const response = await fetch(`http://localhost/tor/micro/d/${ref.microdesc}.z`, { stream: stream.outer, signal })
 
       if (!response.ok)
         throw new Error(`Could not fetch ${response.status} ${response.statusText}: ${await response.text()}`)
