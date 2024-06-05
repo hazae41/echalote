@@ -76,8 +76,8 @@ export namespace Consensus {
     readonly signature: string
   }
 
-  export async function tryFetch(circuit: Circuit): Promise<Result<Consensus, Error>> {
-    return await Result.runAndDoubleWrap(() => fetchOrThrow(circuit))
+  export async function tryFetch(circuit: Circuit, signal = Signals.never()): Promise<Result<Consensus, Error>> {
+    return await Result.runAndDoubleWrap(() => fetchOrThrow(circuit, signal))
   }
 
   export async function fetchOrThrow(circuit: Circuit, signal = Signals.never()) {
@@ -672,8 +672,8 @@ export namespace Consensus {
       readonly idEd25519: string
     }
 
-    export async function tryFetch(circuit: Circuit, ref: Head): Promise<Result<Microdesc, Error>> {
-      return await Result.runAndDoubleWrap(() => fetchOrThrow(circuit, ref))
+    export async function tryFetch(circuit: Circuit, ref: Head, signal = Signals.never()): Promise<Result<Microdesc, Error>> {
+      return await Result.runAndDoubleWrap(() => fetchOrThrow(circuit, ref, signal))
     }
 
     export async function fetchOrThrow(circuit: Circuit, ref: Head, signal = Signals.never()) {
