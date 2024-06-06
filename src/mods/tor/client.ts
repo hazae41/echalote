@@ -68,11 +68,7 @@ export class TorClientDuplex {
   }
 
   [Symbol.dispose]() {
-    this.close().catch(console.error)
-  }
-
-  async [Symbol.asyncDispose]() {
-    await this.close()
+    this.close()
   }
 
   get inner() {
@@ -91,16 +87,16 @@ export class TorClientDuplex {
     return this.#secret.closed
   }
 
-  async error(reason?: unknown) {
-    await this.#secret.error(reason)
+  error(reason?: unknown) {
+    this.#secret.error(reason)
   }
 
-  async close() {
-    await this.#secret.close()
+  close() {
+    this.#secret.close()
   }
 
-  async waitOrThrow() {
-    return await this.#secret.waitOrThrow()
+  async waitOrThrow(signal = Signals.never()) {
+    return await this.#secret.waitOrThrow(signal)
   }
 
   async tryWait() {
@@ -557,19 +553,19 @@ export class SecretTorClientDuplex {
   }
 
 
-  async waitOrThrow() {
+  async waitOrThrow(signal = Signals.never()) {
     if (this.state.type === "handshaked")
       return
 
-    await Plume.waitOrCloseOrError(this.events, "handshaked", (future: Future<void>) => {
+    await Plume.waitOrCloseOrErrorOrSignal(this.events, "handshaked", (future: Future<void>) => {
       future.resolve()
       return new None()
-    })
+    }, signal)
   }
 
-  async tryWait(): Promise<Result<void, Error>> {
+  async tryWait(signal = Signals.never()): Promise<Result<void, Error>> {
     return await Result.runAndWrap(async () => {
-      await this.waitOrThrow()
+      await this.waitOrThrow(signal)
     }).then(r => r.mapErrSync(cause => new Error(`Could not wait`, { cause })))
   }
 

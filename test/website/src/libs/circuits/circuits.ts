@@ -104,8 +104,8 @@ export function createCircuitPool(tors: Mutex<Pool<TorClientDuplex>>, consensus:
         console.log("creating circuit...", uuid)
 
         using circuit = await tryLoop<Box<Circuit>, Looped<Error>>(async () => {
-          return await Result.unthrow(async t => {
-            using circuit = new Box(await tor.tryCreate(AbortSignal.timeout(1000)).then(r => r.mapErrSync(Cancel.new).throw(t)))
+          return await Result.unthrow<any>(async t => {
+            using circuit = new Box(await tor.createOrThrow(AbortSignal.timeout(1000)))
 
             /**
              * Try to extend to middle relay 9 times before giving up this circuit
@@ -113,7 +113,7 @@ export function createCircuitPool(tors: Mutex<Pool<TorClientDuplex>>, consensus:
             await tryLoop(() => {
               return Result.unthrow<Result<void, Looped<Error>>>(async t => {
                 const head = middles[Math.floor(Math.random() * middles.length)]
-                const body = await Consensus.Microdesc.tryFetch(circuit.inner, head).then(r => r.mapErrSync(Cancel.new).throw(t))
+                const body = await Consensus.Microdesc.tryFetch(circuit.inner, head, AbortSignal.timeout(1000)).then(r => r.mapErrSync(Cancel.new).throw(t))
                 await circuit.inner.tryExtend(body, AbortSignal.timeout(1000)).then(r => r.mapErrSync(Retry.new).throw(t))
 
                 return Ok.void()
@@ -126,7 +126,7 @@ export function createCircuitPool(tors: Mutex<Pool<TorClientDuplex>>, consensus:
             await tryLoop(() => {
               return Result.unthrow<Result<void, Looped<Error>>>(async t => {
                 const head = exits[Math.floor(Math.random() * exits.length)]
-                const body = await Consensus.Microdesc.tryFetch(circuit.inner, head).then(r => r.mapErrSync(Cancel.new).throw(t))
+                const body = await Consensus.Microdesc.tryFetch(circuit.inner, head, AbortSignal.timeout(1000)).then(r => r.mapErrSync(Cancel.new).throw(t))
                 await circuit.inner.tryExtend(body, AbortSignal.timeout(1000)).then(r => r.mapErrSync(Retry.new).throw(t))
 
                 return Ok.void()
@@ -152,8 +152,10 @@ export function createCircuitPool(tors: Mutex<Pool<TorClientDuplex>>, consensus:
               }).then(r => r.mapErrSync(Retry.new).throw(t))
             }
 
+            console.log("!!! success !!!", uuid)
+
             return new Ok(circuit.moveOrThrow())
-          })
+          }).then(r => r.inspectErrSync(e => console.warn({ e })))
         }, { max: 9 }).then(r => r.throw(t))
 
         console.log("circuit opened...", uuid)
