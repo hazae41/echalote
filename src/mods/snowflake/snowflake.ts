@@ -3,7 +3,7 @@ import { KcpDuplex } from "@hazae41/kcp"
 import { SmuxDuplex } from "@hazae41/smux"
 import { TurboDuplex } from "mods/snowflake/turbo/stream.js"
 
-export async function createSnowflakeStream(raw: { outer: ReadableWritablePair<Opaque, Writable> }): Promise<{ outer: ReadableWritablePair<Opaque, Writable> }> {
+export function createSnowflakeStream(raw: { outer: ReadableWritablePair<Opaque, Writable> }): { outer: ReadableWritablePair<Opaque, Writable> } {
   const turbo = new TurboDuplex()
   const kcp = new KcpDuplex({ lowDelay: 100, highDelay: 1000 })
   const smux = new SmuxDuplex()
