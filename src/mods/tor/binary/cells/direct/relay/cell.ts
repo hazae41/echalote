@@ -1,7 +1,7 @@
+import { AesWasm } from "@hazae41/aes.wasm";
 import { Opaque, Readable, Writable } from "@hazae41/binary";
 import { Bytes, type Uint8Array } from "@hazae41/bytes";
 import { Cursor } from "@hazae41/cursor";
-import { Zepar } from "@hazae41/zepar";
 import { Cell, } from "mods/tor/binary/cells/cell.js";
 import { SecretCircuit } from "mods/tor/circuit.js";
 import { SecretTorStreamDuplex } from "mods/tor/stream.js";
@@ -97,7 +97,7 @@ export namespace RelayCell {
       cursor.offset = digestOffset
       cursor.writeOrThrow(digest20.subarray(0, 4))
 
-      using memory = new Zepar.Memory(cursor.bytes)
+      using memory = new AesWasm.Memory(cursor.bytes)
 
       for (let i = this.circuit.targets.length - 1; i >= 0; i--)
         this.circuit.targets[i].forward_key.apply_keystream(memory)
@@ -111,7 +111,7 @@ export namespace RelayCell {
       if (cell instanceof Cell.Circuitless)
         throw new ExpectedCircuitError()
 
-      using memory = new Zepar.Memory(cell.fragment.bytes)
+      using memory = new AesWasm.Memory(cell.fragment.bytes)
 
       for (const target of cell.circuit.targets) {
         target.backward_key.apply_keystream(memory)

@@ -1,8 +1,8 @@
 import { Writable } from "@hazae41/binary";
 import { Bytes } from "@hazae41/bytes";
 import { Ed25519 } from "@hazae41/ed25519";
-import { Paimon, RsaPublicKey } from "@hazae41/paimon";
 import { Panic } from "@hazae41/result";
+import { RsaPublicKey, RsaWasm } from "@hazae41/rsa.wasm";
 import { X509 } from "@hazae41/x509";
 import { CrossCert, Ed25519Cert, RsaCert, UnknownCertExtensionError } from "../index.js";
 
@@ -165,15 +165,15 @@ export namespace Certs {
 
     const publicKeyBytes = X509.writeToBytesOrThrow(certs.rsa_self.x509.tbsCertificate.subjectPublicKeyInfo)
 
-    using publicKeyMemory = new Paimon.Memory(publicKeyBytes)
+    using publicKeyMemory = new RsaWasm.Memory(publicKeyBytes)
     using publicKeyPointer = RsaPublicKey.from_public_key_der(publicKeyMemory)
 
     const prefix = Bytes.fromUtf8("Tor TLS RSA/Ed25519 cross-certificate")
     const prefixed = Bytes.concat([prefix, certs.rsa_to_ed.payload])
     const hashed = new Uint8Array(await crypto.subtle.digest("SHA-256", prefixed))
 
-    using hashedMemory = new Paimon.Memory(hashed)
-    using signatureMemory = new Paimon.Memory(certs.rsa_to_ed.signature)
+    using hashedMemory = new RsaWasm.Memory(hashed)
+    using signatureMemory = new RsaWasm.Memory(certs.rsa_to_ed.signature)
 
     const verified = publicKeyPointer.verify_pkcs1v15_unprefixed(hashedMemory, signatureMemory)
 

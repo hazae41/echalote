@@ -3,8 +3,8 @@ import { Base16 } from "@hazae41/base16"
 import { Base64 } from "@hazae41/base64"
 import { Bytes } from "@hazae41/bytes"
 import { fetch } from "@hazae41/fleche"
-import { Paimon } from "@hazae41/paimon"
 import { Result } from "@hazae41/result"
+import { RsaWasm } from "@hazae41/rsa.wasm"
 import { OIDs, X509 } from "@hazae41/x509"
 import { Mutable } from "libs/typescript/typescript.js"
 import { Circuit } from "../circuit.js"
@@ -435,11 +435,11 @@ export namespace Consensus {
 
         using signature = Base64.get().getOrThrow().decodePaddedOrThrow(it.signature)
 
-        using signatureM = new Paimon.Memory(signature.bytes)
-        using hashedM = new Paimon.Memory(hashed)
-        using publicKeyM = new Paimon.Memory(publicKey)
+        using signatureM = new RsaWasm.Memory(signature.bytes)
+        using hashedM = new RsaWasm.Memory(hashed)
+        using publicKeyM = new RsaWasm.Memory(publicKey)
 
-        using publicKeyX = Paimon.RsaPublicKey.from_public_key_der(publicKeyM)
+        using publicKeyX = RsaWasm.RsaPublicKey.from_public_key_der(publicKeyM)
         const verified = publicKeyX.verify_pkcs1v15_unprefixed(hashedM, signatureM)
 
         if (verified !== true)
@@ -510,8 +510,6 @@ export namespace Consensus {
     }
 
     export async function verifyOrThrow(cert: Certificate) {
-      await Paimon.initBundledOnce()
-
       using identityKey = Base64.get().getOrThrow().decodePaddedOrThrow(cert.identityKey)
 
       const identity = new Uint8Array(await crypto.subtle.digest("SHA-1", identityKey.bytes))
@@ -532,11 +530,11 @@ export namespace Consensus {
 
       using signature = Base64.get().getOrThrow().decodePaddedOrThrow(cert.signature)
 
-      using hashedM = new Paimon.Memory(hashed)
-      using publicKeyM = new Paimon.Memory(publicKey)
-      using signatureM = new Paimon.Memory(signature.bytes)
+      using hashedM = new RsaWasm.Memory(hashed)
+      using publicKeyM = new RsaWasm.Memory(publicKey)
+      using signatureM = new RsaWasm.Memory(signature.bytes)
 
-      using publicKeyX = Paimon.RsaPublicKey.from_public_key_der(publicKeyM)
+      using publicKeyX = RsaWasm.RsaPublicKey.from_public_key_der(publicKeyM)
       const verified = publicKeyX.verify_pkcs1v15_unprefixed(hashedM, signatureM)
 
       if (verified !== true)

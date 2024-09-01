@@ -1,3 +1,4 @@
+import { Aes128Ctr128BEKey, AesWasm } from "@hazae41/aes.wasm";
 import { Opaque, Readable, Writable } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Bytes, Uint8Array } from "@hazae41/bytes";
@@ -7,12 +8,11 @@ import { Cursor } from "@hazae41/cursor";
 import { Future } from "@hazae41/future";
 import { Mutex } from "@hazae41/mutex";
 import { None } from "@hazae41/option";
-import { Paimon } from "@hazae41/paimon";
 import { CloseEvents, ErrorEvents, Plume, SuperEventTarget } from "@hazae41/plume";
 import { Panic, Result } from "@hazae41/result";
+import { RsaWasm } from "@hazae41/rsa.wasm";
 import { Sha1 } from "@hazae41/sha1";
 import { X509 } from "@hazae41/x509";
-import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
 import { Resizer } from "libs/resizer/resizer.js";
 import { Console } from "mods/console/index.js";
 import { TypedAddress } from "mods/tor/binary/address.js";
@@ -177,8 +177,8 @@ export class SecretTorClientDuplex {
   }
 
   async #init() {
-    await Paimon.initBundledOnce()
-    await Zepar.initBundledOnce()
+    await RsaWasm.initBundled()
+    await AesWasm.initBundled()
   }
 
   get state() {
@@ -619,11 +619,11 @@ export class SecretTorClientDuplex {
     forwardDigest.updateOrThrow(result.forwardDigest)
     backwardDigest.updateOrThrow(result.backwardDigest)
 
-    using forwardKeyMemory = new Zepar.Memory(result.forwardKey)
-    using forwardIvMemory = new Zepar.Memory(new Uint8Array(16))
+    using forwardKeyMemory = new AesWasm.Memory(result.forwardKey)
+    using forwardIvMemory = new AesWasm.Memory(new Uint8Array(16))
 
-    using backwardKeyMemory = new Zepar.Memory(result.backwardKey)
-    using backwardIvMemory = new Zepar.Memory(new Uint8Array(16))
+    using backwardKeyMemory = new AesWasm.Memory(result.backwardKey)
+    using backwardIvMemory = new AesWasm.Memory(new Uint8Array(16))
 
     const forwardKey = new Aes128Ctr128BEKey(forwardKeyMemory, forwardIvMemory)
     const backwardKey = new Aes128Ctr128BEKey(backwardKeyMemory, backwardIvMemory)

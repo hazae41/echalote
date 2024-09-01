@@ -1,3 +1,4 @@
+import { Aes128Ctr128BEKey, AesWasm } from "@hazae41/aes.wasm";
 import { Base64 } from "@hazae41/base64";
 import { Opaque } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
@@ -8,7 +9,6 @@ import { CloseEvents, ErrorEvents, Plume, SuperEventTarget } from "@hazae41/plum
 import { Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
-import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
 import { Console } from "mods/console/index.js";
 import { Ntor } from "mods/tor/algorithms/ntor/index.js";
 import { DestroyCell } from "mods/tor/binary/cells/direct/destroy/cell.js";
@@ -476,11 +476,11 @@ export class SecretCircuit {
     forward_digest.updateOrThrow(result.forwardDigest)
     backward_digest.updateOrThrow(result.backwardDigest)
 
-    using forwardKeyMemory = new Zepar.Memory(result.forwardKey)
-    using forwardIvMemory = new Zepar.Memory(new Uint8Array(16))
+    using forwardKeyMemory = new AesWasm.Memory(result.forwardKey)
+    using forwardIvMemory = new AesWasm.Memory(new Uint8Array(16))
 
-    using backwardKeyMemory = new Zepar.Memory(result.backwardKey)
-    using backwardIvMemory = new Zepar.Memory(new Uint8Array(16))
+    using backwardKeyMemory = new AesWasm.Memory(result.backwardKey)
+    using backwardIvMemory = new AesWasm.Memory(new Uint8Array(16))
 
     const forwardKey = new Aes128Ctr128BEKey(forwardKeyMemory, forwardIvMemory)
     const backwardKey = new Aes128Ctr128BEKey(backwardKeyMemory, backwardIvMemory)
