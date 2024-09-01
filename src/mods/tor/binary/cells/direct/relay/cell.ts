@@ -85,7 +85,8 @@ export namespace RelayCell {
 
       exit.forward_digest.updateOrThrow(cursor.bytes)
 
-      const digest20 = exit.forward_digest.finalizeOrThrow().copyAndDispose() as Uint8Array<20>
+      using digest = exit.forward_digest.finalizeOrThrow()
+      const digest20 = digest.bytes.slice() as Uint8Array<20>
 
       if (this.rcommand === RelayDataCell.rcommand) {
         if (exit.package % 100 === 1)
@@ -131,9 +132,10 @@ export namespace RelayCell {
         cursor.writeUint32OrThrow(0)
 
         using hasher = target.backward_digest.cloneOrThrow()
-        const digest = hasher.updateOrThrow(cursor.bytes).finalizeOrThrow().copyAndDispose()
+        using digest = hasher.updateOrThrow(cursor.bytes).finalizeOrThrow()
+        const digest20 = digest.bytes.slice() as Uint8Array<20>
 
-        if (!Bytes.equals2(digest4, digest.subarray(0, 4))) {
+        if (!Bytes.equals2(digest4, digest.bytes.subarray(0, 4))) {
           cursor.offset = offset
           cursor.writeOrThrow(digest4)
           continue
@@ -145,7 +147,7 @@ export namespace RelayCell {
         const bytes = cursor.readAndCopyOrThrow(length)
         const data = new Opaque(bytes)
 
-        return new Raw<Opaque>(cell.circuit, stream, rcommand, data, digest)
+        return new Raw<Opaque>(cell.circuit, stream, rcommand, data, digest20)
       }
 
       throw new UnrecognisedRelayCellError()

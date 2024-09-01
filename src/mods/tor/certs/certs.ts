@@ -191,8 +191,8 @@ export namespace Certs {
     if (await certs.ed_to_sign.verifyOrThrow() !== true)
       throw new Panic(`Could not verify ED_TO_SIGN cert`)
 
-    using identity = await Ed25519.get().PublicKey.importOrThrow(certs.rsa_to_ed.key)
-    using signature = Ed25519.get().Signature.importOrThrow(certs.ed_to_sign.signature)
+    using identity = await Ed25519.get().getOrThrow().VerifyingKey.importOrThrow(certs.rsa_to_ed.key)
+    using signature = Ed25519.get().getOrThrow().Signature.importOrThrow(certs.ed_to_sign.signature)
 
     const verified = await identity.verifyOrThrow(certs.ed_to_sign.payload, signature)
 
@@ -206,8 +206,8 @@ export namespace Certs {
     if (await certs.sign_to_tls.verifyOrThrow() !== true)
       throw new Error(`Could not verify SIGNING_TO_TLS cert`)
 
-    using identity = await Ed25519.get().PublicKey.importOrThrow(certs.ed_to_sign.certKey)
-    using signature = Ed25519.get().Signature.importOrThrow(certs.sign_to_tls.signature)
+    using identity = await Ed25519.get().getOrThrow().VerifyingKey.importOrThrow(certs.ed_to_sign.certKey)
+    using signature = Ed25519.get().getOrThrow().Signature.importOrThrow(certs.sign_to_tls.signature)
 
     const verified = await identity.verifyOrThrow(certs.sign_to_tls.payload, signature)
 

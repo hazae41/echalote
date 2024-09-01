@@ -5,7 +5,6 @@ import { Bytes } from "@hazae41/bytes"
 import { fetch } from "@hazae41/fleche"
 import { Paimon } from "@hazae41/paimon"
 import { Result } from "@hazae41/result"
-import { Signals } from "@hazae41/signals"
 import { OIDs, X509 } from "@hazae41/x509"
 import { Mutable } from "libs/typescript/typescript.js"
 import { Circuit } from "../circuit.js"
@@ -76,11 +75,11 @@ export namespace Consensus {
     readonly signature: string
   }
 
-  export async function tryFetch(circuit: Circuit, signal = Signals.never()): Promise<Result<Consensus, Error>> {
+  export async function tryFetch(circuit: Circuit, signal = new AbortController().signal): Promise<Result<Consensus, Error>> {
     return await Result.runAndDoubleWrap(() => fetchOrThrow(circuit, signal))
   }
 
-  export async function fetchOrThrow(circuit: Circuit, signal = Signals.never()) {
+  export async function fetchOrThrow(circuit: Circuit, signal = new AbortController().signal) {
     const stream = await circuit.openDirOrThrow({}, signal)
     const response = await fetch(`http://localhost/tor/status-vote/current/consensus-microdesc.z`, { stream: stream.outer, signal })
     const consensus = Consensus.parseOrThrow(await response.text())
@@ -409,7 +408,7 @@ export namespace Consensus {
     return consensus as Consensus
   }
 
-  export async function verifyOrThrow(circuit: Circuit, consensus: Consensus, signal = Signals.never()) {
+  export async function verifyOrThrow(circuit: Circuit, consensus: Consensus, signal = new AbortController().signal) {
     let count = 0
 
     for (const it of consensus.signatures) {
@@ -425,7 +424,7 @@ export namespace Consensus {
         const signed = Bytes.fromUtf8(consensus.preimage)
         const hashed = new Uint8Array(await crypto.subtle.digest("SHA-256", signed))
 
-        using signingKey = Base64.get().decodePaddedOrThrow(certificate.signingKey)
+        using signingKey = Base64.get().getOrThrow().decodePaddedOrThrow(certificate.signingKey)
 
         const algorithmAsn1 = ASN1.ObjectIdentifier.create(undefined, OIDs.keys.rsaEncryption).toDER()
         const algorithmId = new X509.AlgorithmIdentifier(algorithmAsn1, ASN1.Null.create().toDER())
@@ -434,7 +433,7 @@ export namespace Consensus {
 
         const publicKey = X509.writeToBytesOrThrow(subjectPublicKeyInfo)
 
-        using signature = Base64.get().decodePaddedOrThrow(it.signature)
+        using signature = Base64.get().getOrThrow().decodePaddedOrThrow(it.signature)
 
         using signatureM = new Paimon.Memory(signature.bytes)
         using hashedM = new Paimon.Memory(hashed)
@@ -475,7 +474,7 @@ export namespace Consensus {
 
   export namespace Certificate {
 
-    export async function fetchAllOrThrow(circuit: Circuit, signal = Signals.never()) {
+    export async function fetchAllOrThrow(circuit: Circuit, signal = new AbortController().signal) {
       const stream = await circuit.openDirOrThrow({}, signal)
       const response = await fetch(`http://localhost/tor/keys/fp/all.z`, { stream: stream.outer, signal })
 
@@ -492,7 +491,7 @@ export namespace Consensus {
       return certificates
     }
 
-    export async function fetchOrThrow(circuit: Circuit, fingerprint: string, signal = Signals.never()) {
+    export async function fetchOrThrow(circuit: Circuit, fingerprint: string, signal = new AbortController().signal) {
       const stream = await circuit.openDirOrThrow(undefined, signal)
       const response = await fetch(`http://localhost/tor/keys/fp/${fingerprint}.z`, { stream: stream.outer, signal })
 
@@ -513,10 +512,10 @@ export namespace Consensus {
     export async function verifyOrThrow(cert: Certificate) {
       await Paimon.initBundledOnce()
 
-      using identityKey = Base64.get().decodePaddedOrThrow(cert.identityKey)
+      using identityKey = Base64.get().getOrThrow().decodePaddedOrThrow(cert.identityKey)
 
       const identity = new Uint8Array(await crypto.subtle.digest("SHA-1", identityKey.bytes))
-      const fingerprint = Base16.get().encodeOrThrow(identity)
+      const fingerprint = Base16.get().getOrThrow().encodeOrThrow(identity)
 
       if (fingerprint.toLowerCase() !== cert.fingerprint.toLowerCase())
         throw new Error(`Fingerprint mismatch`)
@@ -531,7 +530,7 @@ export namespace Consensus {
 
       const publicKey = X509.writeToBytesOrThrow(subjectPublicKeyInfo)
 
-      using signature = Base64.get().decodePaddedOrThrow(cert.signature)
+      using signature = Base64.get().getOrThrow().decodePaddedOrThrow(cert.signature)
 
       using hashedM = new Paimon.Memory(hashed)
       using publicKeyM = new Paimon.Memory(publicKey)
@@ -672,11 +671,11 @@ export namespace Consensus {
       readonly idEd25519: string
     }
 
-    export async function tryFetch(circuit: Circuit, ref: Head, signal = Signals.never()): Promise<Result<Microdesc, Error>> {
+    export async function tryFetch(circuit: Circuit, ref: Head, signal = new AbortController().signal): Promise<Result<Microdesc, Error>> {
       return await Result.runAndDoubleWrap(() => fetchOrThrow(circuit, ref, signal))
     }
 
-    export async function fetchOrThrow(circuit: Circuit, ref: Head, signal = Signals.never()) {
+    export async function fetchOrThrow(circuit: Circuit, ref: Head, signal = new AbortController().signal) {
       const stream = await circuit.openDirOrThrow({}, signal)
       const response = await fetch(`http://localhost/tor/micro/d/${ref.microdesc}.z`, { stream: stream.outer, signal })
 
@@ -686,7 +685,7 @@ export namespace Consensus {
       const buffer = await response.arrayBuffer()
       const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", buffer))
 
-      const digest64 = Base64.get().encodeUnpaddedOrThrow(digest)
+      const digest64 = Base64.get().getOrThrow().encodeUnpaddedOrThrow(digest)
 
       if (digest64 !== ref.microdesc)
         throw new Error(`Digest mismatch`)

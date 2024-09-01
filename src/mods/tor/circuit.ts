@@ -7,7 +7,6 @@ import { None, Option } from "@hazae41/option";
 import { CloseEvents, ErrorEvents, Plume, SuperEventTarget } from "@hazae41/plume";
 import { Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
-import { Signals } from "@hazae41/signals";
 import { X25519 } from "@hazae41/x25519";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
 import { Console } from "mods/console/index.js";
@@ -406,17 +405,20 @@ export class SecretCircuit {
     return new None()
   }
 
-  async extendOrThrow(microdesc: Consensus.Microdesc, signal = Signals.never()) {
+  async extendOrThrow(microdesc: Consensus.Microdesc, signal = new AbortController().signal) {
     if (this.closed != null)
       throw this.closed.reason
 
-    const relayid_rsa_x = Base64.get().decodeUnpaddedOrThrow(microdesc.identity).copyAndDispose()
-    const relayid_rsa = Bytes.castOrThrow(relayid_rsa_x, HASH_LEN)
+    using relayid_rsa_x = Base64.get().getOrThrow().decodeUnpaddedOrThrow(microdesc.identity)
+    const relayid_rsa = Bytes.castOrThrow(relayid_rsa_x.bytes.slice(), HASH_LEN)
 
-    const ntor_key_x = Base64.get().decodeUnpaddedOrThrow(microdesc.ntorOnionKey).copyAndDispose()
-    const ntor_key = Bytes.castOrThrow(ntor_key_x, 32)
+    using ntor_key_x = Base64.get().getOrThrow().decodeUnpaddedOrThrow(microdesc.ntorOnionKey)
+    const ntor_key = Bytes.castOrThrow(ntor_key_x.bytes.slice(), 32)
 
-    const relayid_ed = Option.mapSync(microdesc.idEd25519, Base64.get().decodeUnpaddedOrThrow)?.copyAndDispose()
+    const relayid_ed = Option.wrap(microdesc.idEd25519).mapSync(x => {
+      using memory = Base64.get().getOrThrow().decodeUnpaddedOrThrow(x)
+      return memory.bytes.slice()
+    }).getOrNull()
 
     const links = new Array<RelayExtend2Link>()
 
@@ -430,19 +432,19 @@ export class SecretCircuit {
     if (relayid_ed != null)
       links.push(new RelayExtend2LinkModernID(relayid_ed))
 
-    using wasm_secret_x = await X25519.get().PrivateKey.tryRandom().then(r => r.unwrap())
-    using wasm_public_x = wasm_secret_x.tryGetPublicKey().unwrap()
+    using wasm_secret_x = await X25519.get().getOrThrow().PrivateKey.randomOrThrow()
+    using wasm_public_x = wasm_secret_x.getPublicKeyOrThrow()
 
-    const unsized_public_x_bytes = await wasm_public_x.tryExport().then(r => r.unwrap().copyAndDispose())
+    using public_x_memory = await wasm_public_x.exportOrThrow()
 
-    const public_x = Bytes.castOrThrow(unsized_public_x_bytes, 32)
+    const public_x = Bytes.castOrThrow(public_x_memory.bytes.slice(), 32)
     const public_b = ntor_key
 
     const ntor_request = new Ntor.NtorRequest(public_x, relayid_rsa, public_b)
     const relay_extend2 = new RelayExtend2Cell(RelayExtend2Cell.types.NTOR, links, ntor_request)
     this.tor.output.enqueue(RelayEarlyCell.Streamless.from(this, undefined, relay_extend2).cellOrThrow())
 
-    const msg_extended2 = await Plume.waitOrCloseOrErrorOrSignal(this.events, "RELAY_EXTENDED2", (future: Future<RelayCell.Streamless<RelayExtended2Cell<Opaque>>>, e) => {
+    const msg_extended2 = await Plume.waitWithCloseAndErrorOrThrow(this.events, "RELAY_EXTENDED2", (future: Future<RelayCell.Streamless<RelayExtended2Cell<Opaque>>>, e) => {
       future.resolve(e)
       return new None()
     }, signal)
@@ -451,25 +453,25 @@ export class SecretCircuit {
 
     const { public_y } = response
 
-    using wasm_public_y = await X25519.get().PublicKey.tryImport(public_y).then(r => r.unwrap())
-    using wasm_public_b = await X25519.get().PublicKey.tryImport(public_b).then(r => r.unwrap())
+    using wasm_public_y = await X25519.get().getOrThrow().PublicKey.importOrThrow(public_y)
+    using wasm_public_b = await X25519.get().getOrThrow().PublicKey.importOrThrow(public_b)
 
-    using wasm_shared_xy = await wasm_secret_x.tryCompute(wasm_public_y).then(r => r.unwrap())
-    using wasm_shared_xb = await wasm_secret_x.tryCompute(wasm_public_b).then(r => r.unwrap())
+    using wasm_shared_xy = await wasm_secret_x.computeOrThrow(wasm_public_y)
+    using wasm_shared_xb = await wasm_secret_x.computeOrThrow(wasm_public_b)
 
-    const unsized_shared_xy_bytes = wasm_shared_xy.tryExport().unwrap().copyAndDispose()
-    const unsized_shared_xb_bytes = wasm_shared_xb.tryExport().unwrap().copyAndDispose()
+    using shared_xy_memory = wasm_shared_xy.exportOrThrow()
+    using shared_xb_memory = wasm_shared_xb.exportOrThrow()
 
-    const shared_xy = Bytes.castOrThrow(unsized_shared_xy_bytes, 32)
-    const shared_xb = Bytes.castOrThrow(unsized_shared_xb_bytes, 32)
+    const shared_xy = Bytes.castOrThrow(shared_xy_memory.bytes.slice(), 32)
+    const shared_xb = Bytes.castOrThrow(shared_xb_memory.bytes.slice(), 32)
 
     const result = await NtorResult.finalizeOrThrow(shared_xy, shared_xb, relayid_rsa, public_b, public_x, public_y)
 
     if (!Bytes.equals(response.auth, result.auth))
       throw new InvalidNtorAuthError()
 
-    const forward_digest = Sha1.get().Hasher.createOrThrow()
-    const backward_digest = Sha1.get().Hasher.createOrThrow()
+    const forward_digest = Sha1.get().getOrThrow().Hasher.createOrThrow()
+    const backward_digest = Sha1.get().getOrThrow().Hasher.createOrThrow()
 
     forward_digest.updateOrThrow(result.forwardDigest)
     backward_digest.updateOrThrow(result.backwardDigest)
@@ -494,7 +496,7 @@ export class SecretCircuit {
     }).then(r => r.mapErrSync(ExtendError.from))
   }
 
-  async truncateOrThrow(reason: number = RelayTruncateCell.reasons.NONE, signal = Signals.never()) {
+  async truncateOrThrow(reason: number = RelayTruncateCell.reasons.NONE, signal = new AbortController().signal) {
     if (this.closed != null)
       throw this.closed.reason
 
@@ -502,7 +504,7 @@ export class SecretCircuit {
     const relay_truncate_cell = RelayCell.Streamless.from(this, undefined, relay_truncate)
     this.tor.output.enqueue(relay_truncate_cell.cellOrThrow())
 
-    await Plume.waitOrCloseOrErrorOrSignal(this.events, "RELAY_TRUNCATED", (future: Future<RelayCell.Streamless<RelayTruncatedCell>>, e) => {
+    await Plume.waitWithCloseAndErrorOrThrow(this.events, "RELAY_TRUNCATED", (future: Future<RelayCell.Streamless<RelayTruncatedCell>>, e) => {
       future.resolve(e)
       return new None()
     }, signal)
@@ -514,7 +516,7 @@ export class SecretCircuit {
     }).then(r => r.mapErrSync(TruncateError.from))
   }
 
-  async openDirOrThrow(params: CircuitOpenParams = {}, signal = Signals.never()) {
+  async openDirOrThrow(params: CircuitOpenParams = {}, signal = new AbortController().signal) {
     if (this.closed != null)
       throw this.closed.reason
 
@@ -529,7 +531,7 @@ export class SecretCircuit {
     if (!params.wait)
       return new TorStreamDuplex(stream)
 
-    await Plume.waitOrCloseOrErrorOrSignal(stream.events, "connected", (future: Future<void>) => {
+    await Plume.waitWithCloseAndErrorOrThrow(stream.events, "connected", (future: Future<void>) => {
       future.resolve()
       return new None()
     }, signal)
@@ -543,7 +545,7 @@ export class SecretCircuit {
     }).then(r => r.mapErrSync(OpenError.from))
   }
 
-  async openOrThrow(hostname: string, port: number, params: CircuitOpenParams = {}, signal = Signals.never()) {
+  async openOrThrow(hostname: string, port: number, params: CircuitOpenParams = {}, signal = new AbortController().signal) {
     if (this.closed != null)
       throw this.closed.reason
 
@@ -567,7 +569,7 @@ export class SecretCircuit {
     if (!params.wait)
       return new TorStreamDuplex(stream)
 
-    await Plume.waitOrCloseOrErrorOrSignal(stream.events, "connected", (future: Future<void>) => {
+    await Plume.waitWithCloseAndErrorOrThrow(stream.events, "connected", (future: Future<void>) => {
       future.resolve()
       return new None()
     }, signal)

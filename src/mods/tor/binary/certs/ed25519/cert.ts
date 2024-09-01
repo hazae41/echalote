@@ -53,8 +53,8 @@ export class Ed25519Cert {
     if (!this.extensions.signer)
       return true // TODO maybe do additionnal check?
 
-    using signer = await Ed25519.get().PublicKey.importOrThrow(this.extensions.signer.key)
-    using signature = Ed25519.get().Signature.importOrThrow(this.signature)
+    using signer = await Ed25519.get().getOrThrow().VerifyingKey.importOrThrow(this.extensions.signer.key)
+    using signature = Ed25519.get().getOrThrow().Signature.importOrThrow(this.signature)
 
     const verified = await signer.verifyOrThrow(this.payload, signature)
 

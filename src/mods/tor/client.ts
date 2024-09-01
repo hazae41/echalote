@@ -11,7 +11,6 @@ import { Paimon } from "@hazae41/paimon";
 import { CloseEvents, ErrorEvents, Plume, SuperEventTarget } from "@hazae41/plume";
 import { Panic, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
-import { Signals } from "@hazae41/signals";
 import { X509 } from "@hazae41/x509";
 import { Aes128Ctr128BEKey, Zepar } from "@hazae41/zepar";
 import { Resizer } from "libs/resizer/resizer.js";
@@ -95,7 +94,7 @@ export class TorClientDuplex {
     this.#secret.close()
   }
 
-  async waitOrThrow(signal = Signals.never()) {
+  async waitOrThrow(signal = new AbortController().signal) {
     return await this.#secret.waitOrThrow(signal)
   }
 
@@ -228,10 +227,7 @@ export class SecretTorClientDuplex {
 
     this.output.enqueue(OldCell.Circuitless.from(undefined, new VersionsCell([5])))
 
-    await Plume.waitOrCloseOrError(this.events, "handshaked", (future: Future<void>) => {
-      future.resolve()
-      return new None()
-    })
+    await Plume.waitWithCloseAndErrorOrThrow(this.events, "handshaked", (future: Future<void>) => future.resolve())
   }
 
   async #onInputWrite(chunk: Opaque) {
@@ -553,24 +549,20 @@ export class SecretTorClientDuplex {
   }
 
 
-  async waitOrThrow(signal = Signals.never()) {
+  async waitOrThrow(signal = new AbortController().signal) {
     if (this.state.type === "handshaked")
       return
-
-    await Plume.waitOrCloseOrErrorOrSignal(this.events, "handshaked", (future: Future<void>) => {
-      future.resolve()
-      return new None()
-    }, signal)
+    await Plume.waitWithCloseAndErrorOrThrow(this.events, "handshaked", (future: Future<void>) => future.resolve(), signal)
   }
 
-  async tryWait(signal = Signals.never()): Promise<Result<void, Error>> {
+  async tryWait(signal = new AbortController().signal): Promise<Result<void, Error>> {
     return await Result.runAndWrap(async () => {
       await this.waitOrThrow(signal)
     }).then(r => r.mapErrSync(cause => new Error(`Could not wait`, { cause })))
   }
 
   async #createCircuitOrThrow() {
-    return await this.circuits.lock(async (circuits) => {
+    return await this.circuits.lockOrWait(async (circuits) => {
       while (true) {
         const rawCircuitId = new Cursor(Bytes.random(4)).getUint32OrThrow()
 
@@ -594,8 +586,8 @@ export class SecretTorClientDuplex {
     })
   }
 
-  async #waitCreatedFast(circuit: SecretCircuit, signal = Signals.never()): Promise<Cell.Circuitful<CreatedFastCell>> {
-    return await Plume.waitOrCloseOrErrorOrSignal(this.events, "CREATED_FAST", async (future: Future<Cell.Circuitful<CreatedFastCell>>, e) => {
+  async #waitCreatedFast(circuit: SecretCircuit, signal = new AbortController().signal): Promise<Cell.Circuitful<CreatedFastCell>> {
+    return await Plume.waitWithCloseAndErrorOrThrow(this.events, "CREATED_FAST", async (future: Future<Cell.Circuitful<CreatedFastCell>>, e) => {
       if (e.circuit !== circuit)
         return new None()
       future.resolve(e)
@@ -603,7 +595,7 @@ export class SecretTorClientDuplex {
     }, signal)
   }
 
-  async createOrThrow(signal = Signals.never()) {
+  async createOrThrow(signal = new AbortController().signal) {
     if (this.#state.type !== "handshaked")
       throw new InvalidTorStateError()
 
@@ -621,8 +613,8 @@ export class SecretTorClientDuplex {
     if (!Bytes.equals(result.keyHash, created_fast.fragment.derivative))
       throw new InvalidKdfKeyHashError()
 
-    const forwardDigest = Sha1.get().Hasher.createOrThrow()
-    const backwardDigest = Sha1.get().Hasher.createOrThrow()
+    const forwardDigest = Sha1.get().getOrThrow().Hasher.createOrThrow()
+    const backwardDigest = Sha1.get().getOrThrow().Hasher.createOrThrow()
 
     forwardDigest.updateOrThrow(result.forwardDigest)
     backwardDigest.updateOrThrow(result.backwardDigest)
@@ -643,7 +635,7 @@ export class SecretTorClientDuplex {
     return new Circuit(circuit)
   }
 
-  async tryCreate(signal: AbortSignal = Signals.never()): Promise<Result<Circuit, Error>> {
+  async tryCreate(signal: AbortSignal = new AbortController().signal): Promise<Result<Circuit, Error>> {
     return await Result.runAndWrap(async () => {
       return await this.createOrThrow(signal)
     }).then(r => r.mapErrSync(cause => new Error(`Could not create`, { cause })))
