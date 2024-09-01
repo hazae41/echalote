@@ -1,7 +1,6 @@
 import { Writable } from "@hazae41/binary";
 import { Bytes } from "@hazae41/bytes";
 import { Ed25519 } from "@hazae41/ed25519";
-import { Panic } from "@hazae41/result";
 import { RsaPublicKey, RsaWasm } from "@hazae41/rsa.wasm";
 import { X509 } from "@hazae41/x509";
 import { CrossCert, Ed25519Cert, RsaCert, UnknownCertExtensionError } from "../index.js";
@@ -130,7 +129,7 @@ export namespace Certs {
 
   async function verifyRsaSelfOrThrow(certs: Certs): Promise<true> {
     if (certs.rsa_self.verifyOrThrow() !== true)
-      throw new Panic(`Could not verify ID_SELF cert`)
+      throw new Error(`Could not verify ID_SELF cert`)
 
     const length = certs.rsa_self.x509.tbsCertificate.subjectPublicKeyInfo.subjectPublicKey.bytes.length
 
@@ -161,7 +160,7 @@ export namespace Certs {
 
   async function verifyRsaToEdOrThrow(certs: Certs): Promise<true> {
     if (certs.rsa_to_ed.verifyOrThrow() !== true)
-      throw new Panic(`Could not verify ID_TO_ED cert`)
+      throw new Error(`Could not verify ID_TO_ED cert`)
 
     const publicKeyBytes = X509.writeToBytesOrThrow(certs.rsa_self.x509.tbsCertificate.subjectPublicKeyInfo)
 
@@ -189,7 +188,7 @@ export namespace Certs {
 
   async function verifyEdToSigningOrThrow(certs: Certs): Promise<true> {
     if (await certs.ed_to_sign.verifyOrThrow() !== true)
-      throw new Panic(`Could not verify ED_TO_SIGN cert`)
+      throw new Error(`Could not verify ED_TO_SIGN cert`)
 
     using identity = await Ed25519.get().getOrThrow().VerifyingKey.importOrThrow(certs.rsa_to_ed.key)
     using signature = Ed25519.get().getOrThrow().Signature.importOrThrow(certs.ed_to_sign.signature)

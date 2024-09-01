@@ -3,7 +3,6 @@ import { Base16 } from "@hazae41/base16"
 import { Base64 } from "@hazae41/base64"
 import { Bytes } from "@hazae41/bytes"
 import { fetch } from "@hazae41/fleche"
-import { Result } from "@hazae41/result"
 import { RsaWasm } from "@hazae41/rsa.wasm"
 import { OIDs, X509 } from "@hazae41/x509"
 import { Mutable } from "libs/typescript/typescript.js"
@@ -73,10 +72,6 @@ export namespace Consensus {
     readonly identity: string
     readonly signingKeyDigest: string
     readonly signature: string
-  }
-
-  export async function tryFetch(circuit: Circuit, signal = new AbortController().signal): Promise<Result<Consensus, Error>> {
-    return await Result.runAndDoubleWrap(() => fetchOrThrow(circuit, signal))
   }
 
   export async function fetchOrThrow(circuit: Circuit, signal = new AbortController().signal) {
@@ -667,10 +662,6 @@ export namespace Consensus {
       readonly onionKey: string
       readonly ntorOnionKey: string
       readonly idEd25519: string
-    }
-
-    export async function tryFetch(circuit: Circuit, ref: Head, signal = new AbortController().signal): Promise<Result<Microdesc, Error>> {
-      return await Result.runAndDoubleWrap(() => fetchOrThrow(circuit, ref, signal))
     }
 
     export async function fetchOrThrow(circuit: Circuit, ref: Head, signal = new AbortController().signal) {

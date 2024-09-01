@@ -6,7 +6,6 @@ import { Bytes } from "@hazae41/bytes";
 import { Future } from "@hazae41/future";
 import { None, Option } from "@hazae41/option";
 import { CloseEvents, ErrorEvents, Plume, SuperEventTarget } from "@hazae41/plume";
-import { Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
 import { Console } from "mods/console/index.js";
@@ -160,24 +159,12 @@ export class Circuit {
     return await this.#secret.extendOrThrow(microdesc, signal)
   }
 
-  async tryExtend(microdesc: Consensus.Microdesc, signal?: AbortSignal) {
-    return await this.#secret.tryExtend(microdesc, signal)
-  }
-
   async openOrThrow(hostname: string, port: number, params?: CircuitOpenParams, signal?: AbortSignal) {
     return await this.#secret.openOrThrow(hostname, port, params, signal)
   }
 
-  async tryOpen(hostname: string, port: number, params?: CircuitOpenParams) {
-    return await this.#secret.tryOpen(hostname, port, params)
-  }
-
   async openDirOrThrow(params?: CircuitOpenParams, signal?: AbortSignal) {
     return await this.#secret.openDirOrThrow(params, signal)
-  }
-
-  async tryOpenDir(params?: CircuitOpenParams, signal?: AbortSignal) {
-    return await this.#secret.tryOpenDir(params, signal)
   }
 
   async close() {
@@ -490,12 +477,6 @@ export class SecretCircuit {
     this.targets.push(target)
   }
 
-  async tryExtend(microdesc: Consensus.Microdesc, signal?: AbortSignal): Promise<Result<void, ExtendError>> {
-    return await Result.runAndWrap(async () => {
-      return await this.extendOrThrow(microdesc, signal)
-    }).then(r => r.mapErrSync(ExtendError.from))
-  }
-
   async truncateOrThrow(reason: number = RelayTruncateCell.reasons.NONE, signal = new AbortController().signal) {
     if (this.closed != null)
       throw this.closed.reason
@@ -508,12 +489,6 @@ export class SecretCircuit {
       future.resolve(e)
       return new None()
     }, signal)
-  }
-
-  async tryTruncate(reason?: number, signal?: AbortSignal): Promise<Result<void, TruncateError>> {
-    return await Result.runAndWrap(async () => {
-      return await this.truncateOrThrow(reason, signal)
-    }).then(r => r.mapErrSync(TruncateError.from))
   }
 
   async openDirOrThrow(params: CircuitOpenParams = {}, signal = new AbortController().signal) {
@@ -537,12 +512,6 @@ export class SecretCircuit {
     }, signal)
 
     return new TorStreamDuplex(stream)
-  }
-
-  async tryOpenDir(params?: CircuitOpenParams, signal?: AbortSignal): Promise<Result<TorStreamDuplex, OpenError>> {
-    return await Result.runAndWrap(async () => {
-      return await this.openDirOrThrow(params, signal)
-    }).then(r => r.mapErrSync(OpenError.from))
   }
 
   async openOrThrow(hostname: string, port: number, params: CircuitOpenParams = {}, signal = new AbortController().signal) {
@@ -575,12 +544,6 @@ export class SecretCircuit {
     }, signal)
 
     return new TorStreamDuplex(stream)
-  }
-
-  async tryOpen(hostname: string, port: number, params?: CircuitOpenParams, signal?: AbortSignal): Promise<Result<TorStreamDuplex, OpenError>> {
-    return await Result.runAndWrap(async () => {
-      return await this.openOrThrow(hostname, port, params, signal)
-    }).then(r => r.mapErrSync(OpenError.from))
   }
 
 }

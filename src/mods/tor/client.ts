@@ -9,7 +9,6 @@ import { Future } from "@hazae41/future";
 import { Mutex } from "@hazae41/mutex";
 import { None } from "@hazae41/option";
 import { CloseEvents, ErrorEvents, Plume, SuperEventTarget } from "@hazae41/plume";
-import { Panic, Result } from "@hazae41/result";
 import { RsaWasm } from "@hazae41/rsa.wasm";
 import { Sha1 } from "@hazae41/sha1";
 import { X509 } from "@hazae41/x509";
@@ -98,16 +97,8 @@ export class TorClientDuplex {
     return await this.#secret.waitOrThrow(signal)
   }
 
-  async tryWait() {
-    return await this.#secret.tryWait()
-  }
-
   async createOrThrow(signal?: AbortSignal) {
     return await this.#secret.createOrThrow(signal)
-  }
-
-  async tryCreate(signal?: AbortSignal) {
-    return await this.#secret.tryCreate(signal)
   }
 
 }
@@ -309,7 +300,7 @@ export class SecretTorClientDuplex {
     if (state.type === "handshaked")
       return await this.#onHandshakedStateCell(cell)
 
-    throw new Panic(`Unknown state`)
+    return state satisfies never
   }
 
   async #onNoneStateCell(cell: Cell<Opaque> | OldCell<Opaque>, state: TorNoneState) {
@@ -555,12 +546,6 @@ export class SecretTorClientDuplex {
     await Plume.waitWithCloseAndErrorOrThrow(this.events, "handshaked", (future: Future<void>) => future.resolve(), signal)
   }
 
-  async tryWait(signal = new AbortController().signal): Promise<Result<void, Error>> {
-    return await Result.runAndWrap(async () => {
-      await this.waitOrThrow(signal)
-    }).then(r => r.mapErrSync(cause => new Error(`Could not wait`, { cause })))
-  }
-
   async #createCircuitOrThrow() {
     return await this.circuits.lockOrWait(async (circuits) => {
       while (true) {
@@ -633,12 +618,6 @@ export class SecretTorClientDuplex {
     circuit.targets.push(target)
 
     return new Circuit(circuit)
-  }
-
-  async tryCreate(signal: AbortSignal = new AbortController().signal): Promise<Result<Circuit, Error>> {
-    return await Result.runAndWrap(async () => {
-      return await this.createOrThrow(signal)
-    }).then(r => r.mapErrSync(cause => new Error(`Could not create`, { cause })))
   }
 
 }
