@@ -92,7 +92,7 @@ export function createFlecheWebSocketPool(circuits: SizedPool<Circuit>, url: URL
 
         return new Disposer(entry.moveOrThrow(), () => unstack[Symbol.dispose]())
       } catch (e: unknown) {
-        console.error(`Socket ${uuid} errored`, e)
+        console.error(`Socket ${uuid} errored`, { e })
 
         if (start < update)
           continue

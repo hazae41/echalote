@@ -120,7 +120,7 @@ export function createCircuitPool(tors: SizedPool<TorClientDuplex>, consensus: C
 
             return circuit.unwrapOrThrow()
           } catch (e: unknown) {
-            console.error(`Circuit #${uuid} thrown`, e)
+            console.error(`Circuit #${uuid} thrown`, { e })
             throw e
           }
         }), { max: 9 })
@@ -129,7 +129,7 @@ export function createCircuitPool(tors: SizedPool<TorClientDuplex>, consensus: C
 
         return createCircuitEntry(pool, index, circuit)
       } catch (e: unknown) {
-        console.error(`Circuit ${uuid} errored`, e)
+        console.error(`Circuit ${uuid} errored`, { e })
 
         if (start < update)
           continue
