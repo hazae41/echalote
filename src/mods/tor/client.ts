@@ -60,8 +60,8 @@ export class TorClientDuplex {
   constructor() {
     this.#secret = new SecretTorClientDuplex()
 
-    this.#secret.events.on("close", () => this.events.emit("close"))
-    this.#secret.events.on("error", e => this.events.emit("error", e))
+    this.#secret.events.on("close", () => this.events.reemit("close"))
+    this.#secret.events.on("error", e => this.events.reemit("error", e))
   }
 
   [Symbol.dispose]() {

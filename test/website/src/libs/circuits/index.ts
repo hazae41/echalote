@@ -63,6 +63,7 @@ export function createCircuitPool(tors: SizedPool<TorClientDuplex>, consensus: C
 
   const pool: Pool<Circuit> = new Pool<Circuit>(async (params) => {
     const { index, signal } = params
+    const [uuid] = crypto.randomUUID().split("-")
 
     while (!signal.aborted) {
       const start = Date.now()
@@ -71,46 +72,65 @@ export function createCircuitPool(tors: SizedPool<TorClientDuplex>, consensus: C
         const tor = await tors.pool.getOrThrow(index % tors.size, signal)
 
         const circuit = await loopOrThrow(async () => Retry.run(async () => {
-          using circuit = new Box(await tor.createOrThrow(AbortSignal.timeout(1000)))
+          try {
+            using circuit = new Box(await tor.createOrThrow(AbortSignal.timeout(1000)))
 
-          /**
-           * Try to extend to middle relay 9 times before giving up this circuit
-           */
-          await loopOrThrow(async () => {
-            const head = middles[Math.floor(Math.random() * middles.length)]
-            const body = await Consensus.Microdesc.fetchOrThrow(circuit.getOrThrow(), head, AbortSignal.timeout(1000))
-            await Retry.run(() => circuit.getOrThrow().extendOrThrow(body, AbortSignal.timeout(1000)))
-          }, { max: 3 })
+            console.log(`Circuit #${uuid} opened`)
 
-          /**
-           * Try to extend to exit relay 9 times before giving up this circuit
-           */
-          await loopOrThrow(async () => {
-            const head = exits[Math.floor(Math.random() * exits.length)]
-            const body = await Consensus.Microdesc.fetchOrThrow(circuit.getOrThrow(), head, AbortSignal.timeout(1000))
-            await Retry.run(() => circuit.getOrThrow().extendOrThrow(body, AbortSignal.timeout(1000)))
-          }, { max: 3 })
-
-          /**
-           * Try to open a stream to a reliable endpoint
-           */
-          using stream = await openAsOrThrow(circuit.getOrThrow(), "http://example.com/")
-
-          /**
-           * Reliability test
-           */
-          for (let i = 0; i < 3; i++) {
             /**
-             * Speed test
+             * Try to extend to middle relay 9 times before giving up this circuit
              */
-            await fetch("http://example.com/", { stream: stream.inner, signal: AbortSignal.timeout(1000), preventAbort: true, preventCancel: true, preventClose: true }).then(r => r.text())
-          }
+            await loopOrThrow(async () => {
+              const head = middles[Math.floor(Math.random() * middles.length)]
+              const body = await Consensus.Microdesc.fetchOrThrow(circuit.getOrThrow(), head, AbortSignal.timeout(1000))
+              await Retry.run(() => circuit.getOrThrow().extendOrThrow(body, AbortSignal.timeout(1000)))
+            }, { max: 3 })
 
-          return circuit.unwrapOrThrow()
+            console.log(`Circuit #${uuid} extended once`)
+
+            /**
+             * Try to extend to exit relay 9 times before giving up this circuit
+             */
+            await loopOrThrow(async () => {
+              const head = exits[Math.floor(Math.random() * exits.length)]
+              const body = await Consensus.Microdesc.fetchOrThrow(circuit.getOrThrow(), head, AbortSignal.timeout(1000))
+              await Retry.run(() => circuit.getOrThrow().extendOrThrow(body, AbortSignal.timeout(1000)))
+            }, { max: 3 })
+
+            console.log(`Circuit #${uuid} extended twice`)
+
+            /**
+             * Try to open a stream to a reliable endpoint
+             */
+            using stream = await openAsOrThrow(circuit.getOrThrow(), "http://example.com/")
+
+            console.log(`Circuit #${uuid} speed test opend`)
+
+            /**
+             * Reliability test
+             */
+            for (let i = 0; i < 3; i++) {
+              /**
+               * Speed test
+               */
+              await fetch("http://example.com/", { stream: stream.inner, signal: AbortSignal.timeout(1000), preventAbort: true, preventCancel: true, preventClose: true }).then(r => r.text())
+            }
+
+            console.log(`Circuit #${uuid} speed test done`)
+
+            return circuit.unwrapOrThrow()
+          } catch (e: unknown) {
+            console.error(`Circuit #${uuid} thrown`, e)
+            throw e
+          }
         }), { max: 9 })
+
+        console.log(`Circuit #${uuid} ready`)
 
         return createCircuitEntry(pool, index, circuit)
       } catch (e: unknown) {
+        console.error(`Circuit ${uuid} errored`, e)
+
         if (start < update)
           continue
         throw e

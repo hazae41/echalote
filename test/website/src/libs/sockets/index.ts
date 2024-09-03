@@ -47,6 +47,7 @@ export function createFlecheWebSocketPool(circuits: SizedPool<Circuit>, url: URL
 
   const pool: Pool<Disposer<Fleche.WebSocket>> = new Pool<Disposer<Fleche.WebSocket>>(async (params) => {
     const { index, signal } = params
+    const [uuid] = crypto.randomUUID().split("-")
 
     while (!signal.aborted) {
       const start = Date.now()
@@ -54,18 +55,27 @@ export function createFlecheWebSocketPool(circuits: SizedPool<Circuit>, url: URL
       try {
         using stack = new Box(new Stack())
 
-        using substack = new Stack()
+        const substack = new Box(new Stack())
+        stack.getOrThrow().push(substack)
 
         const circuit = await circuits.pool.takeCryptoRandomOrThrow()
-        substack.push(circuit)
+        substack.getOrThrow().push(circuit)
+
+        console.log(`Socket ${uuid} took circuit`)
 
         const stream = await openAsOrThrow(circuit, url.origin)
-        substack.push(stream)
+        substack.getOrThrow().push(stream)
+
+        console.log(`Socket ${uuid} opened stream`)
 
         const socket = await createFlecheWebSocketOrThrow(stream.get(), url, signal)
-        substack.push(socket)
+        substack.getOrThrow().push(socket)
 
-        const entry = new Box(new Disposer(socket.get(), () => substack[Symbol.dispose]()))
+        console.log(`Socket ${uuid} opened`)
+
+        const unsubstack = substack.unwrapOrThrow()
+
+        const entry = new Box(new Disposer(socket.get(), () => unsubstack[Symbol.dispose]()))
         stack.getOrThrow().push(entry)
 
         const onCloseOrError = async (reason?: unknown) => pool.restart(index)
@@ -78,8 +88,12 @@ export function createFlecheWebSocketPool(circuits: SizedPool<Circuit>, url: URL
 
         const unstack = stack.unwrapOrThrow()
 
+        console.log(`Socket ${uuid} ready`)
+
         return new Disposer(entry.moveOrThrow(), () => unstack[Symbol.dispose]())
       } catch (e: unknown) {
+        console.error(`Socket ${uuid} errored`, e)
+
         if (start < update)
           continue
         throw e
