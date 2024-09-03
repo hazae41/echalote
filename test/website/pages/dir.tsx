@@ -4,7 +4,7 @@ import { Ed25519 } from "@hazae41/ed25519";
 import { fetch } from "@hazae41/fleche";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
-import { openAsOrThrow, tryCreateTor } from "libs/circuits/circuits";
+import { createTorOrThrow, openAsOrThrow } from "libs/circuits/circuits";
 import { DependencyList, useCallback, useEffect, useState } from "react";
 
 function useAsyncMemo<T>(factory: () => Promise<T>, deps: DependencyList) {
@@ -31,7 +31,7 @@ export default function Page() {
       Echalote.Console.debugging = true
       Cadenas.Console.debugging = true
 
-      const tor = await tryCreateTor().then(r => r.unwrap())
+      const tor = await createTorOrThrow().then(r => r.unwrap())
       const circuit = await tor.tryCreate().then(r => r.unwrap())
 
       const consensus = await Consensus.fetchOrThrow(circuit)

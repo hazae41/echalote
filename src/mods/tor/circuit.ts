@@ -4,7 +4,7 @@ import { Opaque } from "@hazae41/binary";
 import { Bitset } from "@hazae41/bitset";
 import { Bytes } from "@hazae41/bytes";
 import { Future } from "@hazae41/future";
-import { None, Option } from "@hazae41/option";
+import { Option } from "@hazae41/option";
 import { CloseEvents, ErrorEvents, Plume, SuperEventTarget } from "@hazae41/plume";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
@@ -294,8 +294,6 @@ export class SecretCircuit {
     this.#onCloseOrError()
 
     await this.events.emit("close", [undefined])
-
-    return new None()
   }
 
   async #onTorError(reason?: unknown) {
@@ -304,13 +302,11 @@ export class SecretCircuit {
     await this.events.emit("error", [reason])
 
     this.#onCloseOrError(reason)
-
-    return new None()
   }
 
   async #onDestroyCell(cell: Cell.Circuitful<DestroyCell>) {
     if (cell.circuit !== this)
-      return new None()
+      return
 
     Console.debug(`${this.#class.name}.onDestroyCell`, cell)
 
@@ -322,24 +318,20 @@ export class SecretCircuit {
       await this.events.emit("close", [error])
     else
       await this.events.emit("error", [error])
-
-    return new None()
   }
 
   async #onRelayExtended2Cell(cell: RelayCell.Streamless<RelayExtended2Cell<Opaque>>) {
     if (cell.circuit !== this)
-      return new None()
+      return
 
     Console.debug(`${this.#class.name}.onRelayExtended2Cell`, cell)
 
     await this.events.emit("RELAY_EXTENDED2", cell)
-
-    return new None()
   }
 
   async #onRelayTruncatedCell(cell: RelayCell.Streamless<RelayTruncatedCell>) {
     if (cell.circuit !== this)
-      return new None()
+      return
 
     Console.debug(`${this.#class.name}.onRelayTruncatedCell`, cell)
 
@@ -353,43 +345,35 @@ export class SecretCircuit {
       await this.events.emit("error", [error])
 
     await this.events.emit("RELAY_TRUNCATED", cell)
-
-    return new None()
   }
 
   async #onRelayConnectedCell(cell: RelayCell.Streamful<Opaque>) {
     if (cell.circuit !== this)
-      return new None()
+      return
 
     Console.debug(`${this.#class.name}.onRelayConnectedCell`, cell)
 
     await this.events.emit("RELAY_CONNECTED", cell)
-
-    return new None()
   }
 
   async #onRelayDataCell(cell: RelayCell.Streamful<RelayDataCell<Opaque>>) {
     if (cell.circuit !== this)
-      return new None()
+      return
 
     Console.debug(`${this.#class.name}.onRelayDataCell`, cell)
 
     await this.events.emit("RELAY_DATA", cell)
-
-    return new None()
   }
 
   async #onRelayEndCell(cell: RelayCell.Streamful<RelayEndCell>) {
     if (cell.circuit !== this)
-      return new None()
+      return
 
     Console.debug(`${this.#class.name}.onRelayEndCell`, cell)
 
     this.streams.delete(cell.stream.id)
 
     await this.events.emit("RELAY_END", cell)
-
-    return new None()
   }
 
   async extendOrThrow(microdesc: Consensus.Microdesc, signal = new AbortController().signal) {
@@ -433,7 +417,6 @@ export class SecretCircuit {
 
     const msg_extended2 = await Plume.waitWithCloseAndErrorOrThrow(this.events, "RELAY_EXTENDED2", (future: Future<RelayCell.Streamless<RelayExtended2Cell<Opaque>>>, e) => {
       future.resolve(e)
-      return new None()
     }, signal)
 
     const response = msg_extended2.fragment.fragment.readIntoOrThrow(Ntor.NtorResponse)
@@ -487,7 +470,6 @@ export class SecretCircuit {
 
     await Plume.waitWithCloseAndErrorOrThrow(this.events, "RELAY_TRUNCATED", (future: Future<RelayCell.Streamless<RelayTruncatedCell>>, e) => {
       future.resolve(e)
-      return new None()
     }, signal)
   }
 
@@ -508,7 +490,6 @@ export class SecretCircuit {
 
     await Plume.waitWithCloseAndErrorOrThrow(stream.events, "connected", (future: Future<void>) => {
       future.resolve()
-      return new None()
     }, signal)
 
     return new TorStreamDuplex(stream)
@@ -540,7 +521,6 @@ export class SecretCircuit {
 
     await Plume.waitWithCloseAndErrorOrThrow(stream.events, "connected", (future: Future<void>) => {
       future.resolve()
-      return new None()
     }, signal)
 
     return new TorStreamDuplex(stream)

@@ -7,7 +7,6 @@ import { HalfDuplex } from "@hazae41/cascade";
 import { Cursor } from "@hazae41/cursor";
 import { Future } from "@hazae41/future";
 import { Mutex } from "@hazae41/mutex";
-import { None } from "@hazae41/option";
 import { CloseEvents, ErrorEvents, Plume, SuperEventTarget } from "@hazae41/plume";
 import { RsaWasm } from "@hazae41/rsa.wasm";
 import { Sha1 } from "@hazae41/sha1";
@@ -574,9 +573,8 @@ export class SecretTorClientDuplex {
   async #waitCreatedFast(circuit: SecretCircuit, signal = new AbortController().signal): Promise<Cell.Circuitful<CreatedFastCell>> {
     return await Plume.waitWithCloseAndErrorOrThrow(this.events, "CREATED_FAST", async (future: Future<Cell.Circuitful<CreatedFastCell>>, e) => {
       if (e.circuit !== circuit)
-        return new None()
+        return
       future.resolve(e)
-      return new None()
     }, signal)
   }
 

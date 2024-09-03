@@ -1,7 +1,6 @@
 import { Opaque, Writable } from "@hazae41/binary";
 import { FullDuplex } from "@hazae41/cascade";
 import { Cursor } from "@hazae41/cursor";
-import { None } from "@hazae41/option";
 import { CloseEvents, ErrorEvents, SuperEventTarget } from "@hazae41/plume";
 import { Console } from "mods/console/index.js";
 import { RelayCell } from "mods/tor/binary/cells/direct/relay/cell.js";
@@ -188,32 +187,27 @@ export class SecretTorStreamDuplex {
     Console.debug(`${this.#class.name}.onCircuitClose`)
 
     if (this.duplex.closing)
-      return new None()
+      return
 
     this.duplex.close()
-
-    return new None()
   }
 
   async #onCircuitError(reason?: unknown) {
     Console.debug(`${this.#class.name}.onCircuitError`, { reason })
 
     if (this.duplex.closing)
-      return new None()
+      return
 
     this.duplex.error(reason)
-
-    return new None()
   }
 
   async #onRelayConnectedCell(cell: RelayCell.Streamful<Opaque>) {
     if (cell.stream !== this)
-      return new None()
+      return
 
     if (this.type === "directory") {
       await this.events.emit("connected")
-
-      return new None()
+      return
     }
 
     if (this.type === "external") {
@@ -222,16 +216,13 @@ export class SecretTorStreamDuplex {
       Console.debug(`${this.#class.name}.onRelayConnectedCell`, cell2)
 
       await this.events.emit("connected")
-
-      return new None()
+      return
     }
-
-    return new None()
   }
 
   async #onRelayDataCell(cell: RelayCell.Streamful<RelayDataCell<Opaque>>) {
     if (cell.stream !== this)
-      return new None()
+      return
 
     Console.debug(`${this.#class.name}.onRelayDataCell`, cell)
 
@@ -246,25 +237,21 @@ export class SecretTorStreamDuplex {
     }
 
     this.input.enqueue(cell.fragment.fragment)
-
-    return new None()
   }
 
   async #onRelayEndCell(cell: RelayCell.Streamful<RelayEndCell>) {
     if (cell.stream !== this)
-      return new None()
+      return
 
     Console.debug(`${this.#class.name}.onRelayEndCell`, cell)
 
     if (this.duplex.closing)
-      return new None()
+      return
 
     if (cell.fragment.reason.id === RelayEndCell.reasons.REASON_DONE)
       this.duplex.close()
     else
       this.duplex.error(new RelayEndedError(cell.fragment.reason))
-
-    return new None()
   }
 
   async #onOutputWrite(writable: Writable) {

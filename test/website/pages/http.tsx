@@ -4,12 +4,11 @@ import { Circuit, Consensus, TorClientDuplex } from "@hazae41/echalote";
 import { Ed25519 } from "@hazae41/ed25519";
 import { fetch } from "@hazae41/fleche";
 import { Mutex } from "@hazae41/mutex";
-import { None } from "@hazae41/option";
 import { Pool } from "@hazae41/piscine";
 import { Ok, Result } from "@hazae41/result";
 import { Sha1 } from "@hazae41/sha1";
 import { X25519 } from "@hazae41/x25519";
-import { createCircuitPool, createStreamPool, createTorPool, tryCreateTor } from "libs/circuits/circuits";
+import { createCircuitPool, createStreamPool, createTorOrThrow, createTorPool } from "libs/circuits/circuits";
 import { DependencyList, useCallback, useEffect, useMemo, useState } from "react";
 
 async function superfetch(stream: ReadableWritablePair<Opaque<Uint8Array>, Writable>) {
@@ -55,7 +54,7 @@ export default function Page() {
     // Cadenas.Console.debugging = true
 
     return createTorPool(async () => {
-      return await tryCreateTor()
+      return await createTorOrThrow()
     }, { capacity: 1 })
   }, [])
 
@@ -116,10 +115,7 @@ export default function Page() {
   useEffect(() => {
     if (!circuits) return
 
-    const onCreatedOrDeleted = async () => {
-      setCounter(c => c + 1)
-      return new None()
-    }
+    const onCreatedOrDeleted = async () => setCounter(c => c + 1)
 
     circuits.inner.events.on("created", onCreatedOrDeleted, { passive: true })
     circuits.inner.events.on("deleted", onCreatedOrDeleted, { passive: true })
