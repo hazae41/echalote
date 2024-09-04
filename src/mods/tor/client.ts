@@ -546,7 +546,7 @@ export class SecretTorClientDuplex {
   }
 
   async #createCircuitOrThrow(signal = new AbortController().signal) {
-    return await this.circuits.lockOrWait((circuits) => {
+    return await this.circuits.runOrWait((circuits) => {
       while (!signal.aborted) {
         const rawCircuitId = new Cursor(Bytes.random(4)).getUint32OrThrow()
 
