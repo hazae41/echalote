@@ -155,15 +155,15 @@ export class Circuit {
     return await this.events.emit("error", [reason])
   }
 
-  async extendOrThrow(microdesc: Consensus.Microdesc, signal?: AbortSignal) {
+  async extendOrThrow(microdesc: Consensus.Microdesc, signal = new AbortController().signal) {
     return await this.#secret.extendOrThrow(microdesc, signal)
   }
 
-  async openOrThrow(hostname: string, port: number, params?: CircuitOpenParams, signal?: AbortSignal) {
+  async openOrThrow(hostname: string, port: number, params?: CircuitOpenParams, signal = new AbortController().signal) {
     return await this.#secret.openOrThrow(hostname, port, params, signal)
   }
 
-  async openDirOrThrow(params?: CircuitOpenParams, signal?: AbortSignal) {
+  async openDirOrThrow(params?: CircuitOpenParams, signal = new AbortController().signal) {
     return await this.#secret.openDirOrThrow(params, signal)
   }
 

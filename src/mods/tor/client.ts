@@ -96,7 +96,7 @@ export class TorClientDuplex {
     return await this.#secret.waitOrThrow(signal)
   }
 
-  async createOrThrow(signal?: AbortSignal) {
+  async createOrThrow(signal = new AbortController().signal) {
     return await this.#secret.createOrThrow(signal)
   }
 
