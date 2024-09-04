@@ -148,11 +148,11 @@ export class Circuit {
   }
 
   async #onClose() {
-    return await this.events.reemit("close", [undefined])
+    return await this.events.emit("close", [undefined])
   }
 
   async #onError(reason?: unknown) {
-    return await this.events.reemit("error", [reason])
+    return await this.events.emit("error", [reason])
   }
 
   async extendOrThrow(microdesc: Consensus.Microdesc, signal?: AbortSignal) {

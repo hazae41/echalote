@@ -91,7 +91,7 @@ export default function Page() {
     try {
       const start = Date.now()
 
-      const socket = await sockets.get().pool.getCryptoRandomOrThrow()
+      using socket = await sockets.get().pool.takeCryptoRandomOrThrow()
 
       await superfetch(socket.inner)
 
