@@ -545,9 +545,9 @@ export class SecretTorClientDuplex {
     await Plume.waitWithCloseAndErrorOrThrow(this.events, "handshaked", (future: Future<void>) => future.resolve(), signal)
   }
 
-  async #createCircuitOrThrow() {
+  async #createCircuitOrThrow(signal = new AbortController().signal) {
     return await this.circuits.lockOrWait(async (circuits) => {
-      while (true) {
+      while (!signal.aborted) {
         const rawCircuitId = new Cursor(Bytes.random(4)).getUint32OrThrow()
 
         if (rawCircuitId === 0)
@@ -567,6 +567,8 @@ export class SecretTorClientDuplex {
 
         return circuit
       }
+
+      throw new Error("Aborted", { cause: signal.reason })
     })
   }
 
@@ -582,7 +584,7 @@ export class SecretTorClientDuplex {
     if (this.#state.type !== "handshaked")
       throw new InvalidTorStateError()
 
-    const circuit = await this.#createCircuitOrThrow()
+    const circuit = await this.#createCircuitOrThrow(signal)
     const material = Bytes.random(20)
 
     const create_fast = new CreateFastCell(material)
