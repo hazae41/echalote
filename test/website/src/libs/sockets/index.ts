@@ -55,8 +55,7 @@ export function createFlecheWebSocketPool(circuits: SizedPool<Circuit>, url: URL
       try {
         using stack = new Box(new Stack())
 
-        const substack = new Box(new Stack())
-        stack.getOrThrow().push(substack)
+        using substack = new Box(new Stack())
 
         const circuit = await circuits.pool.takeCryptoRandomOrThrow()
         substack.getOrThrow().push(circuit)
